@@ -93,6 +93,11 @@ def main():
         try:
             portfolio = pd.read_excel(portfolio_path)
             portfolio.columns = [c.strip() for c in portfolio.columns]
+            
+            # Normalize Symbols to Uppercase String to fix issues like 'True' vs 'TRUE'
+            if 'Symbol' in portfolio.columns:
+                portfolio['Symbol'] = portfolio['Symbol'].astype(str).str.strip().str.upper()
+            
             market_data = recommendations
             merged = pd.merge(portfolio, market_data[['Symbol', 'Price', 'PE', 'Yield', 'ROE', 'Total_Score']], on='Symbol', how='left')
             
