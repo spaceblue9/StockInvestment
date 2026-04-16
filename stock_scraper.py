@@ -1,6 +1,20 @@
 import pandas as pd
 import yfinance as yf
 import os
+import numpy as np
+
+def calculate_rsi(prices, window=14):
+    """Calculates the Relative Strength Index (RSI)."""
+    if len(prices) < window + 1:
+        return 50 # Default to neutral if not enough data
+    
+    delta = prices.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
+    
+    rs = gain / loss
+    rsi = 100 - (100 / (1.0 + rs))
+    return rsi.iloc[-1]
 
 def scrape_siamchart_stocks(output_file="siamchart_raw.csv", watchlist_path=None, portfolio_path=None):
     """
@@ -65,15 +79,22 @@ def scrape_siamchart_stocks(output_file="siamchart_raw.csv", watchlist_path=None
             raw_roe = info.get('returnOnEquity') or 0
             roe = raw_roe if abs(raw_roe) > 1 else raw_roe * 100
             
+            # --- NEW: RSI Calculation ---
+            hist = ticker.history(period="1mo")
+            rsi_val = calculate_rsi(hist['Close']) if not hist.empty else 50
+            
             data_rows.append({
                 'Symbol': symbol,
                 'Price': price,
                 'PE': pe,
                 'PBV': pbv,
                 'Yield': dividend_yield,
-                'ROE': roe
+                'ROE': roe,
+                'High_52W': info.get('fiftyTwoWeekHigh'),
+                'Low_52W': info.get('fiftyTwoWeekLow'),
+                'RSI': rsi_val
             })
-            print(f"   [+] {symbol}: Success")
+            print(f"   [+] {symbol}: Success (RSI: {rsi_val:.1f})")
         except Exception as e:
             print(f"   [-] {symbol}: Failed ({e})")
             

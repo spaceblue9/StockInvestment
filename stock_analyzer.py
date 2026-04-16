@@ -48,7 +48,7 @@ def clean_and_analyze_stocks(input_file="siamchart_raw.csv", output_file="recomm
         df = df.rename(columns=col_map)
 
     # Convert numeric columns
-    numeric_cols = ['Price', 'PE', 'PBV', 'Yield', 'ROE']
+    numeric_cols = ['Price', 'PE', 'PBV', 'Yield', 'ROE', 'High_52W', 'Low_52W', 'RSI']
     for col in numeric_cols:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
@@ -59,29 +59,49 @@ def clean_and_analyze_stocks(input_file="siamchart_raw.csv", output_file="recomm
     # Step 2: Scoring System
     print("Calculating scores...")
     
+    # New: Price Scale Analysis (Timing 1)
+    def calculate_price_position(row):
+        if pd.isna(row['High_52W']) or pd.isna(row['Low_52W']) or row['High_52W'] == row['Low_52W']:
+            return 50
+        pos = ((row['Price'] - row['Low_52W']) / (row['High_52W'] - row['Low_52W'])) * 100
+        return max(0, min(100, pos))
+
+    df['Price_Position'] = df.apply(calculate_price_position, axis=1)
+    df['Price_Scale_Score'] = 100 - df['Price_Position'] 
+
+    # NEW: RSI Score (Timing 2 - Momentum)
+    # Low RSI is good for buying (< 35)
+    def get_rsi_score(rsi):
+        if pd.isna(rsi): return 50
+        if rsi < 30: return 100 # Extremely Oversold
+        elif rsi < 45: return 80 # Attractive
+        elif rsi < 60: return 50 # Neutral
+        elif rsi < 70: return 20 # Hot
+        else: return 0 # Overbought
+    
+    df['RSI_Score'] = df['RSI'].apply(get_rsi_score)
+
     # Value Score (0-100)
-    # Low PE is good (< 15), Low PBV is good (< 1.5), High Yield is good (> 4%)
     df['PE_Score'] = df['PE'].apply(lambda x: 100 if x < 10 else (70 if x < 15 else (30 if x < 25 else 0)))
     df['PBV_Score'] = df['PBV'].apply(lambda x: 100 if x < 1.0 else (70 if x < 1.5 else (30 if x < 2.5 else 0)))
     df['Yield_Score'] = df['Yield'].apply(lambda x: 100 if x > 6 else (70 if x > 4 else (30 if x > 2 else 0)))
     
     # Growth Score (0-100)
-    # High ROE is good (> 15%)
     df['ROE_Score'] = df['ROE'].apply(lambda x: 100 if x > 20 else (70 if x > 15 else (30 if x > 10 else 0)))
     
     # Combined Score (Weighted)
-    # Value: 60%, Growth: 40%
+    # Value: 25%, Growth: 30%, Yield: 15%, Timing (Price Scale): 20%, RSI: 10%
     df['Total_Score'] = (
-        df['PE_Score'] * 0.2 + 
-        df['PBV_Score'] * 0.2 + 
-        df['Yield_Score'] * 0.2 + 
-        df['ROE_Score'] * 0.4
+        df['PE_Score'] * 0.125 + 
+        df['PBV_Score'] * 0.125 + 
+        df['Yield_Score'] * 0.15 + 
+        df['ROE_Score'] * 0.30 +
+        df['Price_Scale_Score'] * 0.20 +
+        df['RSI_Score'] * 0.10
     )
     
     # Step 3: Filtering & Ranking
-    # Filter out extremely high PE (outliers) and very low liquidity (if volume was available)
-    # For now, just keep those with all core metrics
-    recommendations = df.dropna(subset=['PE', 'PBV', 'Yield', 'ROE'])
+    recommendations = df.dropna(subset=['PE', 'PBV', 'Yield', 'ROE', 'RSI'])
     recommendations = recommendations.sort_values(by='Total_Score', ascending=False)
     
     # Step 4: Rationale
@@ -91,6 +111,9 @@ def clean_and_analyze_stocks(input_file="siamchart_raw.csv", output_file="recomm
         if row['PBV'] < 1.2: reasons.append("Cheap (Low PBV)")
         if row['Yield'] > 5: reasons.append("High Dividend")
         if row['ROE'] > 18: reasons.append("High Efficiency (ROE)")
+        if row['Price_Position'] < 25: reasons.append("Near 52W Low (Discount)")
+        if row['RSI'] < 35: reasons.append("Oversold (RSI Low)")
+        elif row['RSI'] > 70: reasons.append("Overbought (RSI High)")
         return ", ".join(reasons) if reasons else "Balanced Metrics"
 
     recommendations['Rationale'] = recommendations.apply(get_rationale, axis=1)
