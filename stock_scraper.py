@@ -88,8 +88,12 @@ def scrape_siamchart_stocks(output_file="siamchart_raw.csv", watchlist_path=None
             hist = ticker.history(period="1mo")
             rsi_val = calculate_rsi(hist['Close']) if not hist.empty else 50
             
+            # --- NEW: Sector Info ---
+            sector = info.get('sector') or "Unknown"
+            
             data_rows.append({
                 'Symbol': symbol,
+                'Sector': sector,
                 'Price': price,
                 'PE': pe,
                 'PBV': pbv,
@@ -100,7 +104,7 @@ def scrape_siamchart_stocks(output_file="siamchart_raw.csv", watchlist_path=None
                 'Low_52W': info.get('fiftyTwoWeekLow'),
                 'RSI': rsi_val
             })
-            print(f"   [+] {symbol}: Success (RSI: {rsi_val:.1f}, D/E: {de_ratio:.2f})")
+            print(f"   [+] {symbol}: Success (RSI: {rsi_val:.1f}, Sector: {sector})")
         except Exception as e:
             print(f"   [-] {symbol}: Failed ({e})")
             
