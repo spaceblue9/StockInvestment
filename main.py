@@ -134,7 +134,7 @@ def main():
 
                 # Export to Excel
                 report_name = os.path.splitext(os.path.basename(portfolio_path))[0] + "_analysis_report.xlsx"
-                excel_cols = ['Symbol', 'Quantity', 'Avg_Price', 'Price', 'Gain_Loss_Value', 'Gain_Loss_Pct', 'Total_Score', 'Advice', 'PE', 'Yield', 'ROE', 'RSI', 'Low_52W', 'High_52W']
+                excel_cols = ['Symbol', 'Quantity', 'Avg_Price', 'Price', 'Market_Value', 'Gain_Loss_Value', 'Gain_Loss_Pct', 'Total_Score', 'Price_Position', 'Advice', 'PE', 'Yield', 'ROE', 'RSI', 'Low_52W', 'High_52W']
                 
                 # Clean Inf/NaN for Excel
                 final_df = merged[excel_cols].copy()

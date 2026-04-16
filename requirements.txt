@@ -6,3 +6,5 @@ yfinance
 openpyxl
 lxml
 requests
+streamlit
+plotly
