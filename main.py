@@ -73,7 +73,8 @@ def main():
                     status = "✅ น่าลงทุน" if score >= 70 else ("⏳ รอดูจังหวะ" if score >= 50 else "⚠️ เสี่ยงสูง/แพง")
                     
                     print(f"[{clean_symbol}] Sector: {row['Sector']} | Score: {score:.1f} | {status}")
-                    print(f"   -> Price: {row['Price']:.2f} | RSI: {row['RSI']:.1f} | D/E: {row['DE']:.2f}")
+                    print(f"   -> Price: {row['Price']:.2f} (52W H/L: {row['High_52W']:.2f}/{row['Low_52W']:.2f})")
+                    print(f"   -> RSI: {row['RSI']:.1f} | D/E: {row['DE']:.2f} | Pos: {row['Price_Position']:.1f}%")
                     print(f"   -> {row['Rationale']}")
                 else:
                     print(f"[{symbol}] ❌ ไม่พบข้อมูล")
@@ -110,19 +111,19 @@ def main():
 
                 merged['Advice'] = merged.apply(get_advice, axis=1)
                 
-                display_cols = ['Symbol', 'Sector', 'Price', 'Gain_Loss_Pct', 'Total_Score', 'Advice']
+                display_cols = ['Symbol', 'Sector', 'Price', 'High_52W', 'Low_52W', 'Gain_Loss_Pct', 'Total_Score', 'Advice']
                 print(merged[display_cols].to_string(index=False))
                 
                 report_name = os.path.splitext(os.path.basename(portfolio_path))[0] + "_analysis_report.xlsx"
-                excel_cols = ['Symbol', 'Sector', 'Quantity', 'Avg_Price', 'Price', 'Market_Value', 'Gain_Loss_Value', 'Gain_Loss_Pct', 'Total_Score', 'Advice', 'PE', 'Yield', 'ROE', 'DE', 'RSI']
+                excel_cols = ['Symbol', 'Sector', 'Quantity', 'Avg_Price', 'Price', 'Cost_Value', 'Market_Value', 'High_52W', 'Low_52W', 'Price_Position', 'Gain_Loss_Value', 'Gain_Loss_Pct', 'Total_Score', 'Advice', 'PE', 'Yield', 'ROE', 'DE', 'RSI']
                 
                 final_df = merged[excel_cols].copy()
                 final_df = final_df.replace([np.inf, -np.inf], np.nan)
                 
                 instruction_data = {
-                    'หัวข้อ (Field)': ['Total_Score', 'Sector Analysis', 'D/E Ratio', 'Advice'],
-                    'ความหมาย': ['คะแนนเปรียบเทียบในกลุ่มอุตสาหกรรม', 'วิเคราะห์เทียบค่าเฉลี่ยของกลุ่มธุรกิจเดียวกัน', 'หนี้สินต่อทุน', 'คำแนะนำลงทุน'],
-                    'เกณฑ์การดู': ['> 70 = แกร่งกว่าค่าเฉลี่ยกลุ่ม', 'ระบบคำนวณจาก PE/ROE เฉลี่ยของกลุ่ม', '< 1.0 = ปลอดภัย', 'ทำตามระบบ']
+                    'หัวข้อ (Field)': ['Total_Score', 'Price_Position', 'High_52W / Low_52W', 'Advice'],
+                    'ความหมาย': ['คะแนนเปรียบเทียบในกลุ่มอุตสาหกรรม', 'ตำแหน่งราคาปัจจุบันเทียบกับรอบ 1 ปี (0 = ต่ำสุด, 100 = สูงสุด)', 'ราคาสูงสุด/ต่ำสุดในรอบ 52 สัปดาห์', 'คำแนะนำลงทุน'],
+                    'เกณฑ์การดู': ['> 70 = แกร่งกว่าค่าเฉลี่ยกลุ่ม', '< 20 = ราคาอยู่โซนล่าง (น่าสนใจ)', 'ใช้ดูแนวรับ-แนวต้านสำคัญ', 'ทำตามระบบ']
                 }
                 instruction_df = pd.DataFrame(instruction_data)
 
