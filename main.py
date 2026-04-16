@@ -140,33 +140,47 @@ def main():
                 final_df = merged[excel_cols].copy()
                 final_df = final_df.replace([np.inf, -np.inf], np.nan)
                 
-                # Simple export first
-                final_df.to_excel(report_name, index=False)
-                
-                # Format with openpyxl (Simple width and price status)
-                from openpyxl import load_workbook
-                wb = load_workbook(report_name)
-                ws = wb.active
-                
-                # Apply simple colors to Price based on Price_Position from merged
-                price_col_idx = excel_cols.index('Price') + 1
-                for row_idx, row_data in enumerate(merged.itertuples(), start=2):
-                    pos = row_data.Price_Position
-                    if not pd.isna(pos):
-                        color = 'FFC7CE' if pos > 80 else ('C6EFCE' if pos < 20 else 'FFF2CC')
-                        ws.cell(row=row_idx, column=price_col_idx).fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
-                
-                # Auto-width
-                for col in ws.columns:
-                    max_length = 0
-                    column = col[0].column_letter
-                    for cell in col:
-                        try:
-                            if cell.value: max_length = max(max_length, len(str(cell.value)))
-                        except: pass
-                    ws.column_dimensions[column].width = max_length + 2
-                
-                wb.save(report_name)
+                # Create Instruction Data
+                instruction_data = {
+                    'หัวข้อ (Field)': [
+                        'Total_Score', 'Price (แถบสี)', 'Advice', 'PE', 'Yield (%)', 
+                        'ROE (%)', 'RSI', 'Low_52W / High_52W'
+                    ],
+                    'ความหมาย (Meaning)': [
+                        'คะแนนรวมความน่าสนใจ (0-100)', 'ราคาปัจจุบันเทียบกับรอบปี', 'คำแนะนำเบื้องต้น', 
+                        'ราคาหุ้นเทียบกำไร (ความถูกแพง)', 'เงินปันผลตอบแทนต่อปี', 
+                        'ประสิทธิภาพการทำกำไรของบริษัท', 'ดัชนีความร้อนแรงของราคา', 'ราคาสูงสุด-ต่ำสุดในรอบ 1 ปี'
+                    ],
+                    'เกณฑ์การดู (Good Criterion)': [
+                        '70 ขึ้นไป = ดีมาก (พื้นฐานแกร่ง ราคาคุ้ม)', 'เขียว = ราคาถูกมาก, แดง = ราคาแพงแล้ว', 'ทำตามระบบประมวลผล (ซื้อเพิ่ม/ถือ/ขาย)', 
+                        'น้อยกว่า 15 = ดี (คืนทุนเร็ว)', 'มากกว่า 4-5% = ดี (ปันผลคุ้มค่า)', 
+                        'มากกว่า 15% = ดี (บริหารเงินเก่ง)', 'น้อยกว่า 30 = จุดกลับตัวน่าซื้อ, มากกว่า 70 = ร้อนแรงเกินไป', 'ใช้ดูว่าราคาตอนนี้อยู่ใกล้ขอบไหน'
+                    ]
+                }
+                instruction_df = pd.DataFrame(instruction_data)
+
+                # Export with multiple sheets
+                with pd.ExcelWriter(report_name, engine='openpyxl') as writer:
+                    final_df.to_excel(writer, index=False, sheet_name='Portfolio Analysis')
+                    instruction_df.to_excel(writer, index=False, sheet_name='คู่มือการอ่าน (How to Read)')
+                    
+                    # --- Formatting Sheet 1 ---
+                    ws1 = writer.sheets['Portfolio Analysis']
+                    price_col_idx = excel_cols.index('Price') + 1
+                    for row_idx, row_data in enumerate(merged.itertuples(), start=2):
+                        pos = row_data.Price_Position
+                        if not pd.isna(pos):
+                            color = 'FFC7CE' if pos > 80 else ('C6EFCE' if pos < 20 else 'FFF2CC')
+                            ws1.cell(row=row_idx, column=price_col_idx).fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
+                    
+                    for col in ws1.columns:
+                        max_len = max([len(str(cell.value) or "") for cell in col])
+                        ws1.column_dimensions[col[0].column_letter].width = max_len + 5
+
+                    # --- Formatting Sheet 2 (Instructions) ---
+                    ws2 = writer.sheets['คู่มือการอ่าน (How to Read)']
+                    for col in ws2.columns:
+                        ws2.column_dimensions[col[0].column_letter].width = 40
                 print(f"\n>>> รายงานถูกบันทึกที่: {report_name}")
 
         except Exception as e:
