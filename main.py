@@ -80,12 +80,14 @@ def main():
                     price_desc = "💎 ถูกมาก (Near Low)" if pos < 20 else ("🟢 ราคาถูก" if pos < 40 else ("🟡 กลางๆ" if pos < 60 else ("🟠 เริ่มแพง" if pos < 80 else "🔴 แพง (Near High)")))
                     rsi = row['RSI']
                     rsi_desc = "💎 จุดกลับตัว (Oversold)" if rsi < 30 else ("🔥 ร้อนแรง (Overbought)" if rsi > 70 else "⚖️ ปกติ")
+                    de = row['DE']
+                    de_status = "🛡️ หนี้ต่ำ (ปลอดภัย)" if de < 1.0 else ("⚠️ หนี้เริ่มสูง" if de > 2.0 else "⚖️ หนี้ปกติ")
 
                     print(f"[{clean_symbol}] ราคาปัจจุบัน: {row['Price']:.2f} | Score: {score:.1f} | {status}")
                     print(f"   -> Price Status: {price_desc} (Position: {pos:.1f}%)")
                     print(f"   -> Technical: RSI {rsi:.1f} ({rsi_desc})")
+                    print(f"   -> Risk: D/E {de:.2f} ({de_status})")
                     print(f"   -> PE: {row['PE']:.1f}, Yield: {row['Yield']:.1f}%, ROE: {row['ROE']:.1f}%")
-                    print(f"   -> Range 52W: {row['Low_52W']} - {row['High_52W']}")
                     print(f"   -> เหตุผล: {row['Rationale']}")
                 else:
                     print(f"[{symbol}] ❌ ไม่พบข้อมูลในระบบ")
@@ -106,7 +108,7 @@ def main():
                 portfolio['Symbol'] = portfolio['Symbol'].astype(str).str.strip().str.upper()
             
             market_data = recommendations
-            merged = pd.merge(portfolio, market_data[['Symbol', 'Price', 'PE', 'Yield', 'ROE', 'Total_Score', 'High_52W', 'Low_52W', 'Price_Position', 'RSI']], on='Symbol', how='left')
+            merged = pd.merge(portfolio, market_data[['Symbol', 'Price', 'PE', 'Yield', 'ROE', 'Total_Score', 'High_52W', 'Low_52W', 'Price_Position', 'RSI', 'DE']], on='Symbol', how='left')
             
             if not merged.empty:
                 merged['Market_Value'] = merged['Quantity'] * merged['Price']
@@ -134,67 +136,41 @@ def main():
 
                 # Export to Excel
                 report_name = os.path.splitext(os.path.basename(portfolio_path))[0] + "_analysis_report.xlsx"
-                excel_cols = ['Symbol', 'Quantity', 'Avg_Price', 'Price', 'Market_Value', 'Gain_Loss_Value', 'Gain_Loss_Pct', 'Total_Score', 'Price_Position', 'Advice', 'PE', 'Yield', 'ROE', 'RSI', 'Low_52W', 'High_52W']
+                excel_cols = ['Symbol', 'Quantity', 'Avg_Price', 'Price', 'Market_Value', 'Gain_Loss_Value', 'Gain_Loss_Pct', 'Total_Score', 'Advice', 'PE', 'Yield', 'ROE', 'DE', 'RSI', 'Low_52W', 'High_52W']
                 
-                # Clean Inf/NaN for Excel
                 final_df = merged[excel_cols].copy()
                 final_df = final_df.replace([np.inf, -np.inf], np.nan)
                 
-                # Create Instruction Data
                 instruction_data = {
-                    'หัวข้อ (Field)': [
-                        'Total_Score', 'Price (แถบสี)', 'Advice', 'PE', 'Yield (%)', 
-                        'ROE (%)', 'RSI', 'Low_52W / High_52W'
-                    ],
-                    'ความหมาย (Meaning)': [
-                        'คะแนนรวมความน่าสนใจ (0-100)', 'ราคาปัจจุบันเทียบกับรอบปี', 'คำแนะนำเบื้องต้น', 
-                        'ราคาหุ้นเทียบกำไร (ความถูกแพง)', 'เงินปันผลตอบแทนต่อปี', 
-                        'ประสิทธิภาพการทำกำไรของบริษัท', 'ดัชนีความร้อนแรงของราคา', 'ราคาสูงสุด-ต่ำสุดในรอบ 1 ปี'
-                    ],
-                    'เกณฑ์การดู (Good Criterion)': [
-                        '70 ขึ้นไป = ดีมาก (พื้นฐานแกร่ง ราคาคุ้ม)', 'เขียว = ราคาถูกมาก, แดง = ราคาแพงแล้ว', 'ทำตามระบบประมวลผล (ซื้อเพิ่ม/ถือ/ขาย)', 
-                        'น้อยกว่า 15 = ดี (คืนทุนเร็ว)', 'มากกว่า 4-5% = ดี (ปันผลคุ้มค่า)', 
-                        'มากกว่า 15% = ดี (บริหารเงินเก่ง)', 'น้อยกว่า 30 = จุดกลับตัวน่าซื้อ, มากกว่า 70 = ร้อนแรงเกินไป', 'ใช้ดูว่าราคาตอนนี้อยู่ใกล้ขอบไหน'
-                    ]
+                    'หัวข้อ (Field)': ['Total_Score', 'D/E Ratio', 'Price (แถบสี)', 'Advice', 'PE', 'Yield (%)', 'ROE (%)', 'RSI'],
+                    'ความหมาย (Meaning)': ['คะแนนรวม (ความคุ้มค่า+ความปลอดภัย)', 'หนี้สินต่อทุน (ความเสี่ยงการเงิน)', 'ความถูกแพงเทียบรอบปี', 'คำแนะนำลงทุน', 'ราคาหุ้นเทียบกำไร', 'ปันผลต่อปี', 'ประสิทธิภาพบริษัท', 'ความร้อนแรงราคา'],
+                    'เกณฑ์การดู (Criterion)': ['> 70 = ดีมาก', '< 1.0 = ปลอดภัยมาก, > 2.0 = หนี้สูงเสี่ยง', 'เขียว=ถูก, แดง=แพง', 'ทำตามระบบ', '< 15 = ดี', '> 4-5% = ดี', '> 15% = ดี', '< 30=น่าซื้อ, > 70=เริ่มแพง']
                 }
                 instruction_df = pd.DataFrame(instruction_data)
 
-                # Export with multiple sheets
                 with pd.ExcelWriter(report_name, engine='openpyxl') as writer:
                     final_df.to_excel(writer, index=False, sheet_name='Portfolio Analysis')
                     instruction_df.to_excel(writer, index=False, sheet_name='คู่มือการอ่าน (How to Read)')
-                    
-                    # --- Formatting Sheet 1 ---
-                    ws1 = writer.sheets['Portfolio Analysis']
-                    price_col_idx = excel_cols.index('Price') + 1
+                    ws = writer.sheets['Portfolio Analysis']
+                    price_idx = excel_cols.index('Price') + 1
                     for row_idx, row_data in enumerate(merged.itertuples(), start=2):
                         pos = row_data.Price_Position
                         if not pd.isna(pos):
                             color = 'FFC7CE' if pos > 80 else ('C6EFCE' if pos < 20 else 'FFF2CC')
-                            ws1.cell(row=row_idx, column=price_col_idx).fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
-                    
-                    for col in ws1.columns:
-                        max_len = max([len(str(cell.value) or "") for cell in col])
-                        ws1.column_dimensions[col[0].column_letter].width = max_len + 5
-
-                    # --- Formatting Sheet 2 (Instructions) ---
-                    ws2 = writer.sheets['คู่มือการอ่าน (How to Read)']
-                    for col in ws2.columns:
-                        ws2.column_dimensions[col[0].column_letter].width = 40
+                            ws.cell(row=row_idx, column=price_idx).fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
+                    for col in ws.columns:
+                        ws.column_dimensions[col[0].column_letter].width = 15
                 print(f"\n>>> รายงานถูกบันทึกที่: {report_name}")
-
         except Exception as e:
             print(f"Error analyzing portfolio: {e}")
 
-    # Final Opportunity Analysis
+    # Final Opportunity
     print("\n" + "="*50)
-    print("TOP 10 NEW OPPORTUNITIES")
+    print("TOP 10 NEW OPPORTUNITIES (กรองหุ้นหนี้ต่ำ)")
     print("="*50)
     portfolio_symbols = merged['Symbol'].tolist() if 'merged' in locals() else []
-    new_opps = recommendations[~recommendations['Symbol'].isin(portfolio_symbols)].head(10)
-    print(new_opps[['Symbol', 'Price', 'Yield', 'Total_Score', 'Rationale']].to_string(index=False))
-
-    print("\nANALYSIS COMPLETE")
+    new_opps = recommendations[(~recommendations['Symbol'].isin(portfolio_symbols)) & (recommendations['DE'] < 1.5)].head(10)
+    print(new_opps[['Symbol', 'Price', 'DE', 'Total_Score', 'Rationale']].to_string(index=False))
 
 if __name__ == "__main__":
     main()

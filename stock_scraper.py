@@ -79,6 +79,11 @@ def scrape_siamchart_stocks(output_file="siamchart_raw.csv", watchlist_path=None
             raw_roe = info.get('returnOnEquity') or 0
             roe = raw_roe if abs(raw_roe) > 1 else raw_roe * 100
             
+            # --- NEW: D/E Ratio (Financial Risk) ---
+            raw_de = info.get('debtToEquity') or 0
+            # yfinance returns D/E as percentage (e.g. 150.0 for 1.5) or decimal
+            de_ratio = raw_de / 100 if raw_de > 10 else raw_de
+            
             # --- NEW: RSI Calculation ---
             hist = ticker.history(period="1mo")
             rsi_val = calculate_rsi(hist['Close']) if not hist.empty else 50
@@ -90,11 +95,12 @@ def scrape_siamchart_stocks(output_file="siamchart_raw.csv", watchlist_path=None
                 'PBV': pbv,
                 'Yield': dividend_yield,
                 'ROE': roe,
+                'DE': de_ratio,
                 'High_52W': info.get('fiftyTwoWeekHigh'),
                 'Low_52W': info.get('fiftyTwoWeekLow'),
                 'RSI': rsi_val
             })
-            print(f"   [+] {symbol}: Success (RSI: {rsi_val:.1f})")
+            print(f"   [+] {symbol}: Success (RSI: {rsi_val:.1f}, D/E: {de_ratio:.2f})")
         except Exception as e:
             print(f"   [-] {symbol}: Failed ({e})")
             

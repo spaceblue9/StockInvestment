@@ -13,18 +13,9 @@ def clean_and_analyze_stocks(input_file="siamchart_raw.csv", output_file="recomm
         return None
 
     # Step 1: Data Cleaning
-    # Note: Column names might be messy. We'll try to identify them by position or common patterns.
-    # Typical order in SiamChart var stock_data for financial:
-    # 0: Name, 1: PE, 2: PBV, 3: DE, 4: DPS, 5: EPS, 6: ROA, 7: ROE, 8: NPM, 9: Yield, 10: PEG
-    
-    # Let's assume the scraper captured the table correctly. 
-    # We will rename based on known headers or positions.
     print("Cleaning data...")
-    
-    # Basic cleaning: convert all to numeric where possible, replace '-' with NaN
     df = df.replace('-', np.nan)
     
-    # Try to identify columns by keywords if they exist, otherwise use positions
     col_map = {}
     for col in df.columns:
         c_upper = str(col).upper()
@@ -34,11 +25,10 @@ def clean_and_analyze_stocks(input_file="siamchart_raw.csv", output_file="recomm
         elif 'YIELD' in c_upper or 'ปันผล' in c_upper: col_map[col] = 'Yield'
         elif 'ROE' in c_upper: col_map[col] = 'ROE'
         elif 'PRICE' in c_upper or 'ราคา' in c_upper: col_map[col] = 'Price'
+        elif 'DE' in c_upper: col_map[col] = 'DE'
 
     if len(col_map) < 3:
-        # If auto-detection fails, use positional assumptions for SiamChart financial table
         print("Warning: Could not detect column names. Using positional defaults.")
-        # Assuming table has at least 10 columns
         if len(df.columns) >= 10:
             df.columns = ['Symbol', 'PE', 'PBV', 'DE', 'DPS', 'EPS', 'ROA', 'ROE', 'NPM', 'Yield', 'PEG'] + list(df.columns[11:])
         else:
@@ -48,7 +38,7 @@ def clean_and_analyze_stocks(input_file="siamchart_raw.csv", output_file="recomm
         df = df.rename(columns=col_map)
 
     # Convert numeric columns
-    numeric_cols = ['Price', 'PE', 'PBV', 'Yield', 'ROE', 'High_52W', 'Low_52W', 'RSI']
+    numeric_cols = ['Price', 'PE', 'PBV', 'Yield', 'ROE', 'High_52W', 'Low_52W', 'RSI', 'DE']
     for col in numeric_cols:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
@@ -59,7 +49,18 @@ def clean_and_analyze_stocks(input_file="siamchart_raw.csv", output_file="recomm
     # Step 2: Scoring System
     print("Calculating scores...")
     
-    # New: Price Scale Analysis (Timing 1)
+    # NEW: D/E Score (Financial Risk - Safety)
+    # Low D/E is good (< 1.0), High D/E is risky (> 2.0)
+    def get_de_score(de):
+        if pd.isna(de): return 50
+        if de < 0.8: return 100
+        elif de < 1.2: return 80
+        elif de < 1.8: return 40
+        else: return 0
+    
+    df['DE_Score'] = df['DE'].apply(get_de_score)
+
+    # Timing Scores
     def calculate_price_position(row):
         if pd.isna(row['High_52W']) or pd.isna(row['Low_52W']) or row['High_52W'] == row['Low_52W']:
             return 50
@@ -69,62 +70,57 @@ def clean_and_analyze_stocks(input_file="siamchart_raw.csv", output_file="recomm
     df['Price_Position'] = df.apply(calculate_price_position, axis=1)
     df['Price_Scale_Score'] = 100 - df['Price_Position'] 
 
-    # NEW: RSI Score (Timing 2 - Momentum)
-    # Low RSI is good for buying (< 35)
     def get_rsi_score(rsi):
         if pd.isna(rsi): return 50
-        if rsi < 30: return 100 # Extremely Oversold
-        elif rsi < 45: return 80 # Attractive
-        elif rsi < 60: return 50 # Neutral
-        elif rsi < 70: return 20 # Hot
-        else: return 0 # Overbought
+        if rsi < 30: return 100 # Oversold
+        elif rsi < 45: return 80
+        elif rsi < 60: return 50
+        elif rsi < 70: return 20
+        else: return 0
     
     df['RSI_Score'] = df['RSI'].apply(get_rsi_score)
 
-    # Value Score (0-100)
+    # Fundamental Scores
     df['PE_Score'] = df['PE'].apply(lambda x: 100 if x < 10 else (70 if x < 15 else (30 if x < 25 else 0)))
     df['PBV_Score'] = df['PBV'].apply(lambda x: 100 if x < 1.0 else (70 if x < 1.5 else (30 if x < 2.5 else 0)))
     df['Yield_Score'] = df['Yield'].apply(lambda x: 100 if x > 6 else (70 if x > 4 else (30 if x > 2 else 0)))
-    
-    # Growth Score (0-100)
     df['ROE_Score'] = df['ROE'].apply(lambda x: 100 if x > 20 else (70 if x > 15 else (30 if x > 10 else 0)))
     
-    # Combined Score (Weighted)
-    # Value: 25%, Growth: 30%, Yield: 15%, Timing (Price Scale): 20%, RSI: 10%
+    # Combined Score (Weighted for Safety)
+    # Value: 20%, Growth: 25%, Yield: 15%, Timing: 20%, Risk(DE): 20%
     df['Total_Score'] = (
-        df['PE_Score'] * 0.125 + 
-        df['PBV_Score'] * 0.125 + 
+        df['PE_Score'] * 0.10 + 
+        df['PBV_Score'] * 0.10 + 
         df['Yield_Score'] * 0.15 + 
-        df['ROE_Score'] * 0.30 +
-        df['Price_Scale_Score'] * 0.20 +
+        df['ROE_Score'] * 0.25 +
+        df['DE_Score'] * 0.20 +
+        df['Price_Scale_Score'] * 0.10 +
         df['RSI_Score'] * 0.10
     )
     
+    # Apply Penalty for high debt
+    df.loc[df['DE'] > 2.5, 'Total_Score'] *= 0.7 # 30% Score Penalty for very high debt
+    
     # Step 3: Filtering & Ranking
-    recommendations = df.dropna(subset=['PE', 'PBV', 'Yield', 'ROE', 'RSI'])
+    recommendations = df.dropna(subset=['PE', 'PBV', 'Yield', 'ROE', 'RSI', 'DE'])
     recommendations = recommendations.sort_values(by='Total_Score', ascending=False)
     
     # Step 4: Rationale
     def get_rationale(row):
         reasons = []
-        if row['PE'] < 12: reasons.append("Undervalued (Low PE)")
-        if row['PBV'] < 1.2: reasons.append("Cheap (Low PBV)")
+        if row['PE'] < 12: reasons.append("Undervalued")
         if row['Yield'] > 5: reasons.append("High Dividend")
-        if row['ROE'] > 18: reasons.append("High Efficiency (ROE)")
-        if row['Price_Position'] < 25: reasons.append("Near 52W Low (Discount)")
-        if row['RSI'] < 35: reasons.append("Oversold (RSI Low)")
-        elif row['RSI'] > 70: reasons.append("Overbought (RSI High)")
+        if row['ROE'] > 18: reasons.append("High Efficiency")
+        if row['DE'] < 0.8: reasons.append("Safe (Low Debt)")
+        if row['RSI'] < 35: reasons.append("Oversold")
+        if row['DE'] > 2.0: reasons.append("⚠️ HIGH DEBT")
         return ", ".join(reasons) if reasons else "Balanced Metrics"
 
     recommendations['Rationale'] = recommendations.apply(get_rationale, axis=1)
-    
-    # Save results
     recommendations.to_csv(output_file, index=False, encoding='utf-8-sig')
     print(f"Analysis complete. Recommendations saved to {output_file}")
     
     return recommendations
 
 if __name__ == "__main__":
-    # For testing, we need a dummy file if real one is missing
-    # In real run, the scraper will provide it.
     clean_and_analyze_stocks()

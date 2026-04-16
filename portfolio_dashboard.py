@@ -6,127 +6,144 @@ import os
 import numpy as np
 
 # Set Page Config
-st.set_page_config(page_title="Stock Portfolio Dashboard", layout="wide", page_icon="📈")
+st.set_page_config(page_title="Investment Dashboard", layout="wide", page_icon="📈")
 
-st.title("📈 Thai Stock Portfolio Dashboard")
-st.markdown("---")
+# Sidebar - Navigation & File Selection
+st.sidebar.title("📌 Menu")
+view_mode = st.sidebar.radio("เลือกโหมดการแสดงผล:", ["วิเคราะห์พอร์ต (Portfolio)", "คัดกรองหุ้น (Watchlist/Screener)"])
 
-# 1. File Selection
-reports = [f for f in os.listdir('.') if f.endswith('_analysis_report.xlsx')]
-if not reports:
-    st.error("❌ ไม่พบไฟล์รายงาน Excel กรุณารันโปรแกรม main.py เพื่อสร้างรายงานก่อน")
-    st.stop()
-
-selected_file = st.sidebar.selectbox("เลือกไฟล์รายงานที่ต้องการดู:", reports)
-
-# 2. Load Data
+# 1. Load All Market Data (From recommended_stocks.csv)
 @st.cache_data
-def load_data(file_path):
-    try:
-        df = pd.read_excel(file_path, sheet_name='Portfolio Analysis')
-        # Fill missing columns with calculated values if possible
-        if 'Market_Value' not in df.columns and 'Quantity' in df.columns and 'Price' in df.columns:
-            df['Market_Value'] = df['Quantity'] * df['Price']
-        if 'Gain_Loss_Value' not in df.columns and 'Market_Value' in df.columns:
-            df['Gain_Loss_Value'] = df['Market_Value'] - (df['Quantity'] * df.get('Avg_Price', 0))
-        if 'Gain_Loss_Pct' not in df.columns and 'Price' in df.columns:
-            avg = df.get('Avg_Price', 1)
-            df['Gain_Loss_Pct'] = ((df['Price'] - avg) / avg) * 100
+def load_all_market_data():
+    if os.path.exists("recommended_stocks.csv"):
+        df = pd.read_csv("recommended_stocks.csv")
+        # Clean numeric columns
+        cols = ['Price', 'PE', 'Yield', 'ROE', 'Total_Score', 'DE', 'RSI', 'Price_Position']
+        for col in cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.1)
         return df
-    except Exception as e:
-        st.error(f"Error loading file: {e}")
-        return pd.DataFrame()
+    return pd.DataFrame()
 
-df = load_data(selected_file)
+market_df = load_all_market_data()
 
-if df.empty:
-    st.warning("ไฟล์รายงานไม่มีข้อมูลหรือรูปแบบไม่ถูกต้อง")
-    st.stop()
+# --- PORTFOLIO VIEW ---
+if view_mode == "วิเคราะห์พอร์ต (Portfolio)":
+    st.title("📈 Thai Stock Portfolio Dashboard (Performance)")
+    st.markdown("---")
 
-# 3. Key Metrics Summary
-total_cost = (df['Quantity'] * df.get('Avg_Price', 0)).sum()
-total_market_value = df.get('Market_Value', 0).sum()
-total_gain_loss = df.get('Gain_Loss_Value', 0).sum()
-total_gain_loss_pct = (total_gain_loss / total_cost * 100) if total_cost > 0 else 0
+    reports = [f for f in os.listdir('.') if f.endswith('_analysis_report.xlsx')]
+    if not reports:
+        st.error("❌ ไม่พบไฟล์รายงาน Excel กรุณารัน main.py ก่อน")
+        st.stop()
 
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("มูลค่าพอร์ตปัจจุบัน", f"{total_market_value:,.2f} THB")
-col2.metric("ต้นทุนทั้งหมด", f"{total_cost:,.2f} THB")
-col3.metric("กำไร/ขาดทุนรวม", f"{total_gain_loss:,.2f} THB", f"{total_gain_loss_pct:.2f}%")
-col4.metric("จำนวนหุ้นในพอร์ต", f"{len(df)} ตัว")
+    selected_file = st.sidebar.selectbox("เลือกไฟล์รายงานพอร์ต:", reports)
 
-st.markdown("---")
+    @st.cache_data
+    def load_port_data(file_path):
+        df = pd.read_excel(file_path, sheet_name='Portfolio Analysis')
+        # Fill missing values for plotting
+        for col in ['Market_Value', 'Yield', 'Total_Score', 'RSI', 'DE', 'Gain_Loss_Pct']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        return df
 
-# 4. Charts Layout
-row1_col1, row1_col2 = st.columns(2)
+    df = load_port_data(selected_file)
 
-with row1_col1:
-    st.subheader("💰 สัดส่วนการลงทุน (Allocation)")
-    if 'Market_Value' in df.columns:
-        fig_pie = px.pie(df, values='Market_Value', names='Symbol', 
-                         title="Market Value by Stock", 
-                         hole=0.4, 
-                         color_discrete_sequence=px.colors.qualitative.Pastel)
-        st.plotly_chart(fig_pie, use_container_width=True)
-    else:
-        st.info("ไม่มีข้อมูล Market_Value สำหรับทำกราฟวงกลม")
+    # Metrics Summary
+    total_cost = (df['Quantity'] * df.get('Avg_Price', 0)).sum()
+    total_market = df['Market_Value'].sum()
+    total_gl = df['Gain_Loss_Value'].sum()
+    total_gl_pct = (total_gl / total_cost * 100) if total_cost > 0 else 0
 
-with row1_col2:
-    st.subheader("📊 ผลตอบแทนรายตัว (Profit/Loss %)")
-    if 'Gain_Loss_Pct' in df.columns:
-        df_sorted = df.sort_values('Gain_Loss_Pct', ascending=True)
-        fig_bar = px.bar(df_sorted, x='Gain_Loss_Pct', y='Symbol', orientation='h',
-                         title="Gain/Loss Percentage",
-                         color='Gain_Loss_Pct',
-                         color_continuous_scale='RdYlGn')
-        st.plotly_chart(fig_bar, use_container_width=True)
-    else:
-        st.info("ไม่มีข้อมูล Gain_Loss_Pct สำหรับทำกราฟแท่ง")
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("มูลค่าพอร์ต", f"{total_market:,.2f} THB")
+    m2.metric("กำไร/ขาดทุนรวม", f"{total_gl:,.2f} THB", f"{total_gl_pct:.2f}%")
+    m3.metric("หนี้สินเฉลี่ย (D/E)", f"{df['DE'].mean():.2f}")
+    m4.metric("หุ้นในพอร์ต", f"{len(df)} ตัว")
 
-st.markdown("---")
-row2_col1, row2_col2 = st.columns(2)
+    st.markdown("---")
+    
+    # Portfolio Charts
+    c1, c2 = st.columns(2)
+    with c1:
+        st.subheader("💰 สัดส่วนพอร์ต (Allocation)")
+        st.plotly_chart(px.pie(df, values='Market_Value', names='Symbol', hole=0.4), use_container_width=True)
+    with c2:
+        st.subheader("📊 กำไร/ขาดทุนรายตัว (%)")
+        st.plotly_chart(px.bar(df.sort_values('Gain_Loss_Pct'), x='Gain_Loss_Pct', y='Symbol', orientation='h', color='Gain_Loss_Pct', color_continuous_scale='RdYlGn'), use_container_width=True)
 
-with row2_col1:
-    st.subheader("🎯 จุดตัดสินใจ: RSI vs Strategy Score")
-    if 'RSI' in df.columns and 'Total_Score' in df.columns:
-        # Use 'Advice' as fallback for color if 'Advice_Excel' is missing
-        color_col = 'Advice' if 'Advice' in df.columns else None
-        
-        fig_scatter = px.scatter(df, x='RSI', y='Total_Score',
-                                 size=df['Market_Value'].fillna(1), color=color_col,
-                                 hover_name='Symbol', text='Symbol',
-                                 title="RSI vs Strategy Score",
-                                 labels={'RSI': 'ความร้อนแรง (RSI)', 'Total_Score': 'คะแนนพื้นฐาน (Score)'},
-                                 color_discrete_map={'Buy More': 'green', 'Hold': 'blue', 'Wait/Hold': 'orange', 'Sell': 'red', 'Reduce/Cut': 'darkred'})
-        
-        fig_scatter.add_vline(x=30, line_dash="dash", line_color="green", annotation_text="Oversold")
-        fig_scatter.add_vline(x=70, line_dash="dash", line_color="red", annotation_text="Overbought")
-        st.plotly_chart(fig_scatter, use_container_width=True)
-        st.info("💡 มุมซ้ายบน (Score สูง + RSI ต่ำ) คือจุดเข้าซื้อที่ดีที่สุด")
-    else:
-        st.info("ข้อมูล RSI หรือ Total_Score ไม่ครบถ้วน")
+    st.markdown("---")
+    c3, c4 = st.columns(2)
+    with c3:
+        st.subheader("🕒 จังหวะราคา: RSI vs Score")
+        st.plotly_chart(px.scatter(df, x='RSI', y='Total_Score', size='Market_Value', hover_name='Symbol', text='Symbol', color='Symbol'), use_container_width=True)
+    with c4:
+        st.subheader("🛡️ หนี้สิน vs ผลตอบแทน")
+        st.plotly_chart(px.scatter(df, x='DE', y='Gain_Loss_Pct', size='Market_Value', hover_name='Symbol', text='Symbol', color='Symbol'), use_container_width=True)
 
-with row2_col2:
-    st.subheader("ธรรมาภิบาลและการเติบโต (PE vs ROE)")
-    if 'PE' in df.columns and 'ROE' in df.columns:
-        fig_bubble = px.scatter(df, x='PE', y='ROE',
-                                size=df['Yield'].fillna(1), color='Symbol',
-                                hover_name='Symbol',
-                                title="ROE vs PE (Size = Dividend Yield)",
-                                labels={'PE': 'ความแพง (PE)', 'ROE': 'ความเก่ง (ROE)'})
-        st.plotly_chart(fig_bubble, use_container_width=True)
-        st.info("💡 มุมซ้ายบน (ROE สูง + PE ต่ำ) คือหุ้นพื้นฐานดีราคาถูก")
-    else:
-        st.info("ข้อมูล PE หรือ ROE ไม่ครบถ้วน")
+    st.subheader("📋 ตารางข้อมูลพอร์ต")
+    st.dataframe(df)
 
-# 5. Full Data Table
-st.markdown("---")
-st.subheader("📋 ข้อมูลรายละเอียดทั้งหมด")
-st.dataframe(df)
+# --- WATCHLIST / SCREENER VIEW ---
+else:
+    st.title("🔍 Stock Screener & Watchlist Analysis")
+    st.markdown("---")
 
-# Sidebar Info
+    if market_df.empty:
+        st.warning("ไม่มีข้อมูลสำหรับคัดกรอง กรุณารัน main.py ก่อน")
+        st.stop()
+
+    # Filtering Options in Sidebar
+    st.sidebar.subheader("🎚️ ตัวกรองหุ้น (Filter)")
+    min_score = st.sidebar.slider("คะแนนขั้นต่ำ (Score)", 0, 100, 50)
+    max_de = st.sidebar.slider("หนี้สินไม่เกิน (D/E)", 0.0, 5.0, 2.0)
+    min_yield = st.sidebar.slider("ปันผลขั้นต่ำ (%)", 0.0, 10.0, 3.0)
+
+    filtered_df = market_df[
+        (market_df['Total_Score'] >= min_score) & 
+        (market_df['DE'] <= max_de) & 
+        (market_df['Yield'] >= min_yield)
+    ].sort_values('Total_Score', ascending=False)
+
+    # Metrics
+    s1, s2, m3 = st.columns(3)
+    s1.metric("จำนวนหุ้นที่ผ่านเกณฑ์", f"{len(filtered_df)} ตัว")
+    s2.metric("คะแนนเฉลี่ย", f"{filtered_df['Total_Score'].mean():.1f}")
+    m3.metric("ปันผลเฉลี่ย", f"{filtered_df['Yield'].mean():.2f}%")
+
+    st.markdown("---")
+
+    # Screener Charts
+    sc1, sc2 = st.columns(2)
+    with sc1:
+        st.subheader("💎 หุ้นพรีเมียม (Score สูง + ราคาถูก)")
+        fig_screener = px.scatter(filtered_df, x='Price_Position', y='Total_Score',
+                                  size='Yield', color='ROE',
+                                  hover_name='Symbol', text='Symbol',
+                                  title="ยิ่งอยู่ 'ซ้ายบน' ยิ่งน่าสนใจ (ราคาถูก+พื้นฐานดี)",
+                                  labels={'Price_Position': 'ระดับราคา (0=Low, 100=High)', 'Total_Score': 'คะแนนรวม'})
+        fig_screener.add_vline(x=30, line_dash="dash", line_color="green")
+        st.plotly_chart(fig_screener, use_container_width=True)
+
+    with sc2:
+        st.subheader("🕒 สัญญาณเทคนิค (RSI vs Score)")
+        fig_tech = px.scatter(filtered_df, x='RSI', y='Total_Score',
+                              size='Yield', color='DE',
+                              hover_name='Symbol', text='Symbol',
+                              title="ค้นหาจุดกลับตัว (RSI < 30)",
+                              labels={'RSI': 'ดัชนีความร้อนแรง (RSI)', 'Total_Score': 'คะแนนรวม'})
+        fig_tech.add_vline(x=30, line_dash="dash", line_color="green")
+        fig_tech.add_vline(x=70, line_dash="dash", line_color="red")
+        st.plotly_chart(fig_tech, use_container_width=True)
+
+    st.markdown("---")
+    st.subheader("🏆 รายชื่อหุ้นที่ผ่านการคัดกรอง (เรียงตามคะแนนความคุ้มค่า)")
+    
+    # Format dataframe for display
+    display_df = filtered_df[['Symbol', 'Price', 'Total_Score', 'Yield', 'ROE', 'DE', 'RSI', 'Rationale']]
+    st.dataframe(display_df.style.background_gradient(subset=['Total_Score', 'Yield', 'ROE'], cmap='RdYlGn')
+                                .background_gradient(subset=['DE', 'RSI'], cmap='RdYlGn_r'))
+
 st.sidebar.markdown("---")
-st.sidebar.subheader("📖 วิธีการใช้งาน")
-st.sidebar.write("1. Dashboard นี้ดึงข้อมูลจากไฟล์ Excel รายงาน")
-st.sidebar.write("2. กราฟแต่ละอันสามารถเอาเมาส์ไปชี้เพื่อดูรายละเอียดได้")
-st.sidebar.info("สรุปโดย AI สำหรับพอร์ต: " + selected_file)
+st.sidebar.info("Dashboard นี้ช่วยให้คุณเปรียบเทียบหุ้นในพอร์ตกับโอกาสใหม่ๆ ในตลาดได้ทันที")
