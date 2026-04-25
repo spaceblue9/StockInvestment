@@ -1,6 +1,36 @@
 # Stock Investment Analysis Logic (หลักการวิเคราะห์หุ้น - ฉบับสมบูรณ์)
 
-เอกสารนี้คือแหล่งอ้างอิงตรรกะทั้งหมดของระบบ เพื่อให้ผู้พัฒนาหรือ AI เข้าใจบริบทก่อนการต่อยอด
+## 0. System Logic Flowchart (แผนผังสมองของระบบ)
+
+```mermaid
+graph TD
+    A[ข้อมูลพอร์ต & Watchlist] --> B{Scoring Engine}
+    
+    subgraph "หลักการวิเคราะห์ (The Brain)"
+    B --> C[พื้นฐาน: ROE, P/E, D/E]
+    B --> D[จังหวะ: RSI, Price Position]
+    B --> E[เปรียบเทียบ: Sector Benchmark]
+    end
+
+    C & D & E --> F[Total Score 100%]
+    
+    subgraph "การตัดสินใจ (The Strategy)"
+    F --> G[คำนวณ Entry/Exit Zone]
+    G --> H[คำนวณ RRR & Upside %]
+    H --> I[วิเคราะห์เทรนด์ & Volume]
+    end
+
+    I --> J{Final Execution}
+    
+    subgraph "แผนปฏิบัติการ (The Action)"
+    J --> K[Target Action: Buy/Wait/Sell]
+    J --> L[Stop Loss Control]
+    J --> M[Position Sizing]
+    end
+
+    K & L & M --> N[รายงานสรุป & Dashboard]
+    N --> O[Simulation: พิสูจน์ย้อนหลัง]
+```
 
 ## 1. ระบบการให้คะแนน (Multi-Factor Scoring)
 ระบบใช้การถ่วงน้ำหนักเพื่อให้คะแนนเต็ม 100 (Total Score):
