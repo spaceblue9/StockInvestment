@@ -84,9 +84,16 @@ def scrape_siamchart_stocks(output_file="siamchart_raw.csv", watchlist_path=None
             # yfinance returns D/E as percentage (e.g. 150.0 for 1.5) or decimal
             de_ratio = raw_de / 100 if raw_de > 10 else raw_de
             
-            # --- NEW: RSI Calculation ---
+            # --- NEW: RSI & Volume Calculation ---
             hist = ticker.history(period="1mo")
             rsi_val = calculate_rsi(hist['Close']) if not hist.empty else 50
+            
+            # Volume Analysis (Current vs 10-day Average)
+            current_vol = 0
+            avg_vol_10d = 0
+            if not hist.empty:
+                current_vol = hist['Volume'].iloc[-1]
+                avg_vol_10d = hist['Volume'].tail(10).mean()
             
             # --- NEW: Sector Info ---
             sector = info.get('sector') or "Unknown"
@@ -102,9 +109,11 @@ def scrape_siamchart_stocks(output_file="siamchart_raw.csv", watchlist_path=None
                 'DE': de_ratio,
                 'High_52W': info.get('fiftyTwoWeekHigh'),
                 'Low_52W': info.get('fiftyTwoWeekLow'),
-                'RSI': rsi_val
+                'RSI': rsi_val,
+                'Volume': current_vol,
+                'Avg_Vol_10D': avg_vol_10d
             })
-            print(f"   [+] {symbol}: Success (RSI: {rsi_val:.1f}, Sector: {sector})")
+            print(f"   [+] {symbol}: Success (RSI: {rsi_val:.1f}, Vol Ratio: {(current_vol/avg_vol_10d if avg_vol_10d > 0 else 0):.2f})")
         except Exception as e:
             print(f"   [-] {symbol}: Failed ({e})")
             

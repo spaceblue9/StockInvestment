@@ -74,7 +74,8 @@ def main():
                     
                     print(f"[{clean_symbol}] Sector: {row['Sector']} | Score: {score:.1f} | {status}")
                     print(f"   -> Price: {row['Price']:.2f} (52W H/L: {row['High_52W']:.2f}/{row['Low_52W']:.2f})")
-                    print(f"   -> RSI: {row['RSI']:.1f} | D/E: {row['DE']:.2f} | Pos: {row['Price_Position']:.1f}%")
+                    print(f"   -> RSI: {row['RSI']:.1f} | D/E: {row['DE']:.2f} | Vol Ratio: {row['Volume_Ratio']:.1f}x")
+                    print(f"   -> SMART ZONES: Entry {row['Entry_Zone_Low']:.2f}-{row['Entry_Zone_High']:.2f} | Exit {row['Exit_Zone_Low']:.2f}-{row['Exit_Zone_High']:.2f}")
                     print(f"   -> {row['Rationale']}")
                 else:
                     print(f"[{symbol}] ❌ ไม่พบข้อมูล")
@@ -94,7 +95,7 @@ def main():
                 portfolio['Symbol'] = portfolio['Symbol'].astype(str).str.strip().str.upper()
             
             market_data = recommendations
-            merged = pd.merge(portfolio, market_data[['Symbol', 'Sector', 'Price', 'PE', 'Yield', 'ROE', 'Total_Score', 'High_52W', 'Low_52W', 'Price_Position', 'RSI', 'DE']], on='Symbol', how='left')
+            merged = pd.merge(portfolio, market_data[['Symbol', 'Sector', 'Price', 'PE', 'Yield', 'ROE', 'Total_Score', 'High_52W', 'Low_52W', 'Price_Position', 'RSI', 'DE', 'Entry_Zone_Low', 'Entry_Zone_High', 'Exit_Zone_Low', 'Exit_Zone_High', 'Volume_Ratio', 'Stop_Loss', 'Trend_Status', 'RRR', 'Upside_Pct']], on='Symbol', how='left')
             
             if not merged.empty:
                 merged['Market_Value'] = merged['Quantity'] * merged['Price']
@@ -102,6 +103,25 @@ def main():
                 merged['Gain_Loss_Value'] = merged['Market_Value'] - merged['Cost_Value']
                 merged['Gain_Loss_Pct'] = ((merged['Price'] - merged['Avg_Price']) / merged['Avg_Price']) * 100
                 
+                # Recovery Analysis
+                def get_recovery(gl_pct):
+                    if gl_pct >= 0: return 0.0
+                    loss = abs(gl_pct) / 100
+                    return ((1 / (1 - loss)) - 1) * 100
+                
+                merged['Recovery_Pct'] = merged['Gain_Loss_Pct'].apply(get_recovery)
+
+                # Position Sizing (Risk per Trade = 5,000 THB)
+                def get_suggested_shares(row):
+                    risk_amt = 5000 
+                    entry = row['Entry_Zone_High']
+                    sl = row['Stop_Loss']
+                    risk_per_share = entry - sl
+                    if risk_per_share <= 0: return 0
+                    return int(risk_amt / risk_per_share)
+
+                merged['Suggested_Shares'] = merged.apply(get_suggested_shares, axis=1)
+
                 def get_advice(row):
                     if pd.isna(row['Total_Score']): return "No Data"
                     score = row['Total_Score']
@@ -121,20 +141,54 @@ def main():
                         return "Sell" if gl > 0 else "Reduce/Cut"
 
                 merged['Advice'] = merged.apply(get_advice, axis=1)
+
+                def get_target_action(row):
+                    advice = row['Advice']
+                    price = row['Price']
+                    e_high = row['Entry_Zone_High']
+                    x_low = row['Exit_Zone_Low']
+                    sl = row['Stop_Loss']
+                    score = row['Total_Score']
+                    rrr = row['RRR']
+                    
+                    # Exit Strategy Logic
+                    if price <= sl or score < 30:
+                        return "Exit All (100%)"
+                    elif advice in ["Sell", "Reduce/Cut"] or (30 <= score < 45):
+                        return "Reduce 50%"
+                    elif advice == "Hold" and price >= x_low:
+                        return f"TP 50% @ {x_low:.2f}"
+                    
+                    # Entry Strategy Logic
+                    if advice in ["Buy More", "Accumulate"]:
+                        if price > e_high:
+                            return f"Wait & Bid @ {e_high:.2f}"
+                        elif rrr >= 2.0:
+                            return "Buy Now (Good RRR)"
+                        else:
+                            return "Buy Now (Low RRR)"
+                    
+                    return "Keep Holding"
+
+                merged['Target_Action'] = merged.apply(get_target_action, axis=1)
                 
-                display_cols = ['Symbol', 'Sector', 'Price', 'High_52W', 'Low_52W', 'Gain_Loss_Pct', 'Total_Score', 'Advice']
+                # Format Zones for Excel
+                merged['Entry_Zone'] = merged.apply(lambda r: f"{r['Entry_Zone_Low']:.2f} - {r['Entry_Zone_High']:.2f}" if not pd.isna(r['Entry_Zone_Low']) else "-", axis=1)
+                merged['Exit_Zone'] = merged.apply(lambda r: f"{r['Exit_Zone_Low']:.2f} - {r['Exit_Zone_High']:.2f}" if not pd.isna(r['Exit_Zone_Low']) else "-", axis=1)
+
+                display_cols = ['Symbol', 'Price', 'Total_Score', 'Advice', 'Target_Action']
                 print(merged[display_cols].to_string(index=False))
                 
                 report_name = os.path.splitext(os.path.basename(portfolio_path))[0] + "_analysis_report.xlsx"
-                excel_cols = ['Symbol', 'Sector', 'Quantity', 'Avg_Price', 'Price', 'Cost_Value', 'Market_Value', 'High_52W', 'Low_52W', 'Price_Position', 'Gain_Loss_Value', 'Gain_Loss_Pct', 'Total_Score', 'Advice', 'PE', 'Yield', 'ROE', 'DE', 'RSI']
+                excel_cols = ['Symbol', 'Sector', 'Quantity', 'Avg_Price', 'Price', 'Trend_Status', 'Entry_Zone', 'Exit_Zone', 'Stop_Loss', 'Upside_Pct', 'RRR', 'Cost_Value', 'Market_Value', 'Gain_Loss_Value', 'Gain_Loss_Pct', 'Price_Position', 'Total_Score', 'Advice', 'Target_Action', 'Volume_Ratio', 'PE', 'Yield', 'ROE', 'DE', 'RSI', 'Entry_Zone_Low', 'Entry_Zone_High', 'Exit_Zone_Low', 'Exit_Zone_High']
                 
                 final_df = merged[excel_cols].copy()
                 final_df = final_df.replace([np.inf, -np.inf], np.nan)
                 
                 instruction_data = {
-                    'หัวข้อ (Field)': ['Total_Score', 'Price_Position', 'High_52W / Low_52W', 'Advice'],
-                    'ความหมาย': ['คะแนนเปรียบเทียบในกลุ่มอุตสาหกรรม', 'ตำแหน่งราคาปัจจุบันเทียบกับรอบ 1 ปี (0 = ต่ำสุด, 100 = สูงสุด)', 'ราคาสูงสุด/ต่ำสุดในรอบ 52 สัปดาห์', 'คำแนะนำลงทุน'],
-                    'เกณฑ์การดู': ['> 70 = แกร่งกว่าค่าเฉลี่ยกลุ่ม', '< 20 = ราคาอยู่โซนล่าง (น่าสนใจ)', 'ใช้ดูแนวรับ-แนวต้านสำคัญ', 'ทำตามระบบ']
+                    'หัวข้อ (Field)': ['Total_Score', 'Upside_Pct', 'RRR', 'Target_Action', 'Stop_Loss'],
+                    'ความหมาย': ['คะแนนเปรียบเทียบในกลุ่มอุตสาหกรรม', 'โอกาสกำไร (%) จากราคาปัจจุบันถึงเป้าหมาย', 'Risk-Reward Ratio (ความคุ้มค่า)', 'แผนปฏิบัติการระบุราคาและสัดส่วนชัดเจน', 'จุดตัดขาดทุนเมื่อหลุดแนวรับ'],
+                    'เกณฑ์การดู': ['> 70 = แกร่งกว่าค่าเฉลี่ยกลุ่ม', '> 10% = น่าสนใจสะสม', '> 2.0 = คุ้มค่าที่จะเสี่ยง', 'TP = ขายทำกำไร, Reduce = ลดพอร์ต', 'ห้ามถือหุ้นหากราคาหลุดจุดนี้']
                 }
                 instruction_df = pd.DataFrame(instruction_data)
 

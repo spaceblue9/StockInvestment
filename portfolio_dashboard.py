@@ -10,7 +10,6 @@ st.set_page_config(page_title="Pro Investment Dashboard", layout="wide", page_ic
 # Custom CSS for high-contrast Metrics
 st.markdown("""
     <style>
-    /* Force Metric Card Background */
     div[data-testid="stMetric"] {
         background-color: #ffffff !important;
         border: 1px solid #ced4da !important;
@@ -18,17 +17,8 @@ st.markdown("""
         border-radius: 12px !important;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
     }
-    
-    /* Force ALL text inside Metric Card to be BLACK */
     div[data-testid="stMetric"] * {
         color: #000000 !important;
-    }
-
-    /* Keep the Delta (Gain/Loss) colors if possible, but force them to be readable */
-    div[data-testid="stMetricDelta"] > div {
-        background-color: rgba(0,0,0,0.05) !important;
-        padding: 2px 5px !important;
-        border-radius: 5px !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -53,19 +43,43 @@ view_mode = st.sidebar.radio("Select View Mode:", ["My Portfolio", "Stock Screen
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("💡 Analysis Guide")
-with st.sidebar.expander("Reading the Metrics"):
-    st.write("**Total Score**")
-    st.write("- ✅ > 70: High Quality (Value + Growth)")
-    st.write("- ⏳ 50-70: Neutral / Wait")
-    st.write("- ⚠️ < 50: Low Quality or High Risk")
+with st.sidebar.expander("Elite Investor Guide (คู่มือฉบับเซียน)", expanded=True):
+    st.markdown("### 🏆 ปรัชญาการลงทุน")
+    st.info("เน้นหุ้นคุณภาพดี (Score สูง) ในราคาที่ได้เปรียบ (Entry Zone) และจำกัดการขาดทุนเสมอ (Stop Loss)")
     
-    st.write("**Price Position**")
-    st.write("- 💎 < 30: Bottom Zone (Cheap)")
-    st.write("- 🔥 > 70: Top Zone (Expensive)")
+    st.markdown("---")
+    st.markdown("### 💎 1. การเลือกหุ้น (Selection)")
+    st.write("**Total Score**: ✅ > 70 คือหุ้นเกรด A พื้นฐานแกร่งที่สุดในกลุ่ม")
     
-    st.write("**D/E Ratio**")
-    st.write("- 🛡️ < 1.0: Safe / Low Debt")
-    st.write("- ⚠️ > 2.0: High Financial Risk")
+    st.markdown("### 🏗️ พื้นฐานบริษัท (Fundamentals)")
+    st.write("**ROE**: ✅ > 15% คือบริษัททำกำไรเก่งมาก")
+    st.write("**P/E**: ยิ่งต่ำยิ่งดี (คืนทุนไว) แต่ควรเทียบกับหุ้นกลุ่มเดียวกัน")
+    st.write("**D/E Ratio**: 🛡️ < 1.0 คือหนี้ต่ำ ปลอดภัย, ⚠️ > 2.0 คือหนี้สูงเกินไป")
+    
+    st.write("**Upside %**: ระยะวิ่งของกำไร ยิ่งสูงยิ่งน่าสนใจ")
+
+    st.markdown("---")
+    st.markdown("### 🎯 2. จังหวะและแนวโน้ม (Timing)")
+    st.write("**Bullish 📈**: ขาขึ้นชัดเจน (RSI สูง + ราคาโซนบน) มั่นใจได้ในการรันเทรนด์")
+    st.write("**Bearish 📉**: ขาลงชัดเจน (RSI ต่ำ + ราคาโซนล่าง) เสี่ยงสูง ไม่ควรสวน")
+    st.write("**Sideways ➡️**: พักตัว/แกว่งในกรอบ (RSI กลางๆ) รอการเลือกทิศทาง")
+    st.write("**Weak Trend ⚠️**: ทิศทางไม่ชัดเจนหรือแรงส่งเริ่มหมด ให้ระมัดระวัง")
+
+    st.markdown("---")
+    st.markdown("### 🗺️ 3. แผนที่ราคา (Zones)")
+    st.write("**Entry Zone**: โซน 'เก็บของ' ที่ปลอดภัยที่สุด (ใกล้ราคาต่ำสุดรอบปี)")
+    st.write("**Exit Zone**: โซน 'ขายทำกำไร' เมื่อราคาเข้าใกล้แนวต้านสำคัญ")
+    st.write("**RRR**: 💎 **Risk-Reward Ratio** กำไรคาดหวังเทียบความเสี่ยง (> 2.0 คือดีมาก)")
+
+    st.markdown("---")
+    st.markdown("### 🛡️ 4. การคุมความเสี่ยง (Risk)")
+    st.write("**Stop Loss (SL)**: 🚨 'จุดหนีตาย' หากหลุดตรงนี้ต้องขายทันที")
+    
+    st.markdown("---")
+    st.markdown("### 🚨 5. ความหมายของสี (Alerts)")
+    st.success("🟩 **สีเขียว**: จังหวะลุย! (หุ้นดี + ราคาถูก)")
+    st.warning("🟨 **สีทอง**: จังหวะเก็บกำไร! (ถึงเป้าหมาย)")
+    st.error("🟥 **สีแดง**: ระวัง! (ห้ามไล่ราคา แม้หุ้นจะดี)")
 
 # --- MODE 1: PORTFOLIO ---
 if view_mode == "My Portfolio":
@@ -78,74 +92,74 @@ if view_mode == "My Portfolio":
         selected_file = st.sidebar.selectbox("Select Portfolio:", reports)
         df = pd.read_excel(selected_file, sheet_name='Portfolio Analysis')
         
-        # Ensure Cost_Value exists (Fallback for older reports)
+        # Ensure Cost_Value exists
         if 'Cost_Value' not in df.columns and 'Quantity' in df.columns and 'Avg_Price' in df.columns:
             df['Cost_Value'] = df['Quantity'] * df['Avg_Price']
         
         # Metrics Header
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Current Market Value", f"{df['Market_Value'].sum():,.2f} THB")
-        
-        gl_val = df['Gain_Loss_Value'].sum()
+        gl_val = df['Gain_Loss_Value'].sum() if 'Gain_Loss_Value' in df.columns else (df['Market_Value'].sum() - df['Cost_Value'].sum())
         total_cost = df['Cost_Value'].sum() if 'Cost_Value' in df.columns else 1
         gl_pct = (gl_val / total_cost * 100) if total_cost != 0 else 0
-        
         m2.metric("Total Gain/Loss", f"{gl_val:,.2f} THB", f"{gl_pct:.2f}%")
-        
         m3.metric("Avg Debt (D/E)", f"{df['DE'].mean():.2f}")
         m4.metric("Total Holdings", f"{len(df)} Stocks")
         
         st.markdown("---")
         
-        # Allocation & Returns
         col_left, col_right = st.columns(2)
         with col_left:
             st.subheader("🎯 Sector Allocation")
-            st.plotly_chart(px.pie(df, values='Market_Value', names='Sector', hole=0.5, color_discrete_sequence=px.colors.qualitative.Pastel), use_container_width=True)
+            st.plotly_chart(px.pie(df, values='Market_Value', names='Sector', hole=0.5), use_container_width=True)
         with col_right:
             st.subheader("📊 Individual Returns (%)")
             st.plotly_chart(px.bar(df.sort_values('Gain_Loss_Pct'), x='Gain_Loss_Pct', y='Symbol', orientation='h', color='Gain_Loss_Pct', color_continuous_scale='RdYlGn'), use_container_width=True)
         
         st.markdown("---")
         
-        # Clean data for visualization to prevent Plotly errors (NaN in size/color)
+        # Clean data for visualization
         viz_cols = ['Market_Value', 'Total_Score', 'Price_Position', 'Gain_Loss_Pct', 'RSI', 'DE']
         for col in viz_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         
-        # Advanced Analysis Row
         st.subheader("🔍 Deep Dive: Quality & Risk Analysis")
         chart_col1, chart_col2 = st.columns(2)
-        
         with chart_col1:
-            st.markdown("**1. Financial Health (Debt vs Timing)**")
-            fig_health = px.scatter(
-                df, x='RSI', y='DE', size='Market_Value', color='Gain_Loss_Pct',
-                color_continuous_scale='RdYlGn', text='Symbol', hover_name='Symbol',
-                title="Bottom-Left = Healthy (Low Debt + Fair Price)",
-                labels={'DE': 'D/E Ratio', 'RSI': 'RSI Indicator'}
-            )
-            fig_health.add_hline(y=1.5, line_dash="dash", line_color="red")
-            fig_health.add_vline(x=30, line_dash="dash", line_color="green")
-            st.plotly_chart(fig_health, use_container_width=True)
-            
+            st.plotly_chart(px.scatter(df, x='RSI', y='DE', size='Market_Value', color='Gain_Loss_Pct', color_continuous_scale='RdYlGn', text='Symbol', title="Debt vs Timing"), use_container_width=True)
         with chart_col2:
-            st.markdown("**2. Value vs Position (Quality vs Price Level)**")
-            fig_value = px.scatter(
-                df, x='Price_Position', y='Total_Score', size='Market_Value', color='Gain_Loss_Pct',
-                color_continuous_scale='RdYlGn', text='Symbol', hover_name='Symbol',
-                title="Top-Left = Best Zone (High Quality + Low Price)",
-                labels={'Total_Score': 'Total Score (Quality)', 'Price_Position': 'Price Position (%)'}
-            )
-            fig_value.add_vline(x=30, line_dash="dash", line_color="green", annotation_text="Cheap")
-            fig_value.add_hline(y=70, line_dash="dash", line_color="blue", annotation_text="High Quality")
-            st.plotly_chart(fig_value, use_container_width=True)
+            st.plotly_chart(px.scatter(df, x='Price_Position', y='Total_Score', size='Market_Value', color='Gain_Loss_Pct', color_continuous_scale='RdYlGn', text='Symbol', title="Quality vs Price Level"), use_container_width=True)
 
         st.subheader("📋 Holding Details")
-        st.dataframe(df[['Symbol', 'Sector', 'Quantity', 'Price', 'High_52W', 'Low_52W', 'Price_Position', 'Gain_Loss_Pct', 'Total_Score', 'Advice']].style.background_gradient(subset=['Total_Score'], cmap='RdYlGn'))
+        
+        def highlight_zones(row):
+            styles = [''] * len(row)
+            price = row['Price']
+            advice = row['Advice']
+            e_high = row.get('Entry_Zone_High', -1)
+            e_low = row.get('Entry_Zone_Low', -1)
+            x_high = row.get('Exit_Zone_High', -1)
+            x_low = row.get('Exit_Zone_Low', -1)
 
-# --- MODE 2: SCREENER ---
+            if advice in ["Buy More", "Accumulate"] and x_low <= price <= x_high:
+                return ['background-color: #f8d7da; color: #721c24; font-weight: bold'] * len(row)
+            if advice in ["Buy More", "Accumulate"] and e_low <= price <= e_high:
+                return ['background-color: #d4edda; color: #155724; font-weight: bold'] * len(row)
+            if x_low <= price <= x_high:
+                return ['background-color: #fff3cd; color: #856404; font-weight: bold'] * len(row)
+            return styles
+
+        detail_cols = ['Symbol', 'Trend_Status', 'Total_Score', 'Advice', 'Target_Action', 'Upside_Pct', 'RRR', 'Price', 'Entry_Zone', 'Exit_Zone', 'Stop_Loss', 'Gain_Loss_Pct']
+        st.dataframe(
+            df.style.apply(highlight_zones, axis=1)
+            .background_gradient(subset=['Total_Score'], cmap='RdYlGn')
+            .background_gradient(subset=['RRR'], cmap='YlGn')
+            .format({'Gain_Loss_Pct': '{:.2f}%', 'Total_Score': '{:.1f}', 'Upside_Pct': '{:.1f}%', 'RRR': '{:.2f}'}),
+            column_order=detail_cols
+        )
+
+# --- MODE 2: SCREENER (RESTORED) ---
 elif view_mode == "Stock Screener":
     st.title("🔍 Multi-Factor Stock Screener")
     
@@ -156,7 +170,6 @@ elif view_mode == "Stock Screener":
     pos_range = st.sidebar.slider("Price Position Range (%)", 0, 100, (0, 100))
     selected_sectors = st.sidebar.multiselect("Select Sectors:", market_df['Sector'].unique(), default=market_df['Sector'].unique())
     
-    # Apply Filtering
     f_df = market_df[
         (market_df['Total_Score'] >= min_score) & 
         (market_df['DE'] <= max_de) & 
@@ -179,7 +192,7 @@ elif view_mode == "Stock Screener":
     st.subheader("🏆 Screened Stock List")
     st.dataframe(f_df[['Symbol', 'Sector', 'Price', 'High_52W', 'Low_52W', 'Price_Position', 'Total_Score', 'Yield', 'ROE', 'DE', 'RSI', 'Rationale']])
 
-# --- MODE 3: SECTOR ANALYSIS ---
+# --- MODE 3: SECTOR ANALYSIS (RESTORED) ---
 else:
     st.title("🏢 Sector Benchmark Analysis")
     

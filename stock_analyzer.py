@@ -103,7 +103,57 @@ def clean_and_analyze_stocks(input_file="siamchart_raw.csv", output_file="recomm
         (df['Relative_Quality_Score'] * 0.30)
     )
 
-    # Step 4: Filtering & Rationale
+    # Step 4: Smart Price Zones (Entry/Exit)
+    print("Calculating Smart Price Zones & Volume Analysis...")
+    # Entry Zone: 52W Low to 52W Low + 5%
+    df['Entry_Zone_Low'] = df['Low_52W']
+    df['Entry_Zone_High'] = df['Low_52W'] * 1.05
+    
+    # Exit Zone: 52W High - 3% to 52W High
+    df['Exit_Zone_Low'] = df['High_52W'] * 0.97
+    df['Exit_Zone_High'] = df['High_52W']
+
+    # Volume Analysis
+    df['Volume_Ratio'] = df.apply(lambda r: r['Volume'] / r['Avg_Vol_10D'] if r['Avg_Vol_10D'] > 0 else 0, axis=1)
+
+    # Capital Protection (Stop Loss)
+    df['Stop_Loss'] = df['Low_52W'] * 0.95
+
+    # Upside & RRR Analysis
+    def calculate_rrr(row):
+        price = row['Price']
+        target = row['Exit_Zone_Low']
+        sl = row['Stop_Loss']
+        
+        reward = target - price
+        risk = price - sl
+        
+        upside = (reward / price * 100) if price > 0 else 0
+        rrr = (reward / risk) if risk > 0 else 5.0 # High RRR if price is at/below SL
+        return pd.Series([upside, rrr])
+
+    df[['Upside_Pct', 'RRR']] = df.apply(calculate_rrr, axis=1)
+
+    # Break-even / Recovery Analysis
+    # Formula: (1 / (1 - loss_pct)) - 1
+    def calculate_recovery(row):
+        # We'll calculate this specifically in main.py where we have actual Gain/Loss Pct
+        # Here we just prepare the column
+        return 0.0
+    
+    df['Recovery_Pct'] = 0.0
+
+    # Trend Status Analysis
+    def get_trend_status(row):
+        rsi, pos = row['RSI'], row['Price_Position']
+        if rsi > 55 and pos > 50: return "Bullish 📈"
+        elif rsi < 45 and pos < 40: return "Bearish 📉"
+        elif 45 <= rsi <= 55: return "Sideways ➡️"
+        else: return "Weak Trend ⚠️"
+    
+    df['Trend_Status'] = df.apply(get_trend_status, axis=1)
+
+    # Step 5: Filtering & Rationale
     recommendations = df.dropna(subset=['PE', 'ROE', 'Yield', 'DE'])
     recommendations = recommendations.sort_values(by='Total_Score', ascending=False)
     
@@ -114,6 +164,8 @@ def clean_and_analyze_stocks(input_file="siamchart_raw.csv", output_file="recomm
         if row['DE'] < 1.0: reasons.append("Strong balance sheet")
         if row['RSI'] < 35: reasons.append("Technical entry point")
         if row['Yield'] > row['Sector_Yield']: reasons.append("High relative dividend")
+        if row['Price'] <= row['Entry_Zone_High']: reasons.append("Within Entry Zone")
+        if row['Volume_Ratio'] > 2.0: reasons.append(f"Volume Spike ({row['Volume_Ratio']:.1f}x)")
         return ", ".join(reasons) if reasons else "Balanced performance"
 
     recommendations['Rationale'] = recommendations.apply(get_rationale, axis=1)
