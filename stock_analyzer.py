@@ -153,9 +153,10 @@ def clean_and_analyze_stocks(input_file="siamchart_raw.csv", output_file="recomm
     
     df['Trend_Status'] = df.apply(get_trend_status, axis=1)
 
-    # Step 5: Filtering & Rationale
-    recommendations = df.dropna(subset=['PE', 'ROE', 'Yield', 'DE'])
-    recommendations = recommendations.sort_values(by='Total_Score', ascending=False)
+    # Step 5: Rationale & Sorting
+    # We no longer drop stocks missing data here, to allow them to show up in the screener
+    # but we will handle NaNs during scoring.
+    recommendations = df.sort_values(by='Total_Score', ascending=False)
     
     def get_rationale(row):
         reasons = []
