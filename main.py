@@ -104,10 +104,21 @@ def main():
                 
                 def get_advice(row):
                     if pd.isna(row['Total_Score']): return "No Data"
-                    score, gl = row['Total_Score'], row['Gain_Loss_Pct']
-                    if score >= 70: return "Buy More" if gl < 0 else "Hold"
-                    elif score >= 45: return "Wait/Hold"
-                    else: return "Sell" if gl > 0 else "Reduce/Cut"
+                    score = row['Total_Score']
+                    gl = row['Gain_Loss_Pct']
+                    pos = row['Price_Position']
+                    
+                    if score >= 70:
+                        if gl < 0:
+                            return "Buy More" # หุ้นดี ราคาลง = เก็บเพิ่ม (ถัวล่าง)
+                        elif pos < 40: 
+                            return "Accumulate" # หุ้นดี มีกำไร แต่ราคายังอยู่โซนล่าง = ทยอยสะสมเพิ่ม
+                        else:
+                            return "Hold" # หุ้นดี มีกำไร แต่ราคาเริ่มสูง = ถือรันกำไร
+                    elif score >= 45:
+                        return "Wait/Hold"
+                    else:
+                        return "Sell" if gl > 0 else "Reduce/Cut"
 
                 merged['Advice'] = merged.apply(get_advice, axis=1)
                 
