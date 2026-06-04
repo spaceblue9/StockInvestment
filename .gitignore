@@ -1,4 +1,5 @@
 __pycache__/
+node_modules/
 *.pyc
 *.pyo
 *.pyd
@@ -20,3 +21,10 @@ coverage.xml
 *.csv
 *.png
 watchlist*.txt
+data/uploads/*
+data/outputs/*
+data/app-state.json
+data/audit-events.ndjson
+!data/uploads/.gitkeep
+!data/outputs/.gitkeep
+.npm-cache/

@@ -1,0 +1,25 @@
+{
+  "name": "thai-stock-investment-web",
+  "version": "0.1.0",
+  "description": "Node.js web app migration for the Thai stock investment analysis system.",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "check": "node --check src/server.js",
+    "compare:python": "node scripts/comparePythonOutputs.js",
+    "test:tenant-access": "node scripts/tenantAccessRegression.js",
+    "test:subscription-lifecycle": "node scripts/subscriptionLifecycleRegression.js",
+    "test:storage-readiness": "node scripts/storageReadinessRegression.js",
+    "test:state-repository": "node scripts/stateRepositoryRegression.js",
+    "test:audit-trail": "node scripts/auditTrailRepositoryRegression.js",
+    "test-regression": "npm run check && npm run test:tenant-access && npm run test:subscription-lifecycle && npm run test:storage-readiness && npm run test:state-repository && npm run test:audit-trail && npm run compare:python",
+    "ci:quality": "npm run test-regression && npm audit --audit-level=high"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "express": "^4.19.2",
+    "multer": "^2.1.1"
+  }
+}

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>StockFlix Investor Studio</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand-block">
+        <div class="brand-mark">SF</div>
+        <div>
+          <p class="eyebrow">Subscription Investment Intelligence</p>
+          <h1>StockFlix Investor Studio</h1>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span id="healthStatus" class="status-pill">Checking</span>
+        <button id="logoutButton" class="ghost-button" type="button" hidden>Sign out</button>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <aside class="left-rail">
+        <section id="authPanel" class="panel auth-panel">
+          <p class="eyebrow">Member Access</p>
+          <h2>เข้าสู่ระบบเพื่อเริ่มดูแลพอร์ต</h2>
+          <p class="muted">ออกแบบสำหรับผู้เริ่มต้นลงทุน ให้เห็นภาพรวม ความเสี่ยง และแผนปฏิบัติแบบอ่านง่าย</p>
+          <form id="authForm">
+            <label id="nameField">
+              Name
+              <input name="name" autocomplete="name" placeholder="Your name">
+            </label>
+            <label>
+              Email
+              <input name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+            </label>
+            <label>
+              Password
+              <input name="password" type="password" autocomplete="current-password" minlength="8" placeholder="Minimum 8 characters" required>
+            </label>
+            <button id="authSubmit" type="submit">Create account</button>
+          </form>
+          <button id="authModeButton" class="link-button" type="button">I already have an account</button>
+          <p id="authMessage" class="muted"></p>
+        </section>
+
+        <section id="accountPanel" class="panel account-panel" hidden>
+          <p class="eyebrow">Your Plan</p>
+          <h2 id="accountName">Investor</h2>
+          <div id="subscriptionBadge" class="subscription-badge">Pro Trial</div>
+          <div id="subscriptionDetails" class="small-stack"></div>
+        </section>
+
+        <section class="panel">
+          <p class="eyebrow">Run Analysis</p>
+          <h2>Upload portfolio</h2>
+          <form id="analysisForm">
+            <label>
+              Watchlist
+              <input type="file" name="watchlist" accept=".txt">
+            </label>
+            <label>
+              Portfolio
+              <input type="file" name="portfolio" accept=".xlsx,.xls">
+            </label>
+            <button type="submit">Analyze my portfolio</button>
+          </form>
+          <p id="runMessage" class="muted">Sign in, upload files, then run your analysis.</p>
+        </section>
+
+        <section class="panel pricing-panel">
+          <p class="eyebrow">Monthly Plans</p>
+          <div id="plansList" class="plans-list"></div>
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <section class="hero-panel">
+          <div>
+            <p class="eyebrow">For first-time investors</p>
+            <h2>เปลี่ยนไฟล์พอร์ตให้เป็นแผนลงทุนที่อ่านรู้เรื่อง</h2>
+            <p class="muted">ระบบช่วยสรุปมูลค่าพอร์ต หุ้นที่ต้องระวัง จุดซื้อขาย ความคุ้มค่า และกลุ่มอุตสาหกรรมที่พอร์ตคุณถืออยู่</p>
+          </div>
+          <div id="customerSnapshot" class="snapshot-card">
+            <span>No portfolio saved yet</span>
+            <strong>Run analysis to create your first snapshot.</strong>
+          </div>
+        </section>
+
+        <section class="panel dashboard-panel">
+          <div class="section-title">
+            <div>
+              <p class="eyebrow">Command Center</p>
+              <h2>Investment Dashboard</h2>
+            </div>
+            <div class="view-grid">
+              <button type="button" data-view="portfolio">Portfolio</button>
+              <button type="button" data-view="onboarding">Guide</button>
+              <button type="button" data-view="screener">Screener</button>
+              <button type="button" data-view="sector">Sector</button>
+              <button type="button" data-view="simulation">Simulation</button>
+              <button type="button" data-view="business">Business</button>
+            </div>
+          </div>
+          <div id="viewOutput" class="output-box">Sign in and run an analysis to begin.</div>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
