@@ -32,8 +32,11 @@ const state = {
   teamUsers: [],
   policy: null,
   auditEvents: [],
+  approvalRequests: [],
   organizations: [],
   tenantScope: null,
+  operationalReadiness: null,
+  entitlementErrors: {},
 };
 
 authForm.addEventListener("submit", submitAuth);
@@ -46,6 +49,12 @@ document.querySelectorAll("[data-view]").forEach((button) => {
     renderActiveView();
   });
 });
+document.addEventListener("click", (event) => {
+  const upgradeButton = event.target.closest("[data-upgrade-plan]");
+  if (upgradeButton) {
+    checkoutPlan(upgradeButton.dataset.upgradePlan);
+  }
+});
 
 await initialize();
 
@@ -54,7 +63,7 @@ async function initialize() {
   renderAuthState();
   renderPlans();
   if (state.user) {
-    await Promise.all([loadSavedPortfolio(), loadInvestorProfile(), loadBillingHistory(), loadPaymentSessions(), loadBusinessMetrics(), loadTeamUsers(), loadOrganizations(), loadAuditEvents(), loadTenantScope()]);
+    await Promise.all([loadSavedPortfolio(), loadInvestorProfile(), loadBillingHistory(), loadPaymentSessions(), loadBusinessMetrics(), loadTeamUsers(), loadOrganizations(), loadAuditEvents(), loadApprovalRequests(), loadTenantScope()]);
     renderAuthState();
   }
   renderActiveView();
@@ -105,6 +114,7 @@ async function loadInvestorProfile() {
 async function loadBusinessMetrics() {
   if (!canViewBusinessMetrics()) {
     state.businessMetrics = null;
+    state.operationalReadiness = null;
     return;
   }
 
@@ -112,10 +122,28 @@ async function loadBusinessMetrics() {
   const data = await response.json();
   if (data.ok) {
     state.businessMetrics = data.metrics;
+    await loadOperationalReadiness();
     return;
   }
 
   state.businessMetrics = null;
+  state.operationalReadiness = null;
+}
+
+async function loadOperationalReadiness() {
+  if (!canViewBusinessMetrics()) {
+    state.operationalReadiness = null;
+    return;
+  }
+
+  const response = await fetch("/api/ops/readiness");
+  const data = await response.json();
+  if (data.ok) {
+    state.operationalReadiness = data.readiness;
+    return;
+  }
+
+  state.operationalReadiness = null;
 }
 
 async function loadBillingHistory() {
@@ -149,6 +177,19 @@ async function loadAuditEvents() {
   const data = await response.json();
   if (data.ok) {
     state.auditEvents = data.events || [];
+  }
+}
+
+async function loadApprovalRequests() {
+  if (!state.user) {
+    state.approvalRequests = [];
+    return;
+  }
+
+  const response = await fetch("/api/approvals?limit=60");
+  const data = await response.json();
+  if (data.ok) {
+    state.approvalRequests = data.requests || [];
   }
 }
 
@@ -221,7 +262,7 @@ async function submitAuth(event) {
   authMessage.textContent = "";
   renderAuthState();
   renderPlans();
-  await Promise.all([loadSavedPortfolio(), loadInvestorProfile(), loadBillingHistory(), loadPaymentSessions(), loadBusinessMetrics(), loadTeamUsers(), loadOrganizations(), loadAuditEvents(), loadTenantScope()]);
+  await Promise.all([loadSavedPortfolio(), loadInvestorProfile(), loadBillingHistory(), loadPaymentSessions(), loadBusinessMetrics(), loadTeamUsers(), loadOrganizations(), loadAuditEvents(), loadApprovalRequests(), loadTenantScope()]);
   renderAuthState();
   renderActiveView();
 }
@@ -237,8 +278,10 @@ async function logout() {
   state.teamUsers = [];
   state.policy = null;
   state.auditEvents = [];
+  state.approvalRequests = [];
   state.organizations = [];
   state.tenantScope = null;
+  state.entitlementErrors = {};
   state.portfolioRows = [];
   state.recommendations = [];
   renderAuthState();
@@ -257,7 +300,7 @@ function renderAuthState() {
   authPanel.hidden = signedIn;
   accountPanel.hidden = !signedIn;
   logoutButton.hidden = !signedIn;
-  businessViewButton.hidden = !canViewWorkspace();
+  businessViewButton.hidden = !canSeeWorkspaceNav();
   nameField.hidden = state.authMode === "login";
   authSubmit.textContent = state.authMode === "register" ? "Create account" : "Sign in";
   authModeButton.textContent = state.authMode === "register"
@@ -269,15 +312,20 @@ function renderAuthState() {
   }
 
   const subscription = state.user.subscription || {};
+  const entitlements = state.user.entitlements || {};
   const latestBillingEvent = state.billingEvents[0];
   const latestPaymentSession = state.paymentSessions[0];
   const tenantScope = state.tenantScope;
+  const pendingApprovalCount = state.approvalRequests.filter((request) => request.status === "pending").length;
   accountName.textContent = state.user.name || "Investor";
   subscriptionBadge.textContent = `${subscription.plan || "Pro"} ${subscription.status || "active"}`;
   subscriptionDetails.innerHTML = `
     <span>Role: ${escapeHtml(state.user.role || "customer")}</span>
+    ${pendingApprovalCount ? `<span>Approvals pending: ${formatNumber(pendingApprovalCount)}</span>` : ""}
     ${tenantScope ? `<span>Scope: ${formatNumber(tenantScope.visibleOrganizationCount || 0)} workspace(s), ${formatNumber(tenantScope.visibleUserCount || 0)} user(s)</span>` : ""}
     <span>${money(subscription.priceThb || 0)} / month</span>
+    <span>Plan access: ${formatNumber((entitlements.effectiveFeatures || []).length)} feature(s)</span>
+    ${(entitlements.lockedFeatures || []).length ? `<span>Upgrade unlocks: ${formatNumber(entitlements.lockedFeatures.length)} feature(s)</span>` : ""}
     <span>Renewal: ${formatDate(subscription.renewsAt)}</span>
     <span>Billing: ${escapeHtml(subscription.provider || "trial")}</span>
     ${latestPaymentSession ? `<span>Payment: ${escapeHtml(latestPaymentSession.status)} · ${escapeHtml(latestPaymentSession.provider)}</span>` : ""}
@@ -293,13 +341,18 @@ function renderPlans() {
     <div class="plan-card ${plan.highlighted ? "highlighted" : ""}">
       <strong>${escapeHtml(plan.name)} · ${money(plan.priceThb)} / month</strong>
       <span class="muted">${escapeHtml(plan.billing)}</span>
+      <p class="plan-meta">${escapeHtml(plan.bestFor || "")}</p>
+      <div class="plan-tags">
+        <span>${formatNumber((plan.entitlements || []).length)} features</span>
+        <span>${formatNumber(plan.limits?.clientWorkspaces || 0)} client workspaces</span>
+      </div>
       <ul>${(plan.features || []).map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}</ul>
       <button class="plan-action" type="button" data-plan-id="${escapeHtml(plan.id)}"${state.user && currentPlanId === plan.id && subscriptionStatus === "active" ? " disabled" : ""}>
         ${!state.user ? "Sign in to subscribe" : currentPlanId === plan.id && subscriptionStatus === "active" ? "Current plan" : currentPlanId === plan.id ? `Activate ${escapeHtml(plan.name)}` : `Switch to ${escapeHtml(plan.name)}`}
       </button>
     </div>
   `).join("");
-  plansList.insertAdjacentHTML("afterbegin", `<p id="billingMessage" class="muted">Choose a monthly plan to create a local payment session and simulate a gateway webhook.</p>`);
+  plansList.insertAdjacentHTML("afterbegin", `<p id="billingMessage" class="muted">Choose a monthly plan to create a payment session. Local mode completes instantly; external providers return a checkout link.</p>`);
   plansList.querySelectorAll("[data-plan-id]").forEach((button) => {
     button.addEventListener("click", () => checkoutPlan(button.dataset.planId));
   });
@@ -312,7 +365,7 @@ async function checkoutPlan(planId) {
     return;
   }
 
-  billingMessage.textContent = "Creating payment session and waiting for local gateway webhook...";
+  billingMessage.textContent = "Creating payment session...";
   plansList.querySelectorAll("[data-plan-id]").forEach((button) => {
     button.disabled = true;
   });
@@ -335,13 +388,22 @@ async function checkoutPlan(planId) {
   state.paymentSessions = [data.paymentSession, ...state.paymentSessions].filter(Boolean);
   renderAuthState();
   renderPlans();
-  document.querySelector("#billingMessage").textContent = data.duplicate
-    ? `Payment webhook was already processed for ${data.user.subscription?.plan || "plan"}.`
-    : `Payment succeeded via local gateway. Subscribed to ${data.user.subscription?.plan || "plan"}.`;
-  await Promise.all([loadBillingHistory(), loadPaymentSessions(), loadBusinessMetrics(), loadAuditEvents(), loadTenantScope()]);
+  const updatedBillingMessage = document.querySelector("#billingMessage");
+  if (data.paymentSession?.requiresRedirect && data.paymentSession?.checkoutUrl) {
+    updatedBillingMessage.innerHTML = `Payment session created with ${escapeHtml(data.paymentSession.provider)}. <a href="${escapeHtml(data.paymentSession.checkoutUrl)}" target="_blank" rel="noopener">Open secure checkout</a>`;
+  } else {
+    updatedBillingMessage.textContent = data.duplicate
+      ? `Payment webhook was already processed for ${data.user.subscription?.plan || "plan"}.`
+      : `Payment succeeded via local gateway. Subscribed to ${data.user.subscription?.plan || "plan"}.`;
+  }
+  await Promise.all([loadBillingHistory(), loadPaymentSessions(), loadBusinessMetrics(), loadAuditEvents(), loadApprovalRequests(), loadTenantScope()]);
   renderAuthState();
   if (state.activeView === "business") {
     renderBusinessView();
+  } else if (state.activeView === "approvals") {
+    renderApprovalsView();
+  } else {
+    renderActiveView();
   }
 }
 
@@ -385,7 +447,7 @@ async function runAnalysis(event) {
     state.recommendations = data.recommendations || [];
     state.portfolioRows = data.portfolioRows || [];
     state.savedSnapshot = data.customerSnapshot || null;
-    await Promise.all([loadBusinessMetrics(), loadAuditEvents(), loadTenantScope()]);
+    await Promise.all([loadBusinessMetrics(), loadAuditEvents(), loadApprovalRequests(), loadTenantScope()]);
     renderAuthState();
     state.activeView = state.portfolioRows.length ? "portfolio" : "screener";
     renderSnapshot();
@@ -436,7 +498,22 @@ function renderActiveView() {
     return;
   }
 
+  if (state.activeView === "approvals") {
+    if (["owner", "admin", "advisor"].includes(state.user?.role) && !hasEntitlement("approval.workflow")) {
+      viewOutput.innerHTML = renderLockedFeature("approval.workflow");
+      return;
+    }
+
+    renderApprovalsView();
+    return;
+  }
+
   if (state.activeView === "sector") {
+    if (!hasEntitlement("sector.analysis")) {
+      viewOutput.innerHTML = renderLockedFeature("sector.analysis");
+      return;
+    }
+
     renderSectorView();
     return;
   }
@@ -448,12 +525,17 @@ function renderActiveView() {
 
   if (state.activeView === "business") {
     if (!canViewWorkspace()) {
-      state.activeView = "portfolio";
-      renderPortfolioView();
+      const featureId = hasRolePermission("business_metrics") ? "business.metrics" : "client.workspace";
+      viewOutput.innerHTML = renderLockedFeature(featureId);
       return;
     }
 
     renderBusinessView();
+    return;
+  }
+
+  if (!hasEntitlement("simulation.run")) {
+    viewOutput.innerHTML = renderLockedFeature("simulation.run");
     return;
   }
 
@@ -620,7 +702,7 @@ async function saveProfile(event) {
   }
 
   state.profile = data.profile;
-  await Promise.all([loadBusinessMetrics(), loadAuditEvents(), loadTenantScope()]);
+  await Promise.all([loadBusinessMetrics(), loadAuditEvents(), loadApprovalRequests(), loadTenantScope()]);
   renderAuthState();
   renderOnboardingView();
 }
@@ -628,7 +710,7 @@ async function saveProfile(event) {
 function renderBusinessView() {
   if (canViewBusinessMetrics() && !state.businessMetrics) {
     viewOutput.innerHTML = `<p class="muted">Loading business metrics...</p>`;
-    Promise.all([loadBusinessMetrics(), loadTeamUsers(), loadOrganizations()])
+    Promise.all([loadBusinessMetrics(), loadTeamUsers(), loadOrganizations(), loadApprovalRequests()])
       .then(renderBusinessView)
       .catch(() => {
         viewOutput.innerHTML = `<p class="muted">Business metrics are not available for this account.</p>`;
@@ -647,6 +729,7 @@ function renderBusinessView() {
       </div>
       ${renderTenantScopeSummary()}
       ${renderWorkspaceSummary()}
+      ${renderApprovalWorkspace()}
       ${renderTeamWorkspace()}
       <h3>Recent payments</h3>
       ${renderPaymentSessions()}
@@ -655,10 +738,12 @@ function renderBusinessView() {
     `;
     attachTeamActions();
     attachOrganizationActions();
+    attachApprovalActions();
     return;
   }
 
   const metrics = state.businessMetrics;
+  const readiness = state.operationalReadiness;
   const planRows = Object.entries(metrics.usersByPlan || {}).map(([plan, users]) => ({
     Plan: plan,
     Users: users,
@@ -718,6 +803,9 @@ function renderBusinessView() {
       ${metric("Platform Members", metrics.platformMembers || 0)}
       ${metric("Pending Payments", metrics.pendingPaymentSessions || 0)}
       ${metric("Failed Payments", metrics.failedPaymentSessions || 0)}
+      ${metric("Pending Approvals", metrics.pendingApprovalRequests || 0)}
+      ${metric("Approved Approvals", metrics.approvedApprovalRequests || 0)}
+      ${metric("Rejected Approvals", metrics.rejectedApprovalRequests || 0)}
       ${metric("Webhook Events", metrics.webhookEvents || 0)}
       ${metric("Verified Signatures", metrics.verifiedWebhookEvents || 0)}
       ${metric("Rejected Webhooks", metrics.rejectedWebhookEvents || 0)}
@@ -727,6 +815,10 @@ function renderBusinessView() {
       ${metric("Last Audit Hash", metrics.auditIntegrity?.lastHashPreview || "-")}
       ${metric("Audit Mirror", metrics.auditTrail?.status || "synced")}
       ${metric("Audit Mirror Gaps", metrics.auditTrail?.missingFromTrailCount || 0)}
+      ${metric("External Audit", metrics.auditTrail?.external?.status || "disabled")}
+      ${metric("External Audit Gaps", metrics.auditTrail?.external?.missingFromExternalCount || 0)}
+      ${metric("Ops Readiness", readiness?.status || "loading")}
+      ${metric("Ops Alerts", readiness?.alerts?.length || 0)}
       ${metric("DB Readiness", metrics.storageReadiness?.status || "ready")}
       ${metric("DB Blockers", metrics.storageReadiness?.blockerCount || 0)}
       ${metric("Schema Version", metrics.storageReadiness?.schemaVersion || "-")}
@@ -737,13 +829,18 @@ function renderBusinessView() {
       <div class="guidance-card"><span>Live usage</span><strong>${metrics.activeSessions || 0} active sessions</strong></div>
       <div class="guidance-card"><span>Workspace model</span><strong>${metrics.tenantMetadata?.totalMissingOrganizationId ? "Some records still need workspace metadata" : "Tenant metadata is attached to critical records"}</strong></div>
       <div class="guidance-card"><span>Webhook security</span><strong>${metrics.webhookSecurity?.secretConfigured ? "Production secret configured" : "Using local demo secret for signed webhook tests"}</strong></div>
+      <div class="guidance-card"><span>Payment gateway</span><strong>${metrics.paymentGateway?.provider || "local_gateway"} · ${metrics.paymentGateway?.configured ? "configured" : "needs config"}</strong></div>
       <div class="guidance-card"><span>Audit trail</span><strong>${metrics.auditIntegrity?.status === "verified" ? "Activity timeline hash chain is verified" : "Audit hash chain needs review"}</strong></div>
       <div class="guidance-card"><span>Audit mirror</span><strong>${metrics.auditTrail?.status === "synced" ? "Append-only audit mirror is synced" : "Audit mirror needs review"}</strong></div>
+      <div class="guidance-card"><span>External audit</span><strong>${metrics.auditTrail?.external?.enabled ? `Provider ${metrics.auditTrail.external.provider} is ${metrics.auditTrail.external.status}` : "External immutable provider is disabled until configured"}</strong></div>
       <div class="guidance-card"><span>Database migration</span><strong>${metrics.storageReadiness?.status === "ready" ? "Local state is ready for database mapping" : "Storage readiness needs review before migration"}</strong></div>
+      <div class="guidance-card"><span>Operational readiness</span><strong>${readiness ? `${readiness.status} · ${readiness.summary?.criticalAlerts || 0} critical · ${readiness.summary?.warningAlerts || 0} warning` : "Loading operational checks"}</strong></div>
     </div>
+    ${renderOperationalReadiness(readiness)}
     ${renderBusinessFunnel(metrics, profileCompletionPct, portfolioAttachPct)}
     ${renderTenantScopeSummary()}
     ${renderWorkspaceSummary(metrics.recentOrganizations || state.organizations)}
+    ${renderApprovalWorkspace(metrics.recentApprovalRequests || state.approvalRequests)}
     <h3>Recent activity</h3>
     ${renderActivityTimeline(metrics.recentAuditEvents || state.auditEvents)}
     <h3>Users by plan</h3>
@@ -762,6 +859,66 @@ function renderBusinessView() {
   `;
   attachTeamActions();
   attachOrganizationActions();
+  attachApprovalActions();
+}
+
+function renderOperationalReadiness(readiness) {
+  if (!readiness) {
+    return `
+      <section class="chart-panel">
+        <h3>Operational readiness</h3>
+        <p class="muted">Operational checks are loading...</p>
+      </section>
+    `;
+  }
+
+  const alerts = readiness.alerts || [];
+  const topAlerts = alerts.slice(0, 6);
+  const alertRows = topAlerts.map((item) => ({
+    Severity: item.severity,
+    Alert: item.title,
+    Action: item.message,
+  }));
+
+  return `
+    <section class="chart-panel">
+      <h3>Operational readiness</h3>
+      <div class="metric-grid">
+        ${metric("Status", readiness.status || "unknown")}
+        ${metric("Critical", readiness.summary?.criticalAlerts || 0)}
+        ${metric("Warnings", readiness.summary?.warningAlerts || 0)}
+        ${metric("Generated", readiness.generatedAt ? new Date(readiness.generatedAt).toLocaleTimeString() : "-")}
+      </div>
+      <div class="ops-alert-grid">
+        ${(topAlerts.length ? topAlerts : [{ severity: "ok", title: "No alerts", message: "Operational readiness checks are clean." }]).map((item) => `
+          <div class="ops-alert-card ${escapeHtml(item.severity)}">
+            <span>${escapeHtml(item.severity)}</span>
+            <strong>${escapeHtml(item.title)}</strong>
+            <p>${escapeHtml(item.message)}</p>
+          </div>
+        `).join("")}
+      </div>
+      ${alertRows.length ? renderTable(alertRows, ["Severity", "Alert", "Action"]) : ""}
+    </section>
+  `;
+}
+
+function renderApprovalsView() {
+  const requests = state.approvalRequests || [];
+  const pending = requests.filter((request) => request.status === "pending").length;
+  const approved = requests.filter((request) => request.status === "approved").length;
+  const rejected = requests.filter((request) => request.status === "rejected").length;
+
+  viewOutput.innerHTML = `
+    <div class="metric-grid">
+      ${metric("Pending", pending)}
+      ${metric("Approved", approved)}
+      ${metric("Rejected", rejected)}
+      ${metric("Visible Requests", requests.length)}
+    </div>
+    ${renderApprovalWorkspace(requests)}
+  `;
+  attachApprovalActions();
 }
 
 function renderScreenerView() {
@@ -770,26 +927,50 @@ function renderScreenerView() {
     return;
   }
 
+  const sectors = uniqueValues(state.recommendations.map((row) => row.Sector || "Unknown"));
+  const trends = uniqueValues(state.recommendations.map((row) => row.Trend_Status || "Unknown"));
   viewOutput.innerHTML = `
     <div class="filter-bar">
       <label>Min Score <input id="minScore" type="number" min="0" max="100" value="0"></label>
       <label>Min RRR <input id="minRrr" type="number" min="0" step="0.1" value="0"></label>
       <label>Max D/E <input id="maxDe" type="number" min="0" step="0.1" value="10"></label>
+      <label>Sector <select id="sectorFilter">
+        <option value="">All sectors</option>
+        ${sectors.map((sector) => option(sector, sector, "")).join("")}
+      </select></label>
+      <label>Trend <select id="trendFilter">
+        <option value="">All trends</option>
+        ${trends.map((trend) => option(trend, trend, "")).join("")}
+      </select></label>
     </div>
+    <p id="screenerFilterStatus" class="muted"></p>
     <div id="screenerTable"></div>
   `;
 
   const minScore = document.querySelector("#minScore");
   const minRrr = document.querySelector("#minRrr");
   const maxDe = document.querySelector("#maxDe");
+  const sectorFilter = document.querySelector("#sectorFilter");
+  const trendFilter = document.querySelector("#trendFilter");
+  const filterStatus = document.querySelector("#screenerFilterStatus");
   const renderFiltered = () => {
     const rows = state.recommendations
       .filter((row) => numberValue(row.Total_Score) >= numberValue(minScore.value))
       .filter((row) => numberValue(row.RRR) >= numberValue(minRrr.value))
       .filter((row) => numberValue(row.DE) <= numberValue(maxDe.value))
+      .filter((row) => !sectorFilter.value || (row.Sector || "Unknown") === sectorFilter.value)
+      .filter((row) => !trendFilter.value || (row.Trend_Status || "Unknown") === trendFilter.value)
       .slice(0, 100);
+    const activeFilters = [
+      sectorFilter.value ? `sector ${sectorFilter.value}` : "",
+      trendFilter.value ? `trend ${trendFilter.value}` : "",
+      `score >= ${formatNumber(minScore.value)}`,
+      `RRR >= ${formatNumber(minRrr.value)}`,
+      `D/E <= ${formatNumber(maxDe.value)}`,
+    ].filter(Boolean);
+    filterStatus.textContent = `${formatNumber(rows.length)} stocks match ${activeFilters.join(" · ")}. Click a sector bar to drill down.`;
     document.querySelector("#screenerTable").innerHTML = `
-      ${renderScreenerInsights(rows)}
+      ${renderScreenerInsights(rows, { selectedSector: sectorFilter.value })}
       ${renderTable(rows, [
         "Symbol",
         "Sector",
@@ -804,9 +985,16 @@ function renderScreenerView() {
         "Rationale",
       ])}
     `;
+    document.querySelectorAll("[data-sector-filter]").forEach((button) => {
+      button.addEventListener("click", () => {
+        sectorFilter.value = button.dataset.sectorFilter || "";
+        renderFiltered();
+      });
+    });
   };
 
   [minScore, minRrr, maxDe].forEach((input) => input.addEventListener("input", renderFiltered));
+  [sectorFilter, trendFilter].forEach((input) => input.addEventListener("change", renderFiltered));
   renderFiltered();
 }
 
@@ -955,7 +1143,7 @@ function renderPortfolioVisuals(rows) {
   `;
 }
 
-function renderScreenerInsights(rows) {
+function renderScreenerInsights(rows, options = {}) {
   if (!rows.length) {
     return "";
   }
@@ -969,7 +1157,11 @@ function renderScreenerInsights(rows) {
       value: numberValue(row.Total_Score),
       caption: `RRR ${formatNumber(row.RRR)} · ${row.Sector || "Unknown"}`,
     }));
-  const sectorQuality = breakdownBy(rows, (row) => row.Sector || "Unknown", () => 1, 6);
+  const sectorQuality = breakdownBy(rows, (row) => row.Sector || "Unknown", () => 1)
+    .map((item) => ({
+      ...item,
+      selected: item.label === options.selectedSector,
+    }));
 
   return `
     <div class="visual-grid two-columns">
@@ -991,7 +1183,7 @@ function renderScreenerInsights(rows) {
       </section>
       <section class="chart-panel">
         <h3>Sector count</h3>
-        ${renderBarList(sectorQuality, { valueFormatter: (value) => `${formatNumber(value)} stocks` })}
+        ${renderBarList(sectorQuality, { action: "sector-filter", valueFormatter: (value) => `${formatNumber(value)} stocks` })}
       </section>
     </div>
   `;
@@ -1079,6 +1271,7 @@ function renderTenantScopeSummary(scope = state.tenantScope) {
     ["Billing events", dataScope.billingEvents],
     ["Payment sessions", dataScope.paymentSessions],
     ["Webhook events", dataScope.paymentWebhookEvents],
+    ["Approval requests", dataScope.approvalRequests],
     ["Audit events", dataScope.auditEvents],
   ].map(([record, visible]) => ({
     Record: record,
@@ -1245,6 +1438,89 @@ function renderTeamWorkspace() {
   `;
 }
 
+function renderApprovalWorkspace(requests = state.approvalRequests) {
+  const customerOptions = state.teamUsers.filter((user) => user.role === "customer");
+  const canCreate = canCreateApprovalRequests();
+  const createForm = canCreate
+    ? `
+      <form id="approvalForm" class="inline-form approval-form">
+        <label>Customer <select name="customerId" required>
+          <option value="">Select customer</option>
+          ${customerOptions.map((user) => option(user.id, `${user.name} (${user.email})`, "")).join("")}
+        </select></label>
+        <label>Title <input name="title" maxlength="100" placeholder="Review AOT rebalance" required></label>
+        <label>Action <select name="actionType">
+          ${["portfolio_review", "rebalance", "buy_plan", "risk_action", "subscription_support", "other"].map((value) => option(value, approvalActionTypeLabel(value), "portfolio_review")).join("")}
+        </select></label>
+        <label>Risk <select name="riskLevel">
+          ${["low", "medium", "high"].map((value) => option(value, value, "medium")).join("")}
+        </select></label>
+        <label>Amount THB <input name="amountThb" type="number" min="0" step="1000" placeholder="0"></label>
+        <label>Summary <input name="summary" maxlength="600" placeholder="Explain why this approval is needed"></label>
+        <button type="submit"${customerOptions.length ? "" : " disabled"}>Request Approval</button>
+      </form>
+      <p id="approvalMessage" class="muted">${customerOptions.length ? "Approval requests are recorded in the activity timeline." : "Assign or create customer accounts before requesting approval."}</p>
+    `
+    : "";
+
+  return `
+    <h3>Client approvals</h3>
+    ${createForm}
+    ${renderApprovalTable(requests)}
+  `;
+}
+
+function renderApprovalTable(requests = state.approvalRequests) {
+  if (!requests.length) {
+    return `<p class="muted">No approval requests yet.</p>`;
+  }
+
+  return `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Updated</th>
+            <th>Customer</th>
+            <th>Request</th>
+            <th>Risk</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Requested by</th>
+            <th>Decision</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${requests.map((request) => {
+            const canDecide = request.status === "pending" && request.customerId === state.user?.id;
+            const decisionCell = canDecide
+              ? `
+                <button class="table-action" type="button" data-approval-decision="${escapeHtml(request.id)}" data-decision="approved">Approve</button>
+                <button class="table-action ghost-button" type="button" data-approval-decision="${escapeHtml(request.id)}" data-decision="rejected">Reject</button>
+              `
+              : request.decidedAt
+                ? `${escapeHtml(request.decidedByName || request.decidedByEmail || "-")}<br><span class="muted">${formatDateTime(request.decidedAt)}</span>`
+                : "-";
+
+            return `
+              <tr>
+                <td>${formatDateTime(request.updatedAt || request.createdAt)}</td>
+                <td><strong>${escapeHtml(request.customerName || "Customer")}</strong><br><span class="muted">${escapeHtml(request.customerEmail || "-")}</span></td>
+                <td><strong>${escapeHtml(request.title)}</strong><br><span class="muted">${escapeHtml(approvalActionTypeLabel(request.actionType))} · ${escapeHtml(request.summary || "-")}</span></td>
+                <td>${escapeHtml(request.riskLevel || "medium")}</td>
+                <td>${money(request.amountThb || 0)}</td>
+                <td>${escapeHtml(request.status || "pending")}</td>
+                <td>${escapeHtml(request.requestedByName || request.requestedByEmail || "-")}</td>
+                <td>${decisionCell}</td>
+              </tr>
+            `;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 function renderActivityTimeline(events = state.auditEvents) {
   if (!events.length) {
     return `<p class="muted">No activity recorded yet.</p>`;
@@ -1300,6 +1576,9 @@ function auditActionLabel(action) {
     "payment.webhook_succeeded": "Payment succeeded",
     "payment.webhook_failed": "Payment failed",
     "payment.webhook_rejected": "Webhook rejected",
+    "approval.request_created": "Approval requested",
+    "approval.request_approved": "Approval approved",
+    "approval.request_rejected": "Approval rejected",
   }[action] || action;
 }
 
@@ -1346,6 +1625,10 @@ function summarizeAuditDetails(event) {
     return `${details.eventType || "-"} · ${details.verificationStatus || "rejected"} · ${details.reason || "-"}`;
   }
 
+  if (event.action === "approval.request_created" || event.action === "approval.request_approved" || event.action === "approval.request_rejected") {
+    return `${details.title || "Approval"} · ${details.status || "-"} · ${money(details.amountThb || 0)}`;
+  }
+
   if (event.action === "analysis.run") {
     return `${formatNumber(details.symbols || 0)} symbols · ${formatNumber(details.recommendationCount || 0)} ideas · ${formatNumber(details.portfolioRows || 0)} holdings`;
   }
@@ -1387,6 +1670,71 @@ function attachOrganizationActions() {
   document.querySelectorAll("[data-save-organization]").forEach((button) => {
     button.addEventListener("click", () => updateWorkspace(button.dataset.saveOrganization));
   });
+}
+
+function attachApprovalActions() {
+  const approvalForm = document.querySelector("#approvalForm");
+  if (approvalForm) {
+    approvalForm.addEventListener("submit", createApprovalRequest);
+  }
+
+  document.querySelectorAll("[data-approval-decision]").forEach((button) => {
+    button.addEventListener("click", () => decideApprovalRequest(button.dataset.approvalDecision, button.dataset.decision));
+  });
+}
+
+async function createApprovalRequest(event) {
+  event.preventDefault();
+  const approvalMessage = document.querySelector("#approvalMessage");
+  if (approvalMessage) {
+    approvalMessage.textContent = "Creating approval request...";
+  }
+
+  const payload = Object.fromEntries(new FormData(event.target).entries());
+  const response = await fetch("/api/approvals", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json();
+
+  if (!data.ok) {
+    if (approvalMessage) {
+      approvalMessage.textContent = data.message || "Approval request could not be created.";
+    }
+    return;
+  }
+
+  event.target.reset();
+  await refreshWorkspaceData();
+  renderAfterApprovalChange();
+}
+
+async function decideApprovalRequest(approvalId, decision) {
+  const response = await fetch(`/api/approvals/${encodeURIComponent(approvalId)}/decision`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ decision }),
+  });
+  const data = await response.json();
+
+  if (!data.ok) {
+    viewOutput.insertAdjacentHTML("afterbegin", `<p class="muted">${escapeHtml(data.message || "Approval decision failed.")}</p>`);
+    return;
+  }
+
+  await refreshWorkspaceData();
+  renderAfterApprovalChange();
+}
+
+function renderAfterApprovalChange() {
+  renderAuthState();
+  if (state.activeView === "business") {
+    renderBusinessView();
+    return;
+  }
+
+  renderApprovalsView();
 }
 
 async function createWorkspace(event) {
@@ -1514,7 +1862,7 @@ async function updateUserOrganization(userId) {
 }
 
 async function refreshWorkspaceData(options = {}) {
-  const loaders = [loadBusinessMetrics(), loadTeamUsers(), loadOrganizations(), loadPaymentSessions(), loadAuditEvents(), loadTenantScope()];
+  const loaders = [loadBusinessMetrics(), loadTeamUsers(), loadOrganizations(), loadPaymentSessions(), loadAuditEvents(), loadApprovalRequests(), loadTenantScope()];
   if (options.includeCurrentUser) {
     loaders.push(loadCurrentUser());
   }
@@ -1534,16 +1882,24 @@ function renderBarList(items, options = {}) {
     <div class="bar-list">
       ${items.map((item) => {
         const width = clamp((numberValue(item.value) / max) * 100, 3, 100);
-        return `
-          <div class="bar-row">
+        const rowContent = `
             <div class="bar-row-header">
               <strong>${escapeHtml(item.label)}</strong>
               <span>${escapeHtml(valueFormatter(item.value))}</span>
             </div>
             <div class="bar-track"><div class="bar-fill" style="width: ${width}%"></div></div>
             ${item.caption ? `<p class="muted">${escapeHtml(item.caption)}</p>` : ""}
-          </div>
         `;
+
+        if (options.action === "sector-filter") {
+          return `
+            <button class="bar-row bar-row-button ${item.selected ? "selected" : ""}" type="button" data-sector-filter="${escapeHtml(item.label)}" title="Filter sector ${escapeHtml(item.label)}">
+              ${rowContent}
+            </button>
+          `;
+        }
+
+        return `<div class="bar-row">${rowContent}</div>`;
       }).join("")}
     </div>
   `;
@@ -1614,6 +1970,12 @@ function breakdownBy(rows, labelGetter, valueGetter, limit) {
   return [...visible, { label: "Other", value: otherValue }];
 }
 
+function uniqueValues(values) {
+  return [...new Set(values
+    .map((value) => String(value || "Unknown").trim() || "Unknown"))]
+    .sort((left, right) => left.localeCompare(right));
+}
+
 function actionGroup(row) {
   const text = String(row.Target_Action || row.Advice || "Keep Holding");
   if (/Exit|Sell/i.test(text)) return "Exit/Sell";
@@ -1648,28 +2010,103 @@ function option(value, label, selectedValue) {
   return `<option value="${escapeHtml(value)}"${value === selectedValue ? " selected" : ""}>${escapeHtml(label)}</option>`;
 }
 
+function approvalActionTypeLabel(actionType) {
+  return {
+    portfolio_review: "Portfolio review",
+    rebalance: "Rebalance",
+    buy_plan: "Buy plan",
+    risk_action: "Risk action",
+    subscription_support: "Subscription support",
+    other: "Other",
+  }[actionType] || "Portfolio review";
+}
+
 function canViewWorkspace() {
-  return hasPermission("business_metrics") || hasPermission("team_management") || hasPermission("client_workspace");
+  return canViewBusinessMetrics() || (hasRolePermission("client_workspace") && hasEntitlement("client.workspace"));
+}
+
+function canSeeWorkspaceNav() {
+  return hasRolePermission("business_metrics") || hasRolePermission("team_management") || hasRolePermission("client_workspace");
 }
 
 function canViewBusinessMetrics() {
-  return hasPermission("business_metrics");
+  return hasRolePermission("business_metrics") && hasEntitlement("business.metrics");
 }
 
 function canManageRoles() {
-  return hasPermission("role_management");
+  return hasRolePermission("role_management") && hasEntitlement("role.management");
 }
 
 function canAssignAdvisors() {
-  return hasPermission("advisor_assignment");
+  return hasRolePermission("advisor_assignment") && hasEntitlement("advisor.assignment");
 }
 
 function canManageOrganizations() {
-  return hasPermission("organization_management");
+  return hasRolePermission("organization_management") && hasEntitlement("organization.management");
+}
+
+function canCreateApprovalRequests() {
+  return ["owner", "admin", "advisor"].includes(state.user?.role) && hasEntitlement("approval.workflow");
 }
 
 function hasPermission(permission) {
+  return hasRolePermission(permission);
+}
+
+function hasRolePermission(permission) {
   return Boolean(state.user?.permissions?.includes(permission) || state.policy?.permissions?.includes(permission));
+}
+
+function hasEntitlement(featureId) {
+  return Boolean(state.user?.entitlements?.effectiveFeatures?.includes(featureId));
+}
+
+function featurePolicy(featureId) {
+  const lockedFeature = (state.user?.entitlements?.lockedFeatures || []).find((feature) => feature.id === featureId);
+  if (lockedFeature) {
+    return lockedFeature;
+  }
+
+  for (const plan of state.plans || []) {
+    if ((plan.entitlements || []).includes(featureId)) {
+      return {
+        id: featureId,
+        label: featureId.replaceAll(".", " "),
+        requiredPlanId: plan.id,
+        requiredPlanName: plan.name,
+        description: "",
+      };
+    }
+  }
+
+  return {
+    id: featureId,
+    label: featureId.replaceAll(".", " "),
+    requiredPlanId: "pro",
+    requiredPlanName: "Pro",
+    description: "",
+  };
+}
+
+function renderLockedFeature(featureId) {
+  const feature = featurePolicy(featureId);
+  const plan = state.plans.find((candidate) => candidate.id === feature.requiredPlanId);
+  const currentPlan = state.user?.entitlements?.planName || state.user?.subscription?.plan || "Current plan";
+
+  return `
+    <section class="locked-card">
+      <p class="eyebrow">Upgrade Required</p>
+      <h3>${escapeHtml(feature.label)}</h3>
+      <p class="muted">${escapeHtml(feature.description || `${feature.label} is not included in ${currentPlan}.`)}</p>
+      <div class="metric-grid">
+        ${metric("Current Plan", currentPlan)}
+        ${metric("Required Plan", feature.requiredPlanName || feature.requiredPlanId)}
+        ${metric("Monthly Price", plan ? money(plan.priceThb || 0) : "-")}
+        ${metric("Status", state.user?.entitlements?.status || state.user?.subscription?.status || "-")}
+      </div>
+      <button type="button" data-upgrade-plan="${escapeHtml(feature.requiredPlanId || "pro")}">Upgrade to ${escapeHtml(feature.requiredPlanName || "Pro")}</button>
+    </section>
+  `;
 }
 
 function cssEscape(value) {

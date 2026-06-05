@@ -6,9 +6,11 @@ import {
   businessMetrics,
   checkoutSubscription,
   clearSessionCookie,
+  createApprovalRequest,
   createOrganization,
   createPaymentSession,
   createUser,
+  decideApprovalRequest,
   getAuditEvents,
   getBillingHistory,
   getInvestorProfile,
@@ -17,12 +19,15 @@ import {
   getSessionIdFromRequest,
   getUserFromRequest,
   listOrganizations,
+  listApprovalRequests,
   listWorkspaceUsers,
   loginUser,
   logoutSession,
   moveUserToOrganization,
   processPaymentWebhook,
+  processProviderPaymentWebhook,
   processSignedPaymentWebhook,
+  requirePlanEntitlement,
   rolePolicy,
   saveInvestorProfile,
   setSessionCookie,
@@ -32,6 +37,7 @@ import {
   updateOrganization,
   updateUserRole,
 } from "../services/authService.js";
+import { operationalReadinessReport } from "../services/observabilityService.js";
 
 const router = express.Router();
 
@@ -103,6 +109,7 @@ router.get("/admin/policy", async (req, res) => {
   res.json({
     ok: true,
     policy: rolePolicy(user.role),
+    entitlements: user.entitlements,
   });
 });
 
@@ -122,10 +129,7 @@ router.get("/tenant/scope", async (req, res) => {
       scope: await tenantAccessSummary(user.id),
     });
   } catch (error) {
-    res.status(403).json({
-      ok: false,
-      message: error.message,
-    });
+    sendAuthError(res, error, 403);
   }
 });
 
@@ -233,6 +237,30 @@ router.post("/payment/webhook/local-gateway", async (req, res) => {
   }
 });
 
+router.post("/payment/webhook/provider/:provider", async (req, res) => {
+  try {
+    const result = await processProviderPaymentWebhook(req.params.provider, {
+      rawBody: req.rawBody,
+      body: req.body || {},
+      headers: req.headers || {},
+    });
+    res.json({
+      ok: true,
+      user: result.user,
+      billingEvent: result.billingEvent,
+      paymentSession: result.paymentSession,
+      webhookEvent: result.webhookEvent,
+      duplicate: result.duplicate,
+    });
+  } catch (error) {
+    res.status(400).json({
+      ok: false,
+      message: error.message,
+      webhookEvent: error.webhookEvent || null,
+    });
+  }
+});
+
 router.get("/customer/portfolio", async (req, res) => {
   const user = await getUserFromRequest(req);
   if (!user) {
@@ -243,10 +271,14 @@ router.get("/customer/portfolio", async (req, res) => {
     return;
   }
 
-  res.json({
-    ok: true,
-    snapshot: await getCustomerPortfolioSnapshot(user.id),
-  });
+  try {
+    res.json({
+      ok: true,
+      snapshot: await getCustomerPortfolioSnapshot(user.id),
+    });
+  } catch (error) {
+    sendAuthError(res, error, 403);
+  }
 });
 
 router.get("/customer/billing", async (req, res) => {
@@ -301,10 +333,69 @@ router.get("/audit/events", async (req, res) => {
       }),
     });
   } catch (error) {
-    res.status(403).json({
+    sendAuthError(res, error, 403);
+  }
+});
+
+router.get("/approvals", async (req, res) => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    res.status(401).json({
       ok: false,
-      message: error.message,
+      message: "Please sign in to view approval requests.",
     });
+    return;
+  }
+
+  try {
+    res.json({
+      ok: true,
+      requests: await listApprovalRequests(user.id, {
+        limit: Number(req.query.limit) || 50,
+      }),
+    });
+  } catch (error) {
+    sendAuthError(res, error, 403);
+  }
+});
+
+router.post("/approvals", async (req, res) => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    res.status(401).json({
+      ok: false,
+      message: "Please sign in to create approval requests.",
+    });
+    return;
+  }
+
+  try {
+    res.json({
+      ok: true,
+      request: await createApprovalRequest(user.id, req.body || {}),
+    });
+  } catch (error) {
+    sendAuthError(res, error, 403);
+  }
+});
+
+router.post("/approvals/:approvalId/decision", async (req, res) => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    res.status(401).json({
+      ok: false,
+      message: "Please sign in to decide approval requests.",
+    });
+    return;
+  }
+
+  try {
+    res.json({
+      ok: true,
+      request: await decideApprovalRequest(user.id, req.params.approvalId, req.body || {}),
+    });
+  } catch (error) {
+    sendAuthError(res, error, 403);
   }
 });
 
@@ -324,10 +415,7 @@ router.get("/audit/integrity", async (req, res) => {
       integrity: await auditIntegritySummary(user.id),
     });
   } catch (error) {
-    res.status(403).json({
-      ok: false,
-      message: error.message,
-    });
+    sendAuthError(res, error, 403);
   }
 });
 
@@ -347,10 +435,7 @@ router.get("/audit/trail", async (req, res) => {
       trail: await auditTrailSummary(user.id),
     });
   } catch (error) {
-    res.status(403).json({
-      ok: false,
-      message: error.message,
-    });
+    sendAuthError(res, error, 403);
   }
 });
 
@@ -370,10 +455,7 @@ router.get("/storage/readiness", async (req, res) => {
       storage: await storageReadinessSummary(user.id),
     });
   } catch (error) {
-    res.status(403).json({
-      ok: false,
-      message: error.message,
-    });
+    sendAuthError(res, error, 403);
   }
 });
 
@@ -427,10 +509,44 @@ router.get("/admin/metrics", async (req, res) => {
     return;
   }
 
-  res.json({
-    ok: true,
-    metrics: await businessMetrics(),
-  });
+  try {
+    requirePlanEntitlement(user, "business.metrics");
+    res.json({
+      ok: true,
+      metrics: await businessMetrics(),
+    });
+  } catch (error) {
+    sendAuthError(res, error, 403);
+  }
+});
+
+router.get("/ops/readiness", async (req, res) => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    res.status(401).json({
+      ok: false,
+      message: "Please sign in to view operational readiness.",
+    });
+    return;
+  }
+
+  if (!["owner", "admin"].includes(user.role)) {
+    res.status(403).json({
+      ok: false,
+      message: "Operational readiness is available to owner and admin accounts only.",
+    });
+    return;
+  }
+
+  try {
+    requirePlanEntitlement(user, "business.metrics");
+    res.json({
+      ok: true,
+      readiness: await operationalReadinessReport(),
+    });
+  } catch (error) {
+    sendAuthError(res, error, 403);
+  }
 });
 
 router.get("/admin/users", async (req, res) => {
@@ -451,11 +567,16 @@ router.get("/admin/users", async (req, res) => {
     return;
   }
 
-  res.json({
-    ok: true,
-    users: await listWorkspaceUsers(user.id),
-    policy: rolePolicy(user.role),
-  });
+  try {
+    res.json({
+      ok: true,
+      users: await listWorkspaceUsers(user.id),
+      policy: rolePolicy(user.role),
+      entitlements: user.entitlements,
+    });
+  } catch (error) {
+    sendAuthError(res, error, 403);
+  }
 });
 
 router.get("/admin/organizations", async (req, res) => {
@@ -483,10 +604,7 @@ router.get("/admin/organizations", async (req, res) => {
       policy: rolePolicy(user.role),
     });
   } catch (error) {
-    res.status(403).json({
-      ok: false,
-      message: error.message,
-    });
+    sendAuthError(res, error, 403);
   }
 });
 
@@ -506,10 +624,7 @@ router.post("/admin/organizations", async (req, res) => {
       organization: await createOrganization(user.id, req.body || {}),
     });
   } catch (error) {
-    res.status(403).json({
-      ok: false,
-      message: error.message,
-    });
+    sendAuthError(res, error, 403);
   }
 });
 
@@ -529,10 +644,7 @@ router.post("/admin/organizations/:organizationId", async (req, res) => {
       organization: await updateOrganization(user.id, req.params.organizationId, req.body || {}),
     });
   } catch (error) {
-    res.status(403).json({
-      ok: false,
-      message: error.message,
-    });
+    sendAuthError(res, error, 403);
   }
 });
 
@@ -552,10 +664,7 @@ router.post("/admin/users/:userId/role", async (req, res) => {
       user: await updateUserRole(user.id, req.params.userId, req.body?.role),
     });
   } catch (error) {
-    res.status(403).json({
-      ok: false,
-      message: error.message,
-    });
+    sendAuthError(res, error, 403);
   }
 });
 
@@ -575,10 +684,7 @@ router.post("/admin/users/:userId/organization", async (req, res) => {
       user: await moveUserToOrganization(user.id, req.params.userId, req.body?.organizationId || ""),
     });
   } catch (error) {
-    res.status(403).json({
-      ok: false,
-      message: error.message,
-    });
+    sendAuthError(res, error, 403);
   }
 });
 
@@ -598,11 +704,22 @@ router.post("/admin/users/:userId/advisor", async (req, res) => {
       user: await assignAdvisor(user.id, req.params.userId, req.body?.advisorId || ""),
     });
   } catch (error) {
-    res.status(403).json({
-      ok: false,
-      message: error.message,
-    });
+    sendAuthError(res, error, 403);
   }
 });
+
+function sendAuthError(res, error, fallbackStatus = 400) {
+  res.status(error.statusCode || fallbackStatus).json({
+    ok: false,
+    message: error.message,
+    entitlement: error.code === "PLAN_UPGRADE_REQUIRED"
+      ? {
+        feature: error.feature,
+        requiredPlanId: error.requiredPlanId,
+        currentPlanId: error.currentPlanId,
+      }
+      : null,
+  });
+}
 
 export default router;

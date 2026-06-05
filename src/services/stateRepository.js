@@ -1,15 +1,25 @@
 import fs from "fs/promises";
 import path from "path";
-import { mirrorAuditTrail } from "./auditTrailRepository.js";
+import { auditTrailInfo, mirrorAuditTrail } from "./auditTrailRepository.js";
 import { DATA_DIR, ensureDataDirs } from "./pathService.js";
+import {
+  assertPostgresRepositoryConfigured,
+  postgresRepositoryInfo,
+  readPostgresAppState,
+  readScopedPostgresAppState,
+  writePostgresAppState,
+} from "./postgresStateRepository.js";
 
 const STATE_FILE = path.join(DATA_DIR, "app-state.json");
-const SUPPORTED_REPOSITORIES = ["local_file"];
+const SUPPORTED_REPOSITORIES = ["local_file", "postgres"];
 
 export async function readAppState(options = {}) {
-  assertSupportedRepository();
-  ensureDataDirs();
+  const adapter = assertSupportedRepository();
+  if (adapter === "postgres") {
+    return readPostgresAppState(options);
+  }
 
+  ensureDataDirs();
   try {
     const content = await fs.readFile(STATE_FILE, "utf8");
     const parsed = JSON.parse(content);
@@ -19,28 +29,56 @@ export async function readAppState(options = {}) {
   }
 }
 
+export async function readScopedAppState(tenantScope, options = {}) {
+  const adapter = assertSupportedRepository();
+  if (adapter === "postgres") {
+    return readScopedPostgresAppState(tenantScope, options);
+  }
+
+  return readAppState(options);
+}
+
 export async function writeAppState(state) {
-  assertSupportedRepository();
+  const adapter = assertSupportedRepository();
+  if (adapter === "postgres") {
+    assertPostgresRepositoryConfigured();
+  }
+
   ensureDataDirs();
   await mirrorAuditTrail(state?.auditEvents || []);
+
+  if (adapter === "postgres") {
+    await writePostgresAppState(state);
+    return;
+  }
+
   await fs.writeFile(STATE_FILE, `${JSON.stringify(state, null, 2)}\n`, "utf8");
 }
 
 export function stateRepositoryInfo() {
-  const adapter = selectedRepository();
+  const adapter = assertSupportedRepository();
+  const auditTrail = auditTrailInfo();
+  const adapterInfo = adapter === "postgres"
+    ? postgresRepositoryInfo()
+    : {
+      adapter,
+      engine: adapter,
+      stateFile: "data/app-state.json",
+      productionReady: false,
+    };
+
   return {
-    adapter,
-    engine: adapter,
-    stateFile: "data/app-state.json",
+    ...adapterInfo,
     normalizedOnRead: true,
     auditTrail: {
-      adapter: "local_ndjson",
-      trailFile: "data/audit-events.ndjson",
-      appendOnly: true,
+      adapter: auditTrail.adapter,
+      trailFile: auditTrail.trailFile,
+      appendOnly: auditTrail.appendOnly,
+      externalProvider: auditTrail.externalProvider,
     },
     supportedAdapters: SUPPORTED_REPOSITORIES,
-    productionReady: false,
-    migrationTarget: "production_database_repository",
+    migrationTarget: adapter === "postgres" ? "postgres_state_repository" : "production_database_repository",
+    scopedReads: adapter === "postgres" ? "query_level_sql_where" : "service_level_filtering_only",
   };
 }
 
@@ -57,4 +95,5 @@ function assertSupportedRepository() {
   if (!SUPPORTED_REPOSITORIES.includes(adapter)) {
     throw new Error(`Unsupported APP_STATE_REPOSITORY adapter: ${adapter}`);
   }
+  return adapter;
 }

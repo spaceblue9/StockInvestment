@@ -25,6 +25,7 @@ data/uploads/*
 data/outputs/*
 data/app-state.json
 data/audit-events.ndjson
+data/audit-external-receipts.ndjson
 !data/uploads/.gitkeep
 !data/outputs/.gitkeep
 .npm-cache/

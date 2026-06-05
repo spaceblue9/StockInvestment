@@ -109,6 +109,19 @@ const STATE_COLLECTIONS = [
     productionTable: "advisor_assignments",
   },
   {
+    name: "approvalRequests",
+    primaryKey: "id",
+    requiredFields: ["id", "customerId", "organizationId", "requestedByUserId", "title", "status", "createdAt", "updatedAt"],
+    tenantScoped: true,
+    references: [
+      { field: "customerId", collection: "users" },
+      { field: "organizationId", collection: "organizations" },
+      { field: "requestedByUserId", collection: "users" },
+      { field: "decidedByUserId", collection: "users", optional: true },
+    ],
+    productionTable: "approval_requests",
+  },
+  {
     name: "auditEvents",
     primaryKey: "id",
     requiredFields: ["id", "action", "organizationId", "integrityVersion", "eventHash", "createdAt"],
@@ -144,6 +157,18 @@ export function stateSchemaManifest() {
       appendOnly: Boolean(collection.appendOnly),
     })),
   };
+}
+
+export function stateCollectionDefinitions() {
+  return STATE_COLLECTIONS.map((collection) => ({
+    name: collection.name,
+    primaryKey: collection.primaryKey,
+    requiredFields: [...(collection.requiredFields || [])],
+    tenantScoped: collection.tenantScoped,
+    uniqueFields: [...(collection.uniqueFields || [])],
+    productionTable: collection.productionTable,
+    appendOnly: Boolean(collection.appendOnly),
+  }));
 }
 
 export function buildStorageReadinessReport(state = {}) {

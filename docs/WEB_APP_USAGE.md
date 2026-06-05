@@ -8,8 +8,10 @@ Web App รองรับความสามารถหลักเหล่
 
 - Register / Login / Logout
 - แสดง subscription plan แบบรายเดือน
-- เลือก plan และจำลอง checkout รายเดือนผ่าน local payment gateway/webhook prototype
-- รองรับ signed payment webhook endpoint พร้อม HMAC signature และ timestamp tolerance
+- เลือก plan และ checkout รายเดือนผ่าน local gateway default หรือ Stripe Checkout provider แบบ opt-in
+- บังคับใช้ package entitlement สำหรับ Starter / Pro / Advisor ทั้ง backend และ frontend
+- แสดง upgrade card เมื่อผู้ใช้เปิด feature ที่แพ็กเกจปัจจุบันยังไม่รวม
+- รองรับ signed local gateway webhook และ Stripe-style provider webhook ที่ verify จาก raw body พร้อม timestamp tolerance
 - account แรกที่สมัครในระบบจะเป็น owner สำหรับดู Business dashboard
 - รองรับ role prototype: owner, admin, advisor, customer
 - รองรับ workspace/organization prototype สำหรับจัดกลุ่ม platform team, customers และ client workspaces
@@ -17,12 +19,24 @@ Web App รองรับความสามารถหลักเหล่
 - owner สามารถเปลี่ยน role ได้
 - owner/admin สามารถ assign advisor ให้ลูกค้าได้
 - advisor เห็น client workspace เฉพาะลูกค้าที่ถูก assign
+- มี approval workflow prototype ให้ owner/admin/advisor ขออนุมัติ action สำคัญ และให้ customer approve/reject ของตัวเอง
 - มี activity timeline / audit log สำหรับ action สำคัญของระบบ
 - มี audit integrity hash chain และ API ตรวจ hash chain สำหรับ owner/admin
 - มี automated tenant access regression test สำหรับตรวจ role/workspace isolation ก่อนส่งมอบ
 - มี automated subscription lifecycle regression test สำหรับตรวจ payment/webhook/billing flow ก่อนส่งมอบ
+- มี automated package entitlement regression test สำหรับตรวจ Starter/Pro/Advisor upgrade gate ก่อนส่งมอบ
+- มี automated payment provider regression test สำหรับตรวจ Stripe Checkout/provider webhook flow ก่อนส่งมอบ
+- มี automated web smoke regression สำหรับตรวจหน้าเว็บ, health/auth API, navigation, Screener drilldown marker และ External Audit UI marker ก่อนส่งมอบ
+- มี automated frontend viewport/auth regression สำหรับตรวจ mobile responsive guardrails และ owner/customer access flow แบบ in-process ก่อนส่งมอบ
+- มี operational readiness API และ Business dashboard alert cards สำหรับดู production risk ของ storage, audit, payment, dependency gate และ repository
+- มี operational alert delivery webhook แบบ opt-in สำหรับส่ง readiness alerts ไปยัง Slack/email/APM/uptime bridge พร้อม HMAC signature, dry-run และ required mode
 - มี storage readiness report สำหรับเตรียมย้ายจาก local file ไป production database
 - มี state repository layer สำหรับแยกการอ่าน/เขียน state ออกจาก business service
+- มี Postgres state adapter แบบ opt-in ผ่าน `APP_STATE_REPOSITORY=postgres` และ `DATABASE_URL`
+- มี Postgres scoped read helper สำหรับบังคับ tenant filter ใน SQL query ก่อนดึง JSONB record
+- มี one-time importer จาก `data/app-state.json` เข้า Postgres พร้อม dry-run readiness guard
+- มี backup/restore drill สำหรับ local state, audit mirror และ external audit receipts พร้อม checksum และ confirm guard
+- มี production deployment checklist แบบ dry-run สำหรับตรวจ env, Postgres, Stripe, webhook, external audit, backup และ CI gate โดย mask secret เสมอ
 - มี append-only audit trail mirror แบบ local NDJSON สำหรับเตรียมต่อยอดเป็น external immutable audit storage
 - เก็บ investor onboarding profile ของลูกค้า
 - บันทึก portfolio snapshot ของลูกค้า
@@ -78,6 +92,7 @@ npm run dev
 8. เลือก view ที่ต้องการดู:
    - `My Portfolio`
    - `Guide`
+   - `Approvals`
    - `Stock Screener`
    - `Sector Analysis`
    - `Strategy Simulation`
@@ -88,7 +103,7 @@ npm run dev
 Web App มี visual dashboard ในตัวโดยไม่ต้องติดตั้ง chart library เพิ่ม:
 
 - `My Portfolio`: sector exposure, action mix และ score distribution
-- `Stock Screener`: quality vs reward scatter, top ideas และ sector count
+- `Stock Screener`: quality vs reward scatter, top ideas, sector/trend filter และ sector count ที่คลิกเพื่อ drilldown ตารางได้
 - `Sector Analysis`: sector leaders, benchmark และ timing vs quality scatter
 - `Business`: customer funnel และ plan distribution สำหรับ owner account
 
@@ -105,6 +120,18 @@ Web App มี visual dashboard ในตัวโดยไม่ต้องต
 - ระยะเวลาที่ต้องการถือ
 
 ข้อมูลนี้ถูกใช้เพื่อทำให้ guidance card ในหน้า Portfolio อธิบายพอร์ตด้วยภาษาที่เหมาะกับผู้ใช้มากขึ้น เช่น เน้นปกป้องเงินต้นสำหรับความเสี่ยงต่ำ หรือเตือนให้ใช้ Stop Loss สำหรับความเสี่ยงสูง
+
+## Approval Workflow Prototype
+
+หน้า `Approvals` ใช้สำหรับ workflow ที่ต้องให้ลูกค้ายืนยันก่อน action สำคัญ เช่น rebalance, buy plan หรือ risk action:
+
+- owner/admin สร้าง approval request ให้ customer ได้
+- advisor สร้าง approval request ได้เฉพาะลูกค้าที่ถูก assign ให้ดูแล และต้องอยู่แพ็กเกจ Advisor
+- customer เห็นเฉพาะ approval request ของตัวเอง
+- customer เป็นคน approve หรือ reject request ของตัวเองเท่านั้น
+- ทุกการสร้าง request และคำตัดสินจะถูกบันทึกใน activity timeline และ audit hash chain
+
+หน้า `Business` จะแสดงจำนวน pending, approved และ rejected approvals เพื่อช่วยให้ทีมบริการเห็นงานค้างที่ต้องติดตาม
 
 ## Business Dashboard Prototype
 
@@ -129,6 +156,9 @@ Web App มี visual dashboard ในตัวโดยไม่ต้องต
 - webhook events
 - verified signatures
 - rejected webhooks
+- pending approvals
+- approved approvals
+- rejected approvals
 - tenant metadata gaps
 - audit integrity status
 - audit hash gaps
@@ -142,7 +172,7 @@ Web App มี visual dashboard ในตัวโดยไม่ต้องต
 
 - `owner`: ดู Business metrics, จัดการ team, เปลี่ยน role และ assign advisor ได้
 - `admin`: ดู Business metrics, จัดการ team และ assign advisor ได้ แต่เปลี่ยน role ไม่ได้
-- `advisor`: เห็น client workspace เฉพาะลูกค้าที่ถูก assign ให้ดูแล
+- `advisor`: เห็น client workspace เฉพาะลูกค้าที่ถูก assign ให้ดูแลเมื่ออยู่แพ็กเกจ Advisor
 - `customer`: ใช้งานวิเคราะห์พอร์ตและ billing ของตัวเอง
 
 ในหน้า `Business`:
@@ -245,9 +275,31 @@ API สำหรับ owner/admin:
 
 หน้า `Business` แสดง Audit Mirror และ Audit Mirror Gaps เพื่อช่วยดูว่า audit state และ append-only mirror ยังตรงกันหรือไม่
 
-ข้อจำกัด: hash chain และ local NDJSON mirror ช่วยตรวจและแยก audit trail จาก state file ได้ระดับ prototype แต่ยังไม่ใช่ immutable storage จริง ก่อนเปิดขายควรย้าย audit log ไป external append-only/immutable storage หรือฐานข้อมูลที่มี write-once policy
+ระบบยังรองรับ external audit provider แบบ HTTP webhook โดยเปิดใช้ด้วย environment variables:
 
-ถ้านำไปขายจริง ควรต่อยอดด้วย role/permission ที่ละเอียดขึ้น, production database, payment gateway, immutable audit storage, approval workflow และระบบจัดการ plan/subscription จริง
+```text
+AUDIT_TRAIL_EXTERNAL_PROVIDER=http_webhook
+AUDIT_TRAIL_HTTP_URL=https://your-immutable-audit-provider.example/events
+AUDIT_TRAIL_HTTP_SECRET=your-production-secret
+AUDIT_TRAIL_EXTERNAL_REQUIRED=true
+```
+
+เมื่อเปิดใช้ ระบบจะส่ง audit event ออกไป provider ภายนอกพร้อม header:
+
+- `x-stockflix-audit-signature`
+- `x-stockflix-audit-timestamp`
+
+signature คำนวณด้วย HMAC SHA-256 จาก payload และ timestamp จากนั้นระบบจะบันทึก receipt เฉพาะ event ที่ provider ตอบรับสำเร็จไว้ที่:
+
+```text
+data/audit-external-receipts.ndjson
+```
+
+หน้า `Business` แสดง `External Audit` และ `External Audit Gaps` เพื่อดูว่า external provider disabled, synced, needs configuration หรือ needs review
+
+ข้อจำกัด: hash chain, local NDJSON mirror และ HTTP external provider เป็น production-readiness prototype ก่อนเปิดขายควรเชื่อม provider แบบ immutable/write-once จริง, ใช้ production secret, ตั้ง `AUDIT_TRAIL_EXTERNAL_REQUIRED=true` เมื่อพร้อม fail-closed และเพิ่ม monitoring/retry policy ที่เหมาะสม
+
+ถ้านำไปขายจริง ควรต่อยอดด้วย role/permission ที่ละเอียดขึ้น, production database, payment gateway, immutable audit storage provider จริง และระบบจัดการ plan/subscription จริง
 
 ## รูปแบบไฟล์ watchlist
 
@@ -323,7 +375,201 @@ Business dashboard แสดง `DB Readiness`, `DB Blockers` และ `Schema 
 
 รายละเอียด schema และ migration path อยู่ที่ `docs/DATABASE_MIGRATION_FOUNDATION.md`
 
-ระบบอ่าน/เขียน state ผ่าน `src/services/stateRepository.js` แล้ว โดย adapter ปัจจุบันคือ `local_file` เพื่อคง behavior เดิม ส่วน production database adapter ยังเป็นงานต่อยอด
+## Operational Readiness
+
+เจ้าของระบบและ admin สามารถดู readiness รวมของระบบได้ที่:
+
+```text
+GET /api/ops/readiness
+```
+
+endpoint นี้ต้อง login และจำกัดเฉพาะ owner/admin โดยข้อมูลที่สรุปมี:
+
+- repository status และ production-ready warning
+- storage readiness และ blocker/warning count
+- audit hash chain และ append-only audit mirror
+- external audit provider status
+- payment gateway configuration
+- payment webhook rejection ratio
+- failed/pending payment sessions
+- dependency risk gate ที่ต้องรันใน CI
+
+หน้า Business dashboard แสดง `Ops Readiness`, จำนวน alert และ alert cards สำหรับ critical/warning รายการสำคัญ เช่น `Storage readiness is blocked`, `Payment gateway is not fully configured`, `External audit provider is disabled`, `Local payment gateway is active` และ `Repository is not production-ready`
+
+ข้อควรระวัง: readiness report ไม่ใช่ระบบ monitoring production แบบ real-time เต็มรูปแบบ แต่เป็น foundation สำหรับต่อยอดไปยัง alerting/incident workflow เช่น Slack, email, uptime monitor หรือ APM ในอนาคต
+
+### Operational Alert Delivery
+
+สามารถ preview หรือส่ง operational readiness alerts ออกไป webhook ภายนอกได้ด้วยคำสั่ง:
+
+```bash
+npm run ops:alerts -- --dry-run --format text
+```
+
+environment variables ที่รองรับ:
+
+```text
+OPERATIONAL_ALERT_WEBHOOK_URL=https://your-monitoring-bridge.example/ops-alerts
+OPERATIONAL_ALERT_WEBHOOK_SECRET=your-production-signing-secret
+OPERATIONAL_ALERT_WEBHOOK_REQUIRED=true
+OPERATIONAL_ALERT_WEBHOOK_DRY_RUN=false
+OPERATIONAL_ALERT_WEBHOOK_TIMEOUT_MS=5000
+```
+
+พฤติกรรมสำคัญ:
+
+- ถ้าไม่มี `OPERATIONAL_ALERT_WEBHOOK_URL` และไม่ได้ตั้ง required mode ระบบจะถือว่า delivery disabled และไม่ block การใช้งาน
+- ถ้าตั้ง `OPERATIONAL_ALERT_WEBHOOK_REQUIRED=true` แต่ URL หรือ secret ยังขาด ระบบจะรายงาน `blocked`
+- ถ้าใช้ `--dry-run` หรือ `OPERATIONAL_ALERT_WEBHOOK_DRY_RUN=true` ระบบจะสร้าง payload และ request preview แต่ไม่ส่ง webhook จริง
+- ทุก payload ถูก sanitize และ request preview จะ mask signature/secret ก่อนแสดงผล
+- webhook ที่ส่งจริงมี header `x-stockflix-ops-signature`, `x-stockflix-ops-timestamp` และ `x-stockflix-ops-version`
+
+signature คำนวณแบบ:
+
+```text
+hmac_sha256(secret, "<timestamp>.<json-payload>")
+```
+
+foundation นี้เป็น generic signed webhook จึงสามารถต่อเข้ากับ Slack/email/APM/uptime monitor ผ่าน bridge หรือ automation service ภายนอกได้ โดยยังไม่ผูกกับ provider เฉพาะเจ้าใน source code
+
+ระบบอ่าน/เขียน state ผ่าน `src/services/stateRepository.js` แล้ว โดย adapter ปัจจุบันคือ `local_file` เพื่อคง behavior เดิม และมี Postgres adapter แบบ opt-in สำหรับ production database path
+
+ระบบมี Postgres state adapter แบบ opt-in สำหรับ production database path แล้ว โดยค่า default ยังเป็น local file:
+
+```bash
+APP_STATE_REPOSITORY=postgres
+DATABASE_URL=postgres://user:password@host:5432/database
+DATABASE_SSL_MODE=require
+```
+
+เมื่อตั้ง `APP_STATE_REPOSITORY=postgres` ระบบจะอ่าน/เขียน collection ตาม schema manifest ไปยัง table production เช่น `users`, `organizations`, `payment_sessions`, `approval_requests` และ `audit_events` โดยเก็บ record เป็น `jsonb` พร้อม `organization_id` และ `user_id` index เพื่อใช้กับ tenant-scoped query
+
+Postgres adapter มี scoped read helper สำหรับ production flow ที่ต้องดึงข้อมูลเฉพาะ workspace/user ที่ผู้ใช้มองเห็นได้:
+
+```js
+readScopedAppState({
+  mode: "restricted",
+  userIds: ["current-user-id", "assigned-customer-id"],
+  organizationIds: ["current-workspace-id", "assigned-customer-workspace-id"],
+});
+```
+
+scope แบบ `platform` ใช้สำหรับ owner/admin ที่ต้องเห็น full-state ส่วน scope แบบ `restricted` จะเติม `WHERE` ใน SQL ของแต่ละ collection ก่อนดึง `record jsonb` กลับมา ข้อควรระวังคือ production endpoint ต้อง derive `userIds` และ `organizationIds` จาก signed-in viewer ให้ถูกต้องก่อนเรียก scoped read
+
+หมายเหตุ: ต้องติดตั้ง optional driver `pg` ใน environment จริงก่อนใช้งาน Postgres adapter:
+
+```bash
+npm install pg
+```
+
+ถ้าเปิด `APP_STATE_REPOSITORY=postgres` แต่ยังไม่ตั้ง `DATABASE_URL` หรือยังไม่มี package `pg` ระบบจะ fail-fast เพื่อไม่ให้ production เผลอกลับไปใช้ persistence ที่ไม่ตั้งใจ
+
+ก่อนย้ายข้อมูลจริง ให้ dry-run importer:
+
+```bash
+npm run import:postgres -- --dry-run
+```
+
+ถ้าต้องการระบุไฟล์:
+
+```bash
+npm run import:postgres -- --input data/app-state.json --dry-run
+```
+
+เมื่อ readiness ไม่มี blocker แล้วจึง import จริงใน environment ที่มี Postgres:
+
+```bash
+APP_STATE_REPOSITORY=postgres DATABASE_URL=postgres://user:password@host:5432/database npm run import:postgres -- --input data/app-state.json
+```
+
+Importer จะ normalize state, ตรวจ storage readiness, ปฏิเสธการ import ถ้า status เป็น `blocked` และเขียนผ่าน Postgres adapter แบบ transaction ถ้าจำเป็นต้อง import ทั้งที่ blocked ต้องใส่ `--allow-blocked` อย่างตั้งใจหลัง review output แล้วเท่านั้น
+
+## Backup / Restore Drill
+
+ระบบมี backup/restore drill สำหรับ local file-backed state เพื่อเตรียมความพร้อมก่อนขายจริง:
+
+- backup `data/app-state.json`
+- backup `data/audit-events.ndjson` ถ้ามี
+- backup `data/audit-external-receipts.ndjson` ถ้ามี
+- สร้าง `manifest.json` พร้อม schema version, readiness summary, record counts, file size และ SHA-256 checksum
+- restore รองรับ dry-run และต้องใส่ `--confirm` ก่อนเขียนกลับจริง
+- restore จริงจะสร้าง safety backup ของ state ปัจจุบันก่อนเขียนทับ
+
+สร้าง backup:
+
+```bash
+npm run backup:state -- --reason before-deploy
+```
+
+ตรวจ backup และ checksum:
+
+```bash
+npm run restore:state -- --backup-dir data/backups/<backup-folder> --verify
+```
+
+ดู restore plan โดยไม่เขียนข้อมูล:
+
+```bash
+npm run restore:state -- --backup-dir data/backups/<backup-folder> --dry-run
+```
+
+restore จริงหลังตรวจ dry-run แล้ว:
+
+```bash
+npm run restore:state -- --backup-dir data/backups/<backup-folder> --confirm
+```
+
+ข้อควรระวัง: restore รองรับ `APP_STATE_REPOSITORY=local_file` เท่านั้น สำหรับ Postgres production ควรใช้ managed snapshot หรือ `pg_dump` / `pg_restore` ควบคู่กับ restore drill นี้
+
+## Production Postgres Backup Runbook
+
+ระบบมี runbook generator สำหรับวางแผน backup/restore ของ Postgres production โดยไม่รันคำสั่ง backup จริง:
+
+```bash
+npm run postgres:backup-runbook -- --strategy both --retention-days 30 --format text
+```
+
+strategy ที่รองรับ:
+
+- `managed_snapshot`: ใช้ snapshot/PITR จากผู้ให้บริการฐานข้อมูล
+- `pg_dump`: ใช้ custom-format `pg_dump` และ restore drill ด้วย `pg_restore`
+- `both`: แนะนำสำหรับ production เพราะครอบคลุมทั้ง provider snapshot และ logical dump
+
+runbook จะ sanitize `DATABASE_URL` โดย mask password ก่อนแสดงผล และมี checklist สำหรับ:
+
+- retention, RPO และ RTO
+- managed snapshot
+- `pg_dump` / `pg_restore`
+- restore drill ใน staging
+- incident checklist กรณีสงสัยข้อมูลเสียหาย
+
+คำสั่งนี้เป็น dry-run planning tool เท่านั้น การ backup/restore จริงต้องทำใน production/staging environment ที่ควบคุมโดยทีม deploy
+
+## Production Deployment Checklist
+
+ระบบมี deployment checklist generator สำหรับตรวจความพร้อมก่อนเปิดบริการแบบ subscription จริง โดยอ่านค่า environment variables แล้วรายงานสถานะ `ready`, `needs_review` หรือ `blocked`:
+
+```bash
+npm run deployment:check -- --format text
+```
+
+หากต้องการให้ command fail เมื่อยังมี blocker ใช้ strict mode:
+
+```bash
+npm run deployment:check -- --format json --strict
+```
+
+สิ่งที่ตรวจหลัก:
+
+- `NODE_ENV`, `PORT`
+- `APP_STATE_REPOSITORY=postgres`, `DATABASE_URL`, `DATABASE_SSL_MODE=require`
+- Stripe Checkout env เช่น secret key, webhook secret, success/cancel URL และ price id ของ Starter/Pro/Advisor
+- `PAYMENT_WEBHOOK_SECRET` สำหรับ signed local-gateway compatibility
+- external audit provider, URL, secret และ required mode
+- Postgres backup strategy และ retention
+- preflight command ที่ควรรันก่อน deploy เช่น `npm run ci:quality`, Postgres backup runbook และ importer dry-run
+
+output จะ sanitize `DATABASE_URL` และ key/secret ทุกตัวก่อนแสดงผลเสมอ คำสั่งนี้เป็น dry-run validation tool เท่านั้น ไม่ deploy, migrate, backup, restore หรือเรียก provider ภายนอกจริง
 
 ## Subscription Prototype
 
@@ -333,7 +579,24 @@ Business dashboard แสดง `DB Readiness`, `DB Blockers` และ `Schema 
 - Pro
 - Advisor
 
-สมาชิกใหม่จะได้ `Pro trial` เพื่อทดลองใช้งาน และสามารถกดเลือกแพ็กเกจใน pricing panel เพื่อจำลอง checkout ได้ ระบบจะ:
+สิทธิ์สำคัญที่ระบบบังคับใช้ตอนนี้:
+
+| Feature | Starter | Pro | Advisor |
+| --- | --- | --- | --- |
+| Portfolio analysis / saved snapshot | Yes | Yes | Yes |
+| Stock screener | Yes | Yes | Yes |
+| Billing history / payment sessions | Yes | Yes | Yes |
+| Customer approval decision | Yes | Yes | Yes |
+| Sector analysis | Upgrade | Yes | Yes |
+| Strategy simulation | Upgrade | Yes | Yes |
+| Advanced action plan | Upgrade | Yes | Yes |
+| Client workspace | Upgrade | Upgrade | Yes |
+| Advisor approval workflow | Upgrade | Upgrade | Yes |
+| Business dashboard / production readiness | Upgrade | Upgrade | Yes |
+
+สมาชิกใหม่จะได้ `Pro trial` จึงทดลอง Sector Analysis และ Strategy Simulation ได้ระหว่าง trial แต่ยังไม่เห็น client workspace จนกว่าจะใช้แพ็กเกจ Advisor ส่วน owner/admin เป็น platform operator จึงยังเข้าถึงหลังบ้านเพื่อดูแลระบบได้แม้เป็น trial
+
+ผู้ใช้สามารถกดเลือกแพ็กเกจใน pricing panel เพื่อ checkout ได้ ระบบ default ยังใช้ local gateway เพื่อ demo ได้ทันที:
 
 - สร้าง payment session แบบ local gateway
 - จำลอง gateway webhook สำหรับ payment success
@@ -345,11 +608,35 @@ Business dashboard แสดง `DB Readiness`, `DB Blockers` และ `Schema 
 - แสดง latest invoice ใน account panel
 - นำ billing event และ payment session ไปคำนวณ Business metrics เช่น paid users, MRR estimate, revenue collected, ARPU, pending payments, failed payments, webhook events, verified signatures และ rejected webhooks
 
-API ที่เพิ่มสำหรับ payment prototype:
+ระบบยังรองรับ Stripe Checkout provider แบบ opt-in สำหรับ production handoff โดยไม่เพิ่ม dependency ใหม่:
+
+```bash
+PAYMENT_GATEWAY_PROVIDER=stripe_checkout
+PAYMENT_GATEWAY_STRIPE_SECRET_KEY=sk_live_or_test_key
+PAYMENT_GATEWAY_STRIPE_WEBHOOK_SECRET=whsec_your_endpoint_secret
+PAYMENT_GATEWAY_STRIPE_SUCCESS_URL=https://your-app.example/billing/success?session={sessionId}&plan={planId}
+PAYMENT_GATEWAY_STRIPE_CANCEL_URL=https://your-app.example/billing/cancel?session={sessionId}
+PAYMENT_GATEWAY_STRIPE_PRICE_STARTER=price_...
+PAYMENT_GATEWAY_STRIPE_PRICE_PRO=price_...
+PAYMENT_GATEWAY_STRIPE_PRICE_ADVISOR=price_...
+```
+
+เมื่อเปิด Stripe provider:
+
+- `POST /api/subscription/checkout` จะสร้าง Stripe Checkout Session ผ่าน API provider และคืน `checkoutUrl`
+- subscription จะยังไม่ active จนกว่า provider webhook สำเร็จ
+- UI จะแสดง link `Open secure checkout`
+- provider webhook จะ map `checkout.session.completed` เป็น `payment.succeeded`
+- provider webhook จะ map `checkout.session.async_payment_failed`, `invoice.payment_failed` และ `payment_intent.payment_failed` เป็น `payment.failed`
+- duplicate provider event จะไม่สร้าง invoice ซ้ำ
+- invalid signature จะถูกบันทึกเป็น rejected webhook event
+
+API ที่เพิ่มสำหรับ payment:
 
 - `POST /api/subscription/payment-session`: สร้าง payment session
 - `POST /api/payment/webhook/simulate`: จำลอง webhook success/failure สำหรับ payment session
 - `POST /api/payment/webhook/local-gateway`: endpoint จำลอง gateway จริงที่ไม่ต้อง login แต่ต้องส่ง HMAC signature ถูกต้อง
+- `POST /api/payment/webhook/provider/stripe`: endpoint สำหรับ Stripe-style webhook ที่ verify จาก raw body และ header `Stripe-Signature`
 - `GET /api/customer/payments`: ดู payment sessions ตามสิทธิ์ user
 
 signed webhook endpoint ใช้ header:
@@ -371,7 +658,7 @@ secret อ่านจาก environment variable `PAYMENT_WEBHOOK_SECRET`; ถ�
 
 หมายเหตุ: Business metric `verified signatures` นับ webhook ที่ลายเซ็นถูกต้องตาม payload แม้สุดท้ายจะถูก reject เพราะ session ไม่ถูกต้อง ดังนั้นต้องอ่านคู่กับ `rejected webhooks` และ `verificationStatus`
 
-ฟังก์ชันนี้ยังไม่ได้เชื่อม payment gateway จริง หากต้องนำไปขายจริงควรเชื่อมระบบชำระเงินจริง เช่น Stripe, Omise หรือ payment provider ที่เหมาะกับตลาดไทย พร้อม raw-body webhook signature verification ตามมาตรฐาน provider, idempotency key, invoice reconciliation และระบบ retry/error handling จริง
+หมายเหตุ production: Stripe provider เป็น integration path แบบ opt-in ที่ต้องตั้งค่า price ids, success/cancel URL และ webhook secret จริงก่อนใช้งาน ควรทดสอบด้วย provider test mode, ตั้ง idempotency/retry/monitoring ตาม environment จริง และพิจารณา provider อื่น เช่น Omise หากต้องการ payment method ที่เหมาะกับตลาดไทยมากขึ้น
 
 ## ตรวจสอบระบบ
 
@@ -410,6 +697,22 @@ npm run test:subscription-lifecycle
 - invalid, stale, missing signature และ invalid session ถูก reject พร้อมบันทึก audit
 - payment metrics เช่น paid users, pending/failed payments, verified/rejected webhooks และ revenue ตรงกับ flow
 
+ตรวจ payment provider integration:
+
+```bash
+npm run test:payment-provider
+```
+
+ชุดนี้ใช้ fake Stripe API และ fake Stripe webhook signature เพื่อตรวจว่า checkout session ใช้ provider URL, subscription ยัง pending ก่อน webhook, success webhook activate subscription, failed webhook ไม่สร้าง invoice, duplicate event ไม่ออก invoice ซ้ำ และ invalid signature ถูก reject โดยไม่ต้องต่อ provider จริง
+
+ตรวจ package entitlement:
+
+```bash
+npm run test:entitlements
+```
+
+ชุดนี้ตรวจว่า Starter ยังใช้ portfolio analysis ได้แต่ถูกล็อกจาก simulation, Pro ปลดล็อก simulation และ sector analysis, Advisor ปลดล็อก client workspace และ approval workflow, และ owner/admin ยังมี platform operator override สำหรับดูแลระบบหลังบ้าน
+
 ตรวจ storage/database migration readiness อัตโนมัติ:
 
 ```bash
@@ -426,6 +729,22 @@ npm run test:state-repository
 
 ชุดนี้ตรวจว่า local file adapter อ่าน/เขียน state ผ่าน repository boundary ได้และไม่แตะข้อมูล demo จริง
 
+ตรวจ Postgres repository adapter:
+
+```bash
+npm run test:postgres-repository
+```
+
+ชุดนี้ใช้ fake Postgres client เพื่อตรวจ bootstrap SQL, whole-state write transaction, read/write JSONB rows, non-append collection rewrite, append-only audit table behavior, missing primary key guard และ query-level tenant scoped read โดยไม่ต้องต่อฐานข้อมูลจริง
+
+ตรวจ Postgres importer:
+
+```bash
+npm run test:postgres-importer
+```
+
+ชุดนี้ใช้ fake Postgres client เพื่อตรวจ dry-run plan, record counts, readiness blocked guard, forced import ด้วย `allowBlocked` และ whole-state write โดยไม่ต้องต่อฐานข้อมูลจริง
+
 ตรวจ append-only audit trail mirror:
 
 ```bash
@@ -433,6 +752,94 @@ npm run test:audit-trail
 ```
 
 ชุดนี้ตรวจว่า audit events ถูก mirror ไป local NDJSON ครบ, customer เข้าถึงสถานะ mirror ไม่ได้ และ report ตรวจ missing/invalid audit mirror ได้
+
+ตรวจ external audit provider:
+
+```bash
+npm run test:audit-external
+```
+
+ชุดนี้สร้าง local HTTP provider ชั่วคราว ตรวจว่า audit events ถูกส่งออกพร้อม HMAC signature, receipt ครบเมื่อ provider ตอบรับ, readiness จับ missing external event เมื่อ provider ล่ม และโหมด required fail-closed ได้
+
+ตรวจ backup/restore drill:
+
+```bash
+npm run test:backup-restore
+```
+
+ชุดนี้สร้าง state ชั่วคราว, สร้าง backup พร้อม manifest/checksum, ตรวจ dry-run restore, reject restore ที่ไม่ใส่ confirm, restore จริงแล้วตรวจข้อมูลกลับครบ และตรวจว่า backup ที่ checksum ผิดต้องถูก reject
+
+ตรวจ operational readiness:
+
+```bash
+npm run test:observability
+```
+
+ชุดนี้ตรวจ alert rule แบบ deterministic, anonymous/customer access guard, owner readiness API และ Business dashboard markers โดยใช้ temporary directory และ in-process server
+
+ตรวจ operational alert delivery:
+
+```bash
+npm run test:ops-alerts
+```
+
+ชุดนี้ตรวจ disabled mode, required blocked mode, dry-run, HMAC signature, webhook success/failure, strict CLI, secret masking และ URL query masking โดยใช้ local HTTP server จำลอง
+
+ตรวจ Postgres backup runbook:
+
+```bash
+npm run test:postgres-backup-runbook
+```
+
+ชุดนี้ตรวจว่า runbook ไม่เปิดเผย password จาก `DATABASE_URL`, strategy ทำงานถูกต้อง, retention warning ถูกสร้าง และมี command template สำหรับ `pg_dump` / `pg_restore`
+
+ตรวจ production deployment checklist:
+
+```bash
+npm run test:deployment-checklist
+```
+
+ชุดนี้ตรวจว่า checklist พร้อม deploy เมื่อ env ครบ, blocked เมื่อยังเป็น local prototype, มี preflight/release/rollback checklist และไม่เปิดเผย password, Stripe key, webhook secret หรือ external audit secret ใน JSON/text output
+
+ตรวจ frontend viewport/mobile guardrails:
+
+```bash
+npm run test:frontend-viewport
+```
+
+ชุดนี้ตรวจ viewport meta, responsive breakpoints, mobile section title stacking, tap target height, button text wrapping, table overflow และ key view markers เพื่อกัน layout แตกบนมือถือก่อนทำ browser screenshot QA จริง
+
+ตรวจ authenticated frontend/API smoke:
+
+```bash
+npm run test:frontend-auth
+```
+
+ชุดนี้เปิด server แบบ in-process ใน temporary directory, สมัคร owner/customer ชั่วคราว, ตรวจ owner Business metrics และ operational readiness API พร้อมตรวจว่า customer ถูกกันออกจาก admin/ops endpoints
+
+ตรวจ web smoke อัตโนมัติ:
+
+```bash
+npm run test:web-smoke
+```
+
+ชุดนี้เปิด Web App ใน process เดียวบนพอร์ตชั่วคราวโดยไม่ต้องเปิด server background แล้วตรวจหน้าแรก, health API, anonymous auth, subscription plans, admin auth guard, operational readiness auth guard, navigation, Screener drilldown marker, External Audit marker, Operational readiness marker และ stylesheet theme marker
+
+ตรวจ dependency risk gate:
+
+```bash
+npm run test:dependency-risk
+```
+
+ชุดนี้อ่าน `npm audit --json`, fail หากมี high/critical vulnerability, moderate vulnerability ใหม่ หรือ accepted moderate risk ที่เริ่มมี fix available รายละเอียด accepted risk อยู่ที่ `docs/DEPENDENCY_RISK_REGISTER.md`
+
+ตรวจ approval workflow อัตโนมัติ:
+
+```bash
+npm run test:approval-workflow
+```
+
+ชุดนี้ตรวจว่า advisor สร้าง approval ได้เฉพาะลูกค้าที่ถูก assign, customer เห็นและตัดสินใจเฉพาะ request ของตัวเอง, customer คนอื่นไม่เห็นข้อมูลข้ามกัน, metrics ตรงกับ flow และ audit/storage readiness ยังผ่าน
 
 เทียบผลลัพธ์กับระบบ Python เดิม:
 
@@ -446,7 +853,7 @@ npm run compare:python
 npm run test-regression
 ```
 
-คำสั่งนี้จะรัน syntax check, tenant access regression, subscription lifecycle regression, storage readiness regression, state repository regression, audit trail regression และเปรียบเทียบ output กับ Python เดิมต่อเนื่องกัน
+คำสั่งนี้จะรัน syntax check, tenant access regression, subscription lifecycle regression, storage readiness regression, state repository regression, Postgres repository regression, Postgres importer regression, audit trail regression, approval workflow regression, package entitlement regression, payment provider regression, external audit provider regression, backup/restore regression, observability regression, operational alert delivery regression, Postgres backup runbook regression, deployment checklist regression, frontend viewport regression, authenticated frontend smoke regression, web smoke regression และเปรียบเทียบ output กับ Python เดิมต่อเนื่องกัน
 
 ตรวจ quality gate แบบเดียวกับ CI:
 
@@ -454,7 +861,7 @@ npm run test-regression
 npm run ci:quality
 ```
 
-คำสั่งนี้จะรัน regression ทั้งหมดและตรวจ `npm audit --audit-level=high`
+คำสั่งนี้จะรัน regression ทั้งหมดและตรวจ dependency risk gate จาก `npm audit --json`
 
 GitHub Actions workflow อยู่ที่ `.github/workflows/quality-gate.yml` และเอกสารเพิ่มเติมอยู่ที่ `docs/CI_QUALITY_GATE.md`
 

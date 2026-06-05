@@ -2,7 +2,7 @@ import express from "express";
 import multer from "multer";
 import path from "path";
 import { collectSymbolsFromFiles } from "../services/inputService.js";
-import { getUserFromRequest, recordAuditEvent, saveCustomerPortfolioSnapshot } from "../services/authService.js";
+import { getUserFromRequest, recordAuditEvent, requirePlanEntitlement, saveCustomerPortfolioSnapshot } from "../services/authService.js";
 import { fetchThaiMarketData } from "../services/marketDataService.js";
 import { ensureDataDirs, outputPath, UPLOAD_DIR } from "../services/pathService.js";
 import { analyzePortfolio } from "../services/portfolioService.js";
@@ -32,6 +32,8 @@ router.post("/analysis/run", upload.fields([
       });
       return;
     }
+
+    requirePlanEntitlement(currentUser, "analysis.run");
 
     const watchlistPath = req.files?.watchlist?.[0]?.path;
     const portfolioFile = req.files?.portfolio?.[0];
@@ -107,10 +109,7 @@ router.post("/analysis/run", upload.fields([
         : "Market data and stock scoring were generated. Upload a portfolio to generate a report.",
     });
   } catch (error) {
-    res.status(500).json({
-      ok: false,
-      message: error.message,
-    });
+    sendAnalysisError(res, error);
   }
 });
 
@@ -159,6 +158,8 @@ router.post("/simulation/run", async (req, res) => {
       return;
     }
 
+    requirePlanEntitlement(currentUser, "simulation.run");
+
     const symbol = String(req.body.symbol || "CPALL").trim().toUpperCase();
     const yearsBack = Math.max(1, Math.min(3, Number(req.body.yearsBack) || 1));
     const initialCapital = Math.max(1000, Number(req.body.initialCapital) || 100000);
@@ -187,10 +188,7 @@ router.post("/simulation/run", async (req, res) => {
       ...result,
     });
   } catch (error) {
-    res.status(500).json({
-      ok: false,
-      message: error.message,
-    });
+    sendAnalysisError(res, error);
   }
 });
 
@@ -205,5 +203,19 @@ router.get("/analysis/outputs", (_req, res) => {
     message: "Output listing is planned after report generation is ported.",
   });
 });
+
+function sendAnalysisError(res, error) {
+  res.status(error.statusCode || 500).json({
+    ok: false,
+    message: error.message,
+    entitlement: error.code === "PLAN_UPGRADE_REQUIRED"
+      ? {
+        feature: error.feature,
+        requiredPlanId: error.requiredPlanId,
+        currentPlanId: error.currentPlanId,
+      }
+      : null,
+  });
+}
 
 export default router;

@@ -67,8 +67,10 @@ Web App รุ่นนี้มีระบบสมาชิกแบบ proto
 * รองรับ workspace/organization prototype สำหรับจัดกลุ่ม platform team, customers และ client workspaces
 * assign advisor ให้ลูกค้าเพื่อสร้าง client workspace เบื้องต้น
 * แสดงสถานะ plan รายเดือน
-* เลือกแพ็กเกจ Starter/Pro/Advisor และจำลอง checkout รายเดือนผ่าน local payment gateway/webhook prototype
-* รองรับ signed webhook endpoint แบบ HMAC สำหรับ payment gateway prototype พร้อม timestamp tolerance และ rejected webhook log
+* เลือกแพ็กเกจ Starter/Pro/Advisor และ checkout รายเดือนผ่าน local gateway default หรือ Stripe Checkout provider แบบ opt-in
+* บังคับใช้ package entitlement จริง: Starter ใช้ portfolio analysis/screener, Pro เพิ่ม sector analysis/strategy simulation, Advisor เพิ่ม client workspace/approval workflow/business readiness
+* หน้าเว็บแสดง upgrade card เมื่อผู้ใช้พยายามเข้า feature ที่แพ็กเกจปัจจุบันยังไม่รวม
+* รองรับ signed webhook endpoint แบบ HMAC สำหรับ local gateway และ Stripe-style provider webhook ที่ verify จาก raw body พร้อม rejected webhook log
 * เก็บ investor profile เช่น เป้าหมายลงทุน ความเสี่ยง งบรายเดือน และระยะเวลาถือ
 * บันทึก portfolio snapshot ของลูกค้าหลังวิเคราะห์พอร์ต
 * แสดง Guide สำหรับมือใหม่และ Business metrics เช่น MRR, paid users, revenue collected สำหรับเจ้าของ SaaS
@@ -77,11 +79,26 @@ Web App รุ่นนี้มีระบบสมาชิกแบบ proto
 * แสดง tenant isolation summary เพื่อดูว่าผู้ใช้มองเห็น workspace/user/records ใดได้ตาม role และตรวจ record ที่ยังไม่มี workspace metadata
 * แสดง activity timeline / audit log สำหรับ action สำคัญ เช่น login, checkout, run analysis, update role และ assign advisor พร้อม hash chain สำหรับตรวจ integrity
 * แสดง visual dashboard สำหรับ Portfolio, Screener, Sector และ Business view โดยไม่ต้องติดตั้ง chart library เพิ่ม
+* หน้า Screener รองรับ sector/trend filter และคลิก Sector count bar เพื่อ drilldown ตารางหุ้นได้
 * มี automated tenant access regression test สำหรับตรวจ owner/admin/advisor/customer scope, payment session access, billing, audit timeline และ tenant metadata
 * มี automated subscription lifecycle regression test สำหรับตรวจ trial, failed payment, signed webhook success, duplicate reconciliation และ rejected webhook
+* มี automated package entitlement regression test สำหรับตรวจสิทธิ์ Starter/Pro/Advisor และ upgrade gate
+* มี automated payment provider regression test สำหรับตรวจ Stripe Checkout session, provider webhook success/failure, duplicate reconciliation และ invalid signature
+* มี automated web smoke regression สำหรับตรวจหน้าเว็บ, auth/health API, SaaS navigation, Screener drilldown marker และ External Audit UI marker
+* มี automated frontend viewport/auth regression สำหรับตรวจ mobile responsive guardrails และ owner/customer access flow แบบ in-process
 * มี storage readiness report และ schema manifest สำหรับเตรียมย้ายจาก local file ไป production database
+* มี operational readiness API และ Business dashboard alert cards สำหรับดู production risk ของ storage, audit, payment, dependency gate และ repository
+* มี operational alert delivery webhook แบบ opt-in สำหรับส่ง readiness alerts ไปยัง Slack/email/APM/uptime bridge พร้อม HMAC signature, dry-run และ required mode
 * มี state repository layer เพื่อแยก persistence ออกจาก business service และเตรียมเปลี่ยน adapter ในอนาคต
+* รองรับ Postgres state adapter แบบ opt-in ผ่าน `APP_STATE_REPOSITORY=postgres` และ `DATABASE_URL` สำหรับ production database path
+* Postgres adapter มี scoped read helper ที่บังคับ tenant filter ใน SQL query ก่อนดึง JSONB record ออกจากฐานข้อมูล
+* มี one-time importer จาก `data/app-state.json` เข้า Postgres พร้อม dry-run/readiness guard
+* มี backup/restore drill สำหรับ `data/app-state.json`, audit mirror และ external audit receipts พร้อม manifest/checksum/dry-run/confirm guard
+* มี Postgres backup runbook generator สำหรับ managed snapshot / `pg_dump` / restore drill โดย sanitize `DATABASE_URL`
+* มี production deployment checklist แบบ dry-run สำหรับตรวจ env, Postgres, Stripe, signed webhook, external audit, backup และ CI gate โดยไม่แสดง secret
 * มี append-only audit trail mirror แบบ local NDJSON เพื่อเตรียมต่อยอดเป็น external immutable audit storage
+* รองรับ external audit provider แบบ HTTP webhook ที่เปิดใช้ด้วย env พร้อม HMAC signature และ receipt readiness
+* มี approval workflow prototype ให้ owner/admin/advisor สร้างคำขออนุมัติ และให้ลูกค้า approve/reject ของตัวเองพร้อม audit log
 * ใช้ธีมดำ-แดงและ layout แบบ professional dashboard
 
 คู่มือ Web App แบบละเอียดอยู่ที่ `docs/WEB_APP_USAGE.md`
@@ -95,14 +112,62 @@ npm run test:tenant-access
 npm run test:subscription-lifecycle
 npm run test:storage-readiness
 npm run test:state-repository
+npm run test:postgres-repository
+npm run test:postgres-importer
 npm run test:audit-trail
+npm run test:approval-workflow
+npm run test:entitlements
+npm run test:payment-provider
+npm run test:audit-external
+npm run test:backup-restore
+npm run test:observability
+npm run test:ops-alerts
+npm run test:postgres-backup-runbook
+npm run test:deployment-checklist
+npm run test:frontend-viewport
+npm run test:frontend-auth
+npm run test:web-smoke
+npm run test:dependency-risk
 npm run test-regression
 npm run ci:quality
 ```
 
-CI quality gate สำหรับ GitHub Actions อยู่ที่ `.github/workflows/quality-gate.yml` และรายละเอียดอยู่ที่ `docs/CI_QUALITY_GATE.md` ส่วนแผนฐานข้อมูล production อยู่ที่ `docs/DATABASE_MIGRATION_FOUNDATION.md`
+CI quality gate สำหรับ GitHub Actions อยู่ที่ `.github/workflows/quality-gate.yml` และรายละเอียดอยู่ที่ `docs/CI_QUALITY_GATE.md` ส่วนแผนฐานข้อมูล production อยู่ที่ `docs/DATABASE_MIGRATION_FOUNDATION.md` และ dependency risk register อยู่ที่ `docs/DEPENDENCY_RISK_REGISTER.md`
 
-สำหรับการขายจริง ระบบ SaaS ส่วน login, workspace, billing, payment และ audit ยังเป็น local file-backed prototype ใน `data/app-state.json` แม้ critical records จะถูก tag ด้วย `organizationId`, signed webhook prototype จะตรวจ HMAC ได้แล้ว, audit log มี hash chain สำหรับตรวจ integrity, มี tenant/subscription regression tests, มี storage readiness report, มี repository layer และมี append-only audit mirror แล้ว ควรย้ายไป production database, เพิ่ม tenant isolation ระดับ query/database, ใช้ payment provider จริงพร้อม raw-body signature verification และเก็บ audit log แบบ immutable ก่อนเปิดบริการจริง
+ตัวอย่าง dry-run ก่อน import local state เข้า Postgres:
+
+```bash
+npm run import:postgres -- --dry-run
+```
+
+ตัวอย่าง backup และ dry-run restore local state:
+
+```bash
+npm run backup:state -- --reason before-deploy
+npm run restore:state -- --backup-dir data/backups/<backup-folder> --dry-run
+```
+
+การ restore จริงต้องใส่ `--confirm` หลังตรวจ dry-run แล้วเท่านั้น
+
+ตัวอย่างสร้าง Postgres backup runbook แบบ dry-run โดยไม่รัน `pg_dump` จริง:
+
+```bash
+npm run postgres:backup-runbook -- --strategy both --retention-days 30 --format text
+```
+
+ตัวอย่างตรวจ production deployment checklist แบบ dry-run โดยไม่ deploy จริง:
+
+```bash
+npm run deployment:check -- --format text
+```
+
+ตัวอย่าง preview operational alerts แบบ dry-run โดยไม่ส่ง webhook จริง:
+
+```bash
+npm run ops:alerts -- --dry-run --format text
+```
+
+สำหรับการขายจริง ระบบ SaaS ส่วน login, workspace, approval, billing, payment และ audit ยังเป็น local file-backed prototype ใน `data/app-state.json` เป็นค่า default แม้ critical records จะถูก tag ด้วย `organizationId`, มี package entitlement gate, backup/restore drill, Postgres backup runbook, deployment checklist, operational readiness alerts, operational alert delivery webhook, Stripe Checkout provider แบบ opt-in, signed webhook verification, audit log hash chain, tenant/subscription/entitlement/backup/postgres-backup/deployment/ops-alert/observability/payment-provider/approval/external-audit/web-smoke/postgres-repository regression tests, storage readiness report, repository layer, Postgres adapter แบบ opt-in, Postgres scoped read helper, append-only audit mirror และ external audit webhook provider แบบ opt-in แล้ว ก่อนเปิดบริการจริงควรทดสอบกับฐานข้อมูลจริง, ใช้ scoped read ทุก production flow, ตั้งค่า production Stripe price/webhook secret จริง, run deployment checklist แบบ strict ใน staging, ตั้งค่า operational alert webhook ไปยังระบบ monitor จริง และเชื่อม immutable audit provider จริง
 
 ### ทางเลือกที่ 2: ใช้งานระบบ Python เดิม
 

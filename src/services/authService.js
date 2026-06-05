@@ -1,5 +1,12 @@
 import crypto from "crypto";
 import { auditTrailReadinessReport } from "./auditTrailRepository.js";
+import {
+  createGatewayCheckoutSession,
+  createStripeWebhookSignature,
+  parseProviderPaymentWebhook,
+  paymentGatewayAutoCompletesCheckout,
+  paymentGatewayInfo,
+} from "./paymentGatewayService.js";
 import { readAppState, stateRepositoryInfo, writeAppState } from "./stateRepository.js";
 import { buildStorageReadinessReport, stateSchemaManifest } from "./stateSchemaService.js";
 
@@ -17,11 +24,103 @@ const PAYMENT_WEBHOOK_TIMESTAMP_HEADER = "x-stockflix-timestamp";
 const PAYMENT_WEBHOOK_SIGNATURE_VERSION = "v1";
 const PAYMENT_WEBHOOK_TOLERANCE_SECONDS = 300;
 const DEFAULT_PAYMENT_WEBHOOK_SECRET = "stockflix-local-webhook-secret";
+const APPROVAL_STATUSES = ["pending", "approved", "rejected"];
+const APPROVAL_ACTION_TYPES = ["portfolio_review", "rebalance", "buy_plan", "risk_action", "subscription_support", "other"];
+const APPROVAL_RISK_LEVELS = ["low", "medium", "high"];
 const ROLE_POLICIES = {
-  owner: ["analysis", "business_metrics", "team_management", "role_management", "advisor_assignment", "billing", "audit_log", "organization_management"],
-  admin: ["analysis", "business_metrics", "team_management", "advisor_assignment", "billing", "audit_log", "organization_management"],
-  advisor: ["analysis", "client_workspace", "audit_log"],
-  customer: ["analysis", "billing", "audit_log"],
+  owner: ["analysis", "business_metrics", "team_management", "role_management", "advisor_assignment", "billing", "audit_log", "organization_management", "approval_workflow"],
+  admin: ["analysis", "business_metrics", "team_management", "advisor_assignment", "billing", "audit_log", "organization_management", "approval_workflow"],
+  advisor: ["analysis", "client_workspace", "audit_log", "approval_workflow"],
+  customer: ["analysis", "billing", "audit_log", "approval_workflow"],
+};
+const PLAN_TIERS = ["starter", "pro", "advisor"];
+const ACTIVE_SUBSCRIPTION_STATUSES = ["active", "trialing"];
+const FEATURE_POLICIES = {
+  "analysis.run": {
+    label: "Portfolio analysis",
+    requiredPlanId: "starter",
+    description: "Upload a watchlist or portfolio and generate the core investment report.",
+  },
+  "portfolio.snapshot": {
+    label: "Saved portfolio snapshot",
+    requiredPlanId: "starter",
+    description: "Save the latest portfolio health snapshot after analysis.",
+  },
+  "screener.basic": {
+    label: "Stock screener",
+    requiredPlanId: "starter",
+    description: "Filter recommended stocks from the latest analysis output.",
+  },
+  "billing.history": {
+    label: "Billing history",
+    requiredPlanId: "starter",
+    description: "View invoices and payment sessions for the signed-in account.",
+  },
+  "audit.timeline": {
+    label: "Activity timeline",
+    requiredPlanId: "starter",
+    description: "View account activity that belongs to the current workspace scope.",
+  },
+  "approval.decision": {
+    label: "Approval decisions",
+    requiredPlanId: "starter",
+    description: "Approve or reject advisor requests that target the signed-in customer.",
+  },
+  "sector.analysis": {
+    label: "Sector analysis",
+    requiredPlanId: "pro",
+    description: "Compare sector leaders, median valuation, profitability, and timing.",
+  },
+  "simulation.run": {
+    label: "Strategy simulation",
+    requiredPlanId: "pro",
+    description: "Run historical buy/hold and strategy simulations.",
+  },
+  "advanced.action_plan": {
+    label: "Advanced action plan",
+    requiredPlanId: "pro",
+    description: "Read action-level guidance for each holding and sector leader.",
+  },
+  "client.workspace": {
+    label: "Client workspace",
+    requiredPlanId: "advisor",
+    description: "View assigned clients, workspaces, portfolios, and payment status.",
+  },
+  "approval.workflow": {
+    label: "Advisor approval workflow",
+    requiredPlanId: "advisor",
+    description: "Create approval requests for assigned customer accounts.",
+  },
+  "business.metrics": {
+    label: "Business dashboard",
+    requiredPlanId: "advisor",
+    description: "View SaaS operating metrics, plan mix, payment sessions, and revenue.",
+  },
+  "audit.integrity": {
+    label: "Audit integrity",
+    requiredPlanId: "advisor",
+    description: "Review audit hash chain integrity and external audit trail readiness.",
+  },
+  "storage.readiness": {
+    label: "Storage readiness",
+    requiredPlanId: "advisor",
+    description: "Review production database migration readiness.",
+  },
+  "organization.management": {
+    label: "Workspace management",
+    requiredPlanId: "advisor",
+    description: "Create, update, and move members between workspaces.",
+  },
+  "role.management": {
+    label: "Role management",
+    requiredPlanId: "advisor",
+    description: "Promote or demote users across owner, admin, advisor, and customer roles.",
+  },
+  "advisor.assignment": {
+    label: "Advisor assignment",
+    requiredPlanId: "advisor",
+    description: "Assign advisors to customer accounts.",
+  },
 };
 
 export async function createUser({ name, email, password }) {
@@ -147,6 +246,12 @@ export async function saveCustomerPortfolioSnapshot(userId, snapshot) {
   }
 
   const state = await readState();
+  const user = state.users.find((candidate) => candidate.id === userId);
+  if (!user) {
+    throw new Error("User not found.");
+  }
+  requirePlanEntitlement(user, "portfolio.snapshot");
+
   const now = new Date().toISOString();
   const summary = buildPortfolioSummary(snapshot.portfolioRows || []);
   const existing = state.portfolioSnapshots.find((item) => item.userId === userId);
@@ -189,6 +294,12 @@ export async function getCustomerPortfolioSnapshot(userId) {
   }
 
   const state = await readState();
+  const user = state.users.find((candidate) => candidate.id === userId);
+  if (!user) {
+    throw new Error("User not found.");
+  }
+  requirePlanEntitlement(user, "portfolio.snapshot");
+
   return state.portfolioSnapshots.find((snapshot) => snapshot.userId === userId) || null;
 }
 
@@ -247,6 +358,17 @@ export async function checkoutSubscription(userId, planId) {
   }
 
   const sessionResult = await createPaymentSession(userId, planId);
+  if (!paymentGatewayAutoCompletesCheckout()) {
+    return {
+      ...sessionResult,
+      billingEvent: null,
+      webhookEvent: null,
+      duplicate: false,
+      redirectRequired: true,
+      message: "Payment session created. Redirect the customer to the provider checkout URL.",
+    };
+  }
+
   return processPaymentWebhook(userId, {
     sessionId: sessionResult.paymentSession.id,
     eventType: "payment.succeeded",
@@ -272,7 +394,7 @@ export async function createPaymentSession(userId, planId) {
 
   const now = new Date();
   const expiresAt = new Date(now);
-  expiresAt.setHours(expiresAt.getHours() + PAYMENT_SESSION_HOURS);
+    expiresAt.setHours(expiresAt.getHours() + PAYMENT_SESSION_HOURS);
   const paymentSession = {
     id: crypto.randomUUID(),
     userId: user.id,
@@ -283,7 +405,10 @@ export async function createPaymentSession(userId, planId) {
     currency: "THB",
     status: "pending",
     provider: "local_gateway",
-    checkoutUrl: `/local-checkout/${plan.id}`,
+    checkoutUrl: "",
+    externalPaymentId: "",
+    requiresRedirect: false,
+    providerStatus: "",
     createdAt: now.toISOString(),
     expiresAt: expiresAt.toISOString(),
     completedAt: "",
@@ -291,6 +416,12 @@ export async function createPaymentSession(userId, planId) {
     billingEventId: "",
     webhookEventIds: [],
   };
+  const providerSession = await createGatewayCheckoutSession({
+    paymentSession,
+    plan,
+    user,
+  });
+  Object.assign(paymentSession, providerSession);
 
   state.paymentSessions.push(paymentSession);
   appendAuditEvent(state, {
@@ -303,6 +434,8 @@ export async function createPaymentSession(userId, planId) {
       planName: plan.name,
       amountThb: plan.priceThb,
       status: paymentSession.status,
+      provider: paymentSession.provider,
+      externalPaymentId: paymentSession.externalPaymentId,
     },
   });
   await writeState(state);
@@ -366,6 +499,45 @@ export async function processSignedPaymentWebhook(input = {}, options = {}) {
   });
 }
 
+export async function processProviderPaymentWebhook(provider, options = {}) {
+  const state = await readState();
+  const parsed = parseProviderPaymentWebhook(provider, options);
+
+  if (!parsed.verification.ok) {
+    const rejectedEvent = recordRejectedPaymentWebhook(state, parsed.input, parsed.verification, {
+      provider: parsed.provider,
+      source: parsed.source,
+    });
+    await writeState(state);
+    const error = new Error(parsed.verification.message);
+    error.webhookEvent = publicPaymentWebhookEvent(rejectedEvent);
+    throw error;
+  }
+
+  if (!state.paymentSessions.some((session) => session.id === parsed.input.sessionId)) {
+    const rejectedEvent = recordRejectedPaymentWebhook(state, parsed.input, {
+      ...parsed.verification,
+      ok: false,
+      status: "invalid_session",
+      message: "Payment session not found.",
+      signatureVerified: true,
+    }, {
+      provider: parsed.provider,
+      source: parsed.source,
+    });
+    await writeState(state);
+    const error = new Error("Payment session not found.");
+    error.webhookEvent = publicPaymentWebhookEvent(rejectedEvent);
+    throw error;
+  }
+
+  return processPaymentWebhookInState(state, parsed.input, {
+    requireAccessCheck: false,
+    source: parsed.source,
+    verification: parsed.verification,
+  });
+}
+
 export function createPaymentWebhookSignature(input = {}, timestamp = currentEpochSeconds()) {
   const normalizedTimestamp = normalizeWebhookTimestamp(timestamp);
   const signature = signPaymentWebhookPayload(input, normalizedTimestamp);
@@ -379,6 +551,8 @@ export function createPaymentWebhookSignature(input = {}, timestamp = currentEpo
     toleranceSeconds: PAYMENT_WEBHOOK_TOLERANCE_SECONDS,
   };
 }
+
+export { createStripeWebhookSignature };
 
 async function processPaymentWebhookInState(state, input = {}, options = {}) {
   const actor = options.actor || null;
@@ -423,6 +597,7 @@ async function processPaymentWebhookInState(state, input = {}, options = {}) {
     status: "processed",
     provider: paymentSession.provider,
     source: options.source || "authenticated_simulation",
+    externalPaymentId: input.externalPaymentId || paymentSession.externalPaymentId || "",
     signatureVerified: Boolean(options.verification?.signatureVerified),
     verificationStatus: options.verification?.status || "not_required",
     signedAt: options.verification?.signedAt || "",
@@ -468,6 +643,8 @@ async function processPaymentWebhookInState(state, input = {}, options = {}) {
       planName: paymentSession.planName,
       amountThb: paymentSession.amountThb,
       status: paymentSession.status,
+      provider: paymentSession.provider,
+      externalPaymentId: webhookEvent.externalPaymentId,
       source: webhookEvent.source,
       verificationStatus: webhookEvent.verificationStatus,
       signatureVerified: webhookEvent.signatureVerified,
@@ -501,6 +678,130 @@ export async function getPaymentSessions(viewerUserId, options = {}) {
     .map(publicPaymentSession);
 }
 
+export async function listApprovalRequests(viewerUserId, options = {}) {
+  const state = await readState();
+  const viewer = state.users.find((user) => user.id === viewerUserId);
+  if (!viewer) {
+    throw new Error("User not found.");
+  }
+
+  const viewerRole = normalizeRole(viewer.role);
+  requirePlanEntitlement(
+    viewer,
+    ["owner", "admin", "advisor"].includes(viewerRole) ? "approval.workflow" : "approval.decision",
+  );
+
+  const visibleUserIds = usersVisibleToUser(state, viewer);
+  const visibleOrganizationIds = organizationsVisibleToUser(state, viewer);
+  const limit = clampNumber(options.limit || 50, 1, 100);
+  return state.approvalRequests
+    .filter((request) => (
+      visibleUserIds.has(request.customerId)
+      || visibleUserIds.has(request.requestedByUserId)
+      || visibleOrganizationIds.has(request.organizationId)
+    ))
+    .sort((left, right) => new Date(right.updatedAt || right.createdAt) - new Date(left.updatedAt || left.createdAt))
+    .slice(0, limit)
+    .map((request) => publicApprovalRequest(request, state));
+}
+
+export async function createApprovalRequest(actorUserId, input = {}) {
+  const state = await readState();
+  const actor = state.users.find((user) => user.id === actorUserId);
+  if (!actor) {
+    throw new Error("User not found.");
+  }
+
+  const actorRole = normalizeRole(actor.role);
+  if (!["owner", "admin", "advisor"].includes(actorRole)) {
+    throw new Error("Only owner, admin, or advisor accounts can request customer approval.");
+  }
+  requirePlanEntitlement(actor, "approval.workflow");
+
+  const customer = state.users.find((user) => user.id === input.customerId);
+  if (!customer || normalizeRole(customer.role) !== "customer") {
+    throw new Error("Approval requests must target a customer account.");
+  }
+
+  if (actorRole === "advisor" && !canAdvisorAccessCustomer(state, actor.id, customer.id)) {
+    throw new Error("Advisor can request approval only for assigned customers.");
+  }
+
+  const now = new Date().toISOString();
+  const approvalRequest = {
+    id: crypto.randomUUID(),
+    customerId: customer.id,
+    organizationId: customer.organizationId || organizationIdForUser(state, customer.id),
+    requestedByUserId: actor.id,
+    title: cleanApprovalTitle(input.title),
+    summary: cleanApprovalSummary(input.summary),
+    actionType: normalizeApprovalActionType(input.actionType),
+    amountThb: clampNumber(input.amountThb, 0, 1000000000),
+    riskLevel: normalizeApprovalRiskLevel(input.riskLevel),
+    status: "pending",
+    decisionNote: "",
+    decidedByUserId: "",
+    decidedAt: "",
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  state.approvalRequests.push(approvalRequest);
+  appendAuditEvent(state, {
+    actorUserId: actor.id,
+    action: "approval.request_created",
+    targetUserId: customer.id,
+    organizationId: approvalRequest.organizationId,
+    details: approvalAuditDetails(approvalRequest),
+  });
+  await writeState(state);
+  return publicApprovalRequest(approvalRequest, state);
+}
+
+export async function decideApprovalRequest(actorUserId, approvalId, input = {}) {
+  const state = await readState();
+  const actor = state.users.find((user) => user.id === actorUserId);
+  if (!actor) {
+    throw new Error("User not found.");
+  }
+
+  const approvalRequest = state.approvalRequests.find((request) => request.id === approvalId);
+  if (!approvalRequest) {
+    throw new Error("Approval request not found.");
+  }
+
+  if (approvalRequest.customerId !== actor.id) {
+    throw new Error("Only the customer can approve or reject this request.");
+  }
+  requirePlanEntitlement(actor, "approval.decision");
+
+  if (approvalRequest.status !== "pending") {
+    throw new Error("This approval request has already been decided.");
+  }
+
+  const decision = normalizeApprovalStatus(input.decision || input.status);
+  if (!["approved", "rejected"].includes(decision)) {
+    throw new Error("Decision must be approved or rejected.");
+  }
+
+  const now = new Date().toISOString();
+  approvalRequest.status = decision;
+  approvalRequest.decisionNote = cleanApprovalSummary(input.note || input.decisionNote);
+  approvalRequest.decidedByUserId = actor.id;
+  approvalRequest.decidedAt = now;
+  approvalRequest.updatedAt = now;
+
+  appendAuditEvent(state, {
+    actorUserId: actor.id,
+    action: decision === "approved" ? "approval.request_approved" : "approval.request_rejected",
+    targetUserId: approvalRequest.requestedByUserId || actor.id,
+    organizationId: approvalRequest.organizationId,
+    details: approvalAuditDetails(approvalRequest),
+  });
+  await writeState(state);
+  return publicApprovalRequest(approvalRequest, state);
+}
+
 export async function tenantAccessSummary(viewerUserId) {
   const state = await readState();
   const viewer = state.users.find((user) => user.id === viewerUserId);
@@ -532,6 +833,11 @@ export async function tenantAccessSummary(viewerUserId) {
       billingEvents: state.billingEvents.filter(recordVisible).length,
       paymentSessions: state.paymentSessions.filter(recordVisible).length,
       paymentWebhookEvents: state.paymentWebhookEvents.filter(recordVisible).length,
+      approvalRequests: state.approvalRequests.filter((record) => (
+        visibleUserIds.has(record.customerId)
+        || visibleUserIds.has(record.requestedByUserId)
+        || visibleOrganizationIds.has(record.organizationId)
+      )).length,
       auditEvents: state.auditEvents.filter(auditVisible).length,
     },
     visibleOrganizations: visibleOrganizations
@@ -568,6 +874,7 @@ export async function getAuditEvents(viewerUserId, options = {}) {
   }
 
   const viewerRole = normalizeRole(viewer.role);
+  requirePlanEntitlement(viewer, "audit.timeline");
   const limit = clampNumber(options.limit || 50, 1, 100);
   let events = state.auditEvents || [];
 
@@ -599,6 +906,7 @@ export async function auditIntegritySummary(viewerUserId) {
   if (!["owner", "admin"].includes(normalizeRole(viewer.role))) {
     throw new Error("Audit integrity is available to owner and admin accounts only.");
   }
+  requirePlanEntitlement(viewer, "audit.integrity");
 
   return auditIntegrityReport(state.auditEvents);
 }
@@ -613,6 +921,7 @@ export async function auditTrailSummary(viewerUserId) {
   if (!["owner", "admin"].includes(normalizeRole(viewer.role))) {
     throw new Error("External audit trail status is available to owner and admin accounts only.");
   }
+  requirePlanEntitlement(viewer, "audit.integrity");
 
   return auditTrailReadinessReport(state.auditEvents);
 }
@@ -627,6 +936,7 @@ export async function storageReadinessSummary(viewerUserId) {
   if (!["owner", "admin"].includes(normalizeRole(viewer.role))) {
     throw new Error("Storage readiness is available to owner and admin accounts only.");
   }
+  requirePlanEntitlement(viewer, "storage.readiness");
 
   return {
     currentStore: stateRepositoryInfo(),
@@ -651,6 +961,10 @@ export async function listOrganizations(viewerUserId) {
   const viewer = state.users.find((user) => user.id === viewerUserId);
   if (!viewer) {
     throw new Error("User not found.");
+  }
+
+  if (normalizeRole(viewer.role) === "advisor") {
+    requirePlanEntitlement(viewer, "client.workspace");
   }
 
   const visibleOrganizationIds = organizationsVisibleToUser(state, viewer);
@@ -760,6 +1074,10 @@ export async function listWorkspaceUsers(viewerUserId) {
   }
 
   const viewerRole = normalizeRole(viewer.role);
+  if (viewerRole === "advisor") {
+    requirePlanEntitlement(viewer, "client.workspace");
+  }
+
   if (["owner", "admin"].includes(viewerRole)) {
     return buildWorkspaceUsers(state.users, state);
   }
@@ -784,6 +1102,7 @@ export async function updateUserRole(actorUserId, targetUserId, nextRole) {
   if (!actor || normalizeRole(actor.role) !== "owner") {
     throw new Error("Only owner can change user roles.");
   }
+  requirePlanEntitlement(actor, "role.management");
 
   if (!target) {
     throw new Error("Target user not found.");
@@ -822,6 +1141,7 @@ export async function assignAdvisor(actorUserId, customerId, advisorId) {
   if (!actor || !["owner", "admin"].includes(normalizeRole(actor.role))) {
     throw new Error("Only owner or admin can assign advisors.");
   }
+  requirePlanEntitlement(actor, "advisor.assignment");
 
   if (!customer || normalizeRole(customer.role) !== "customer") {
     throw new Error("Advisor can only be assigned to customer accounts.");
@@ -905,10 +1225,16 @@ export async function businessMetrics() {
     .reduce((total, event) => total + numberValue(event.amountThb), 0);
   const pendingPaymentSessions = state.paymentSessions.filter((session) => session.status === "pending").length;
   const failedPaymentSessions = state.paymentSessions.filter((session) => session.status === "failed").length;
+  const approvalRequestsByStatus = state.approvalRequests.reduce((counts, request) => {
+    const status = normalizeApprovalStatus(request.status);
+    counts[status] = (counts[status] || 0) + 1;
+    return counts;
+  }, {});
   const tenantMetadata = tenantMetadataReport(state);
   const auditIntegrity = auditIntegrityReport(state.auditEvents);
   const auditTrail = await auditTrailReadinessReport(state.auditEvents);
   const storageReadiness = buildStorageReadinessReport(state);
+  const paymentGateway = paymentGatewayInfo();
   const rejectedWebhookEvents = state.paymentWebhookEvents.filter((event) => event.status === "rejected").length;
   const verifiedWebhookEvents = state.paymentWebhookEvents.filter((event) => event.signatureVerified).length;
   const organizationSummaries = state.organizations
@@ -931,16 +1257,23 @@ export async function businessMetrics() {
     revenueCollected,
     pendingPaymentSessions,
     failedPaymentSessions,
+    approvalRequests: state.approvalRequests.length,
+    pendingApprovalRequests: approvalRequestsByStatus.pending || 0,
+    approvedApprovalRequests: approvalRequestsByStatus.approved || 0,
+    rejectedApprovalRequests: approvalRequestsByStatus.rejected || 0,
+    approvalRequestsByStatus,
     webhookEvents: state.paymentWebhookEvents.length,
     rejectedWebhookEvents,
     verifiedWebhookEvents,
     webhookSecurity: {
       signedEndpoint: "/api/payment/webhook/local-gateway",
+      providerEndpoint: paymentGateway.providerWebhookEndpoint,
       signatureHeader: PAYMENT_WEBHOOK_SIGNATURE_HEADER,
       timestampHeader: PAYMENT_WEBHOOK_TIMESTAMP_HEADER,
       toleranceSeconds: PAYMENT_WEBHOOK_TOLERANCE_SECONDS,
       secretConfigured: Boolean(process.env.PAYMENT_WEBHOOK_SECRET),
     },
+    paymentGateway,
     tenantMetadata,
     auditIntegrity,
     auditTrail: {
@@ -953,6 +1286,7 @@ export async function businessMetrics() {
       missingFromTrailCount: auditTrail.missingFromTrailCount,
       extraInTrailCount: auditTrail.extraInTrailCount,
       duplicateTrailIdCount: auditTrail.duplicateTrailIdCount,
+      external: auditTrail.external,
     },
     storageReadiness: {
       schemaVersion: storageReadiness.schemaVersion,
@@ -993,6 +1327,11 @@ export async function businessMetrics() {
       .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt))
       .slice(0, 10)
       .map(publicPaymentWebhookEvent),
+    recentApprovalRequests: state.approvalRequests
+      .slice()
+      .sort((left, right) => new Date(right.updatedAt || right.createdAt) - new Date(left.updatedAt || left.createdAt))
+      .slice(0, 10)
+      .map((request) => publicApprovalRequest(request, state)),
   };
 }
 
@@ -1016,7 +1355,13 @@ export function subscriptionPlans() {
       name: "Starter",
       priceThb: 790,
       billing: "monthly",
-      features: ["Portfolio health check", "Stock screener", "Excel report"],
+      bestFor: "New investors who need a simple portfolio health check.",
+      features: ["Portfolio health check", "Stock screener", "Excel report", "Activity timeline"],
+      entitlements: planFeatureIds("starter"),
+      limits: {
+        clientWorkspaces: 0,
+        advisorSeats: 0,
+      },
     },
     {
       id: "pro",
@@ -1024,14 +1369,26 @@ export function subscriptionPlans() {
       priceThb: 1490,
       billing: "monthly",
       highlighted: true,
+      bestFor: "Active investors who want simulation and sector intelligence.",
       features: ["Everything in Starter", "Strategy simulation", "Sector leaders", "Action plan per holding"],
+      entitlements: planFeatureIds("pro"),
+      limits: {
+        clientWorkspaces: 0,
+        advisorSeats: 0,
+      },
     },
     {
       id: "advisor",
       name: "Advisor",
       priceThb: 3990,
       billing: "monthly",
-      features: ["Client portfolio workspace", "Export reports", "Priority data refresh"],
+      bestFor: "Advisors and teams who manage client portfolios.",
+      features: ["Everything in Pro", "Client portfolio workspace", "Approval workflow", "Business dashboard", "Production readiness"],
+      entitlements: planFeatureIds("advisor"),
+      limits: {
+        clientWorkspaces: 50,
+        advisorSeats: 5,
+      },
     },
   ];
 }
@@ -1042,6 +1399,180 @@ export function rolePolicy(role) {
     role: normalizedRole,
     permissions: ROLE_POLICIES[normalizedRole] || ROLE_POLICIES.customer,
     roles: ROLES,
+    entitlementCatalog: entitlementPolicy(),
+  };
+}
+
+export function entitlementPolicy() {
+  return Object.keys(FEATURE_POLICIES).map(publicFeaturePolicy);
+}
+
+export function subscriptionEntitlementSummary(user) {
+  const role = normalizeRole(user?.role);
+  const subscription = normalizeSubscription(user?.subscription || {}, user?.createdAt);
+  const plan = planById(subscription.planId);
+  const subscriptionActive = ACTIVE_SUBSCRIPTION_STATUSES.includes(subscription.status);
+  const packageFeatureIds = planFeatureIds(plan.id);
+  const operationalOverride = ["owner", "admin"].includes(role);
+  const effectiveFeatureIds = operationalOverride
+    ? Object.keys(FEATURE_POLICIES)
+    : subscriptionActive
+      ? packageFeatureIds
+      : [];
+  const effectiveFeatureSet = new Set(effectiveFeatureIds);
+  const lockedFeatures = Object.keys(FEATURE_POLICIES)
+    .filter((featureId) => !effectiveFeatureSet.has(featureId))
+    .map(publicFeaturePolicy);
+
+  return {
+    planId: plan.id,
+    planName: plan.name,
+    status: subscription.status,
+    active: subscriptionActive,
+    operationalOverride,
+    packageFeatures: packageFeatureIds,
+    effectiveFeatures: effectiveFeatureIds,
+    lockedFeatures,
+    upgradeTargets: subscriptionPlans()
+      .filter((candidate) => planRank(candidate.id) > planRank(plan.id))
+      .map((candidate) => ({
+        id: candidate.id,
+        name: candidate.name,
+        priceThb: candidate.priceThb,
+      })),
+  };
+}
+
+export function hasPlanEntitlement(user, featureId) {
+  return evaluatePlanEntitlement(user, featureId).allowed;
+}
+
+export function requirePlanEntitlement(user, featureId) {
+  const check = evaluatePlanEntitlement(user, featureId);
+  if (check.allowed) {
+    return check;
+  }
+
+  const error = new Error(check.message);
+  error.code = "PLAN_UPGRADE_REQUIRED";
+  error.statusCode = 402;
+  error.feature = check.feature;
+  error.requiredPlanId = check.requiredPlanId;
+  error.currentPlanId = check.currentPlanId;
+  throw error;
+}
+
+function evaluatePlanEntitlement(user, featureId) {
+  const feature = FEATURE_POLICIES[featureId];
+  if (!feature) {
+    return {
+      allowed: false,
+      feature: {
+        id: featureId,
+        label: featureId,
+        requiredPlanId: "advisor",
+      },
+      requiredPlanId: "advisor",
+      currentPlanId: currentSubscriptionPlanId(user?.subscription),
+      message: `Unknown entitlement: ${featureId}`,
+    };
+  }
+
+  const role = normalizeRole(user?.role);
+  const subscription = normalizeSubscription(user?.subscription || {}, user?.createdAt);
+  const plan = planById(subscription.planId);
+  const subscriptionActive = ACTIVE_SUBSCRIPTION_STATUSES.includes(subscription.status);
+  const operationalOverride = ["owner", "admin"].includes(role);
+  const packageAllowed = subscriptionActive && planRank(plan.id) >= planRank(feature.requiredPlanId);
+  const allowed = operationalOverride || packageAllowed;
+  const requiredPlan = planById(feature.requiredPlanId);
+
+  return {
+    allowed,
+    operationalOverride,
+    subscriptionActive,
+    currentPlanId: plan.id,
+    requiredPlanId: requiredPlan.id,
+    feature: publicFeaturePolicy(featureId),
+    message: allowed
+      ? ""
+      : `${feature.label} requires the ${requiredPlan.name} plan or higher.`,
+  };
+}
+
+function publicFeaturePolicy(featureId) {
+  const feature = FEATURE_POLICIES[featureId] || {};
+  const requiredPlan = planById(feature.requiredPlanId || "advisor");
+  return {
+    id: featureId,
+    label: feature.label || featureId,
+    description: feature.description || "",
+    requiredPlanId: requiredPlan.id,
+    requiredPlanName: requiredPlan.name,
+  };
+}
+
+function planFeatureIds(planId) {
+  const normalizedPlanId = normalizePlanId(planId);
+  const tier = planRank(normalizedPlanId);
+  return Object.keys(FEATURE_POLICIES).filter((featureId) => (
+    planRank(FEATURE_POLICIES[featureId].requiredPlanId) <= tier
+  ));
+}
+
+function planById(planId) {
+  const normalizedPlanId = normalizePlanId(planId);
+  return subscriptionPlans().find((plan) => plan.id === normalizedPlanId)
+    || subscriptionPlans().find((plan) => plan.id === "pro");
+}
+
+function planRank(planId) {
+  const index = PLAN_TIERS.indexOf(normalizePlanId(planId));
+  return index >= 0 ? index : PLAN_TIERS.indexOf("pro");
+}
+
+function currentSubscriptionPlanId(subscription = {}) {
+  return normalizePlanId(subscription.planId || subscription.plan || "pro");
+}
+
+function normalizePlanId(planId) {
+  const normalized = String(planId || "").trim().toLowerCase();
+  if (PLAN_TIERS.includes(normalized)) {
+    return normalized;
+  }
+
+  if (normalized.includes("starter")) return "starter";
+  if (normalized.includes("advisor")) return "advisor";
+  if (normalized.includes("pro")) return "pro";
+  return "pro";
+}
+
+function normalizeSubscriptionStatus(status) {
+  const normalized = String(status || "").trim().toLowerCase();
+  if (["active", "trialing", "past_due", "canceled", "failed", "inactive"].includes(normalized)) {
+    return normalized;
+  }
+
+  return "trialing";
+}
+
+function normalizeSubscription(subscription = {}, fallbackDate = new Date().toISOString()) {
+  const plan = planById(currentSubscriptionPlanId(subscription));
+  const baseDate = new Date(fallbackDate || Date.now());
+  const trialEndsAt = new Date(baseDate);
+  trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+  const renewsAt = new Date(baseDate);
+  renewsAt.setMonth(renewsAt.getMonth() + 1);
+
+  return {
+    ...subscription,
+    plan: plan.name,
+    planId: plan.id,
+    status: normalizeSubscriptionStatus(subscription.status),
+    priceThb: numberValue(subscription.priceThb || plan.priceThb),
+    billing: subscription.billing || plan.billing,
+    trialEndsAt: subscription.trialEndsAt || trialEndsAt.toISOString(),
+    renewsAt: subscription.renewsAt || renewsAt.toISOString(),
   };
 }
 
@@ -1072,6 +1603,7 @@ async function writeState(state) {
 
 function publicUser(user) {
   const role = normalizeRole(user.role);
+  const subscription = normalizeSubscription(user.subscription || {}, user.createdAt);
   return {
     id: user.id,
     name: user.name,
@@ -1079,7 +1611,12 @@ function publicUser(user) {
     role,
     organizationId: user.organizationId || "",
     permissions: ROLE_POLICIES[role] || ROLE_POLICIES.customer,
-    subscription: user.subscription,
+    subscription,
+    entitlements: subscriptionEntitlementSummary({
+      ...user,
+      role,
+      subscription,
+    }),
     createdAt: user.createdAt,
     lastLoginAt: user.lastLoginAt,
   };
@@ -1125,12 +1662,45 @@ function publicPaymentSession(session) {
     status: normalizePaymentSessionStatus(session.status),
     provider: session.provider || "local_gateway",
     checkoutUrl: session.checkoutUrl || "",
+    externalPaymentId: session.externalPaymentId || "",
+    requiresRedirect: Boolean(session.requiresRedirect),
+    providerStatus: session.providerStatus || "",
     createdAt: session.createdAt,
     expiresAt: session.expiresAt || "",
     completedAt: session.completedAt || "",
     failureReason: session.failureReason || "",
     billingEventId: session.billingEventId || "",
     webhookEventCount: (session.webhookEventIds || []).length,
+  };
+}
+
+function publicApprovalRequest(request, state) {
+  const customer = state.users.find((user) => user.id === request.customerId);
+  const requester = state.users.find((user) => user.id === request.requestedByUserId);
+  const decider = state.users.find((user) => user.id === request.decidedByUserId);
+
+  return {
+    id: request.id,
+    customerId: request.customerId || "",
+    customerName: customer?.name || "",
+    customerEmail: customer?.email || "",
+    organizationId: request.organizationId || customer?.organizationId || "",
+    requestedByUserId: request.requestedByUserId || "",
+    requestedByName: requester?.name || "",
+    requestedByEmail: requester?.email || "",
+    title: cleanApprovalTitle(request.title),
+    summary: cleanApprovalSummary(request.summary),
+    actionType: normalizeApprovalActionType(request.actionType),
+    amountThb: numberValue(request.amountThb),
+    riskLevel: normalizeApprovalRiskLevel(request.riskLevel),
+    status: normalizeApprovalStatus(request.status),
+    decisionNote: cleanApprovalSummary(request.decisionNote),
+    decidedByUserId: request.decidedByUserId || "",
+    decidedByName: decider?.name || "",
+    decidedByEmail: decider?.email || "",
+    decidedAt: request.decidedAt || "",
+    createdAt: request.createdAt,
+    updatedAt: request.updatedAt || request.createdAt,
   };
 }
 
@@ -1145,6 +1715,7 @@ function publicPaymentWebhookEvent(event) {
     status: event.status || "processed",
     provider: event.provider || "local_gateway",
     source: event.source || "authenticated_simulation",
+    externalPaymentId: event.externalPaymentId || "",
     signatureVerified: Boolean(event.signatureVerified),
     verificationStatus: event.verificationStatus || "not_required",
     signedAt: event.signedAt || "",
@@ -1208,16 +1779,18 @@ function appendAuditEvent(state, event) {
 }
 
 function createTrialSubscription(now) {
+  const plan = planById("pro");
   const trialEndsAt = new Date(now);
   trialEndsAt.setDate(trialEndsAt.getDate() + 14);
   const renewsAt = new Date(now);
   renewsAt.setMonth(renewsAt.getMonth() + 1);
 
   return {
-    plan: "Pro",
+    plan: plan.name,
+    planId: plan.id,
     status: "trialing",
-    priceThb: 1490,
-    billing: "monthly",
+    priceThb: plan.priceThb,
+    billing: plan.billing,
     trialEndsAt: trialEndsAt.toISOString(),
     renewsAt: renewsAt.toISOString(),
   };
@@ -1399,7 +1972,7 @@ function secureCompare(left, right) {
   return crypto.timingSafeEqual(leftBuffer, rightBuffer);
 }
 
-function recordRejectedPaymentWebhook(state, input = {}, verification = {}) {
+function recordRejectedPaymentWebhook(state, input = {}, verification = {}, options = {}) {
   const paymentSession = state.paymentSessions.find((session) => session.id === input.sessionId);
   const targetUser = state.users.find((user) => user.id === paymentSession?.userId);
   const eventType = normalizePaymentEventType(input.eventType);
@@ -1414,8 +1987,9 @@ function recordRejectedPaymentWebhook(state, input = {}, verification = {}) {
     organizationId,
     eventType,
     status: "rejected",
-    provider: paymentSession?.provider || "local_gateway",
-    source: "signed_gateway",
+    provider: options.provider || paymentSession?.provider || "local_gateway",
+    source: options.source || "signed_gateway",
+    externalPaymentId: input.externalPaymentId || paymentSession?.externalPaymentId || "",
     signatureVerified: Boolean(verification.signatureVerified),
     verificationStatus: verification.status || "invalid_signature",
     signedAt: verification.signedAt || "",
@@ -1436,6 +2010,8 @@ function recordRejectedPaymentWebhook(state, input = {}, verification = {}) {
       providerEventId,
       eventType,
       source: webhookEvent.source,
+      provider: webhookEvent.provider,
+      externalPaymentId: webhookEvent.externalPaymentId,
       verificationStatus: webhookEvent.verificationStatus,
       signatureVerified: webhookEvent.signatureVerified,
       reason: webhookEvent.message,
@@ -1470,6 +2046,7 @@ function tenantMetadataReport(state) {
     billingEvents: countMissingOrganizationId(state.billingEvents),
     paymentSessions: countMissingOrganizationId(state.paymentSessions),
     paymentWebhookEvents: countMissingOrganizationId(state.paymentWebhookEvents),
+    approvalRequests: countMissingOrganizationId(state.approvalRequests),
     auditEvents: countMissingOrganizationId(state.auditEvents),
   };
   const totalMissingOrganizationId = Object.values(missingOrganizationId)
@@ -1634,6 +2211,7 @@ function applyPaidSubscriptionFromSession(state, user, paymentSession, plan, now
     priceThb: plan.priceThb,
     billing: plan.billing,
     provider: paymentSession.provider || "local_gateway",
+    externalPaymentId: paymentSession.externalPaymentId || "",
     currentPeriodStartedAt: now.toISOString(),
     renewsAt: renewsAt.toISOString(),
     updatedAt: now.toISOString(),
@@ -1651,6 +2229,7 @@ function applyPaidSubscriptionFromSession(state, user, paymentSession, plan, now
     currency: "THB",
     status: "paid",
     provider: paymentSession.provider || "local_gateway",
+    externalPaymentId: paymentSession.externalPaymentId || "",
     createdAt: now.toISOString(),
   };
 
@@ -1694,6 +2273,12 @@ function canAccessPaymentSession(state, actor, paymentSession) {
   ));
 }
 
+function canAdvisorAccessCustomer(state, advisorId, customerId) {
+  return state.advisorAssignments.some((assignment) => (
+    assignment.advisorId === advisorId && assignment.customerId === customerId
+  ));
+}
+
 function usersVisibleToUser(state, viewer) {
   const viewerRole = normalizeRole(viewer.role);
   if (["owner", "admin"].includes(viewerRole)) {
@@ -1715,6 +2300,7 @@ function requireOrganizationManager(state, actorUserId) {
   if (!actor || !["owner", "admin"].includes(normalizeRole(actor.role))) {
     throw new Error("Only owner or admin can manage workspaces.");
   }
+  requirePlanEntitlement(actor, "organization.management");
 
   return actor;
 }
@@ -1788,6 +2374,42 @@ function cleanOrganizationName(name) {
   return normalized ? normalized.slice(0, 80) : "Client Workspace";
 }
 
+function cleanApprovalTitle(title) {
+  const normalized = String(title || "").trim();
+  return normalized ? normalized.slice(0, 100) : "Portfolio action approval";
+}
+
+function cleanApprovalSummary(summary) {
+  return String(summary || "").trim().replace(/\s+/g, " ").slice(0, 600);
+}
+
+function normalizeApprovalStatus(status) {
+  const normalized = String(status || "").trim().toLowerCase();
+  return APPROVAL_STATUSES.includes(normalized) ? normalized : "pending";
+}
+
+function normalizeApprovalActionType(actionType) {
+  const normalized = String(actionType || "").trim().toLowerCase();
+  return APPROVAL_ACTION_TYPES.includes(normalized) ? normalized : "portfolio_review";
+}
+
+function normalizeApprovalRiskLevel(riskLevel) {
+  const normalized = String(riskLevel || "").trim().toLowerCase();
+  return APPROVAL_RISK_LEVELS.includes(normalized) ? normalized : "medium";
+}
+
+function approvalAuditDetails(request) {
+  return {
+    approvalId: request.id,
+    title: request.title,
+    actionType: request.actionType,
+    amountThb: Math.round(numberValue(request.amountThb)),
+    riskLevel: request.riskLevel,
+    status: request.status,
+    decisionNote: request.decisionNote || "",
+  };
+}
+
 function userName(name) {
   return String(name || "Investor").trim() || "Investor";
 }
@@ -1819,6 +2441,10 @@ function normalizeAuditEvents(state, events = []) {
     });
 }
 
+export function normalizeAppStateForImport(parsed = {}) {
+  return normalizeState(parsed);
+}
+
 function normalizeState(parsed) {
   const state = {
     users: parsed.users || [],
@@ -1829,6 +2455,7 @@ function normalizeState(parsed) {
     paymentSessions: parsed.paymentSessions || [],
     paymentWebhookEvents: parsed.paymentWebhookEvents || [],
     advisorAssignments: parsed.advisorAssignments || [],
+    approvalRequests: parsed.approvalRequests || [],
     auditEvents: parsed.auditEvents || [],
     organizations: parsed.organizations || [],
   };
@@ -1837,6 +2464,7 @@ function normalizeState(parsed) {
   state.users = state.users.map((user, index) => ({
     ...user,
     role: normalizeRole(user.role || (!hasOwner && index === 0 ? "owner" : "customer")),
+    subscription: normalizeSubscription(user.subscription || {}, user.createdAt),
   }));
   state.organizations = state.organizations
     .filter((organization) => organization && organization.id)
@@ -1922,6 +2550,10 @@ function normalizeState(parsed) {
       amountThb: numberValue(session.amountThb),
       currency: session.currency || "THB",
       provider: session.provider || "local_gateway",
+      checkoutUrl: session.checkoutUrl || "",
+      externalPaymentId: session.externalPaymentId || "",
+      requiresRedirect: Boolean(session.requiresRedirect),
+      providerStatus: session.providerStatus || "",
       webhookEventIds: Array.isArray(session.webhookEventIds) ? session.webhookEventIds : [],
     }));
   state.paymentWebhookEvents = state.paymentWebhookEvents
@@ -1933,11 +2565,39 @@ function normalizeState(parsed) {
       status: event.status || "processed",
       provider: event.provider || "local_gateway",
       source: event.source || "authenticated_simulation",
+      externalPaymentId: event.externalPaymentId || "",
       signatureVerified: Boolean(event.signatureVerified),
       verificationStatus: event.verificationStatus || "not_required",
       signedAt: event.signedAt || "",
       signatureAgeSeconds: event.signatureAgeSeconds ?? null,
     }));
+  state.approvalRequests = state.approvalRequests
+    .filter((request) => request && request.id && request.customerId)
+    .map((request) => {
+      const customer = state.users.find((user) => user.id === request.customerId);
+      const requester = state.users.find((user) => user.id === request.requestedByUserId);
+      const fallbackRequester = requester || customer;
+      const createdAt = request.createdAt || new Date(0).toISOString();
+      const status = normalizeApprovalStatus(request.status);
+
+      return {
+        id: String(request.id),
+        customerId: customer?.id || request.customerId,
+        organizationId: request.organizationId || customer?.organizationId || organizationIdForUser(state, request.customerId),
+        requestedByUserId: fallbackRequester?.id || request.requestedByUserId || request.customerId,
+        title: cleanApprovalTitle(request.title),
+        summary: cleanApprovalSummary(request.summary),
+        actionType: normalizeApprovalActionType(request.actionType),
+        amountThb: clampNumber(request.amountThb, 0, 1000000000),
+        riskLevel: normalizeApprovalRiskLevel(request.riskLevel),
+        status,
+        decisionNote: cleanApprovalSummary(request.decisionNote),
+        decidedByUserId: status === "pending" ? "" : (request.decidedByUserId || request.customerId || ""),
+        decidedAt: status === "pending" ? "" : (request.decidedAt || request.updatedAt || createdAt),
+        createdAt,
+        updatedAt: request.updatedAt || request.decidedAt || createdAt,
+      };
+    });
   state.auditEvents = normalizeAuditEvents(state, state.auditEvents).slice(-MAX_AUDIT_EVENTS);
 
   return state;

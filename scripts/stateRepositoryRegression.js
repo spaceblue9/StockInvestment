@@ -41,12 +41,22 @@ try {
   assertEqual(info.stateFile, "data/app-state.json", "Repository should expose portable state file path.");
   assertEqual(info.normalizedOnRead, true, "Repository should declare normalized reads.");
   assertEqual(info.productionReady, false, "Local file adapter should not be marked production ready.");
+  assertIncludes(info.supportedAdapters, ["local_file", "postgres"], "Repository should advertise local and postgres adapters.");
 
   const stateFile = path.join(tempRoot, "data", "app-state.json");
   const raw = JSON.parse(await fs.readFile(stateFile, "utf8"));
   assertEqual(raw.users.length, 1, "Repository should write to cwd data/app-state.json.");
 
   process.env.APP_STATE_REPOSITORY = "postgres";
+  const postgresInfo = stateRepositoryInfo();
+  assertEqual(postgresInfo.adapter, "postgres", "Postgres adapter should be selectable by env.");
+  assertEqual(postgresInfo.engine, "postgresql", "Postgres adapter should expose database engine.");
+  assertEqual(postgresInfo.databaseUrlConfigured, false, "Postgres adapter should report missing DATABASE_URL.");
+  await expectReject(
+    () => readAppState(),
+    "Postgres adapter should fail fast when DATABASE_URL is missing.",
+  );
+  process.env.APP_STATE_REPOSITORY = "not_a_repository";
   await expectReject(
     () => readAppState(),
     "Unsupported repository adapter should fail fast.",
@@ -71,6 +81,15 @@ function assertEqual(actual, expected, message) {
   }
 
   throw new Error(`${message}\n${JSON.stringify({ actual, expected }, null, 2)}`);
+}
+
+function assertIncludes(actual, expectedItems, message) {
+  const missing = expectedItems.filter((item) => !actual.includes(item));
+  if (!missing.length) {
+    return;
+  }
+
+  throw new Error(`${message}\nMissing: ${missing.join(", ")}`);
 }
 
 async function expectReject(action, message) {

@@ -407,6 +407,250 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - อัปเดตเอกสารและ `plan.md`
   - ทดสอบ syntax, audit trail regression, full regression, compare Python และ audit high severity
 
+### T30 - Approval Workflow Prototype
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-04 09:13:33 +07:00
+- เสร็จเมื่อ: 2026-06-04 09:31:07 +07:00
+- งานที่ต้องทำ:
+  - เพิ่ม approval request model สำหรับคำแนะนำ/คำสั่งที่ต้องให้ลูกค้าอนุมัติก่อน
+  - เพิ่ม API สำหรับ list, create และ approve/reject approval request ตาม role และ workspace scope
+  - จำกัดสิทธิ์ให้ owner/admin เห็นทั้งหมด, advisor เห็นเฉพาะลูกค้าที่ดูแล และ customer เห็น/ตัดสินใจเฉพาะของตัวเอง
+  - เพิ่ม audit events สำหรับ create/approve/reject เพื่อให้ต่อกับ hash chain และ external audit trail เดิม
+  - เพิ่ม metrics และ UI ใน Business/Workspace เพื่อให้เห็น pending/approved/rejected approvals
+  - เพิ่ม regression test สำหรับ approval workflow และผูกเข้า test/CI quality gate
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ syntax, approval regression, full regression และ compare Python
+
+### T31 - Chart Interaction and Screener Drilldown
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-04 09:33:25 +07:00
+- เสร็จเมื่อ: 2026-06-04 09:36:48 +07:00
+- งานที่ต้องทำ:
+  - เพิ่ม filter ในหน้า Screener ให้เลือก sector และ trend ได้
+  - ทำให้ visual Sector count ใน Screener คลิกแล้ว filter ตารางตาม sector ได้
+  - เพิ่ม visual state/ข้อความสั้นเพื่อบอก filter ที่ใช้อยู่
+  - คงสูตรวิเคราะห์และ output เดิมไม่ให้เปลี่ยน
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ frontend syntax, regression รวม และ HTTP smoke test
+
+### T32 - External Immutable Audit Provider Integration
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-04 13:27:04 +07:00
+- เสร็จเมื่อ: 2026-06-04 13:35:02 +07:00
+- งานที่ต้องทำ:
+  - เพิ่ม external audit provider แบบ HTTP webhook ที่เปิดใช้ด้วย environment variables
+  - ส่ง audit events ออกไป provider ภายนอกพร้อม HMAC signature และ timestamp
+  - เก็บ receipt เฉพาะ event ที่ provider ตอบรับสำเร็จ เพื่อใช้ readiness report ตรวจ missing external mirror ได้
+  - ค่า default ต้องยังใช้ local NDJSON mirror เดิมและไม่ทำให้ app พังถ้ายังไม่ตั้งค่า provider
+  - เพิ่ม readiness metrics สำหรับ external provider เช่น enabled, endpoint configured, external receipts และ missing external events
+  - เพิ่ม regression test ด้วย local HTTP server โดยไม่แตะข้อมูล demo จริง
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ syntax, external audit regression, regression รวม และ CI quality
+
+### T33 - Dependency Risk Gate Hardening
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-04 13:36:35 +07:00
+- เสร็จเมื่อ: 2026-06-04 13:41:35 +07:00
+- งานที่ต้องทำ:
+  - เพิ่ม dependency risk regression ที่อ่าน `npm audit --json`
+  - fail ถ้ามี high/critical vulnerability หรือ moderate vulnerability ใหม่ที่ยังไม่ถูกบันทึกเป็น known accepted risk
+  - บันทึก known moderate advisory ปัจจุบันจาก `exceljs -> uuid` ที่ npm แจ้งว่าไม่มี fix available
+  - ผูก dependency risk gate เข้า CI quality โดยไม่เปลี่ยนสูตรหรือ output วิเคราะห์เดิม
+  - เพิ่มเอกสาร dependency risk register และอัปเดต README/CI docs
+  - อัปเดต `plan.md`
+  - ทดสอบ dependency risk regression, regression รวม และ CI quality
+
+### T34 - Web App Smoke Verification Harness
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-04 13:47:43 +07:00
+- เสร็จเมื่อ: 2026-06-04 13:53:15 +07:00
+- งานที่ต้องทำ:
+  - ปรับ `src/server.js` ให้ export app/server factory เพื่อให้ทดสอบเว็บได้ใน process เดียวโดยไม่ต้องเปิด server background
+  - เพิ่ม automated web smoke regression สำหรับตรวจหน้าแรก, health API, auth API, static assets, Approvals tab, Screener drilldown และ External Audit UI marker
+  - ผูก web smoke regression เข้า npm scripts และ CI quality gate
+  - อัปเดต README, CI docs, Web App usage และ `plan.md`
+  - ทดสอบ syntax, web smoke regression, regression รวม และ CI quality
+
+### T35 - Production Database Adapter Implementation
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-04 13:56:29 +07:00
+- เสร็จเมื่อ: 2026-06-04 14:06:13 +07:00
+- งานที่ต้องทำ:
+  - เพิ่ม production database adapter สำหรับ Postgres หลัง `stateRepository` โดย default ยังเป็น `local_file`
+  - รองรับ env `APP_STATE_REPOSITORY=postgres` และ `DATABASE_URL`
+  - เพิ่ม SQL bootstrap/migration helper สำหรับ table ต่อ collection ตาม schema manifest
+  - เพิ่ม regression test แบบ fake Postgres client เพื่อทดสอบ read/write/query โดยไม่ต้องต่อฐานข้อมูลจริง
+  - เพิ่ม npm script และผูกเข้า regression/CI quality gate
+  - อัปเดต README, database migration docs, Web App usage, CI docs และ `plan.md`
+  - ทดสอบ syntax, repository regression, database adapter regression, regression รวม และ CI quality
+
+### T36 - Real Payment Provider Integration
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-04 14:26:19 +07:00
+- เสร็จเมื่อ: 2026-06-04 14:36:43 +07:00
+- งานที่ต้องทำ:
+  - เพิ่ม payment gateway provider layer โดย default ยังเป็น `local_gateway`
+  - เพิ่ม Stripe Checkout provider แบบ opt-in ผ่าน environment variables โดยไม่เพิ่ม dependency ใหม่
+  - สร้าง external checkout session แบบ pending และคืน checkout URL ให้ UI เปิดจ่ายเงินจริง
+  - เพิ่ม public provider webhook endpoint ที่ verify Stripe-style signature จาก raw body
+  - map webhook `checkout.session.completed` เป็น `payment.succeeded` และ failed events เป็น `payment.failed`
+  - เพิ่ม regression test ด้วย fake Stripe API/fake webhook โดยไม่ต่อ provider จริง
+  - อัปเดต README, Web App usage, CI docs และ `plan.md`
+  - ทดสอบ syntax, payment provider regression, subscription lifecycle regression, regression รวม และ CI quality
+
+### T37 - One-time App State to Postgres Importer
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-04 15:02:59 +07:00
+- เสร็จเมื่อ: 2026-06-04 15:12:48 +07:00
+- งานที่ต้องทำ:
+  - เพิ่ม one-time importer จาก local `data/app-state.json` เข้า Postgres adapter
+  - รองรับ dry-run เพื่อดู readiness, record counts และ blockers โดยไม่เขียนฐานข้อมูล
+  - ใช้ schema/readiness เดิมและ normalize state ก่อน import
+  - fail ถ้า readiness เป็น `blocked` ยกเว้นระบุ `--allow-blocked`
+  - เพิ่ม regression test ด้วย fake Postgres client โดยไม่ต่อฐานข้อมูลจริง
+  - เพิ่ม npm script และเอกสาร README / database migration / Web App usage / CI docs
+  - อัปเดต `plan.md` และ prompt ส่งต่อ
+  - ทดสอบ syntax, importer regression, regression รวม และ CI quality
+
+### T38 - Package Entitlement Enforcement
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-04 15:16:36 +07:00
+- เสร็จเมื่อ: 2026-06-04 15:41:09 +07:00
+- งานที่ต้องทำ:
+  - ออกแบบ entitlement policy แยกสิทธิ์ Starter / Pro / Advisor ให้สอดคล้องกับแพ็กเกจ subscription
+  - บังคับใช้สิทธิ์กับ API สำคัญ เช่น portfolio snapshot, team/advisor workspace, business metrics, audit/activity และ approval workflow
+  - เพิ่ม UI ให้ผู้ใช้เห็นสิทธิ์แพ็กเกจ ปุ่ม upgrade และเหตุผลเมื่อใช้ฟีเจอร์ไม่ได้
+  - เพิ่ม regression test เพื่อยืนยันว่าแต่ละแพ็กเกจเข้าถึงฟีเจอร์ได้ตรงตามสิทธิ์
+  - อัปเดต README, Web App usage, CI docs และ `plan.md`
+  - ทดสอบ syntax, entitlement regression, regression รวม และ CI quality
+
+### T39 - Backup and Restore Drill
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-04 19:58:33 +07:00
+- เสร็จเมื่อ: 2026-06-04 20:07:40 +07:00
+- งานที่ต้องทำ:
+  - เพิ่ม backup service สำหรับ snapshot local app state, audit mirror และ external audit receipts แบบไม่แตะข้อมูลเดิม
+  - เพิ่ม restore service/CLI ที่มี dry-run, validation และ confirm guard ก่อนเขียนกลับ
+  - เพิ่ม metadata/checksum/record counts เพื่อใช้ตรวจว่า backup ถูกต้องและ restore ได้จริง
+  - เพิ่ม regression test ใน temporary directory สำหรับ backup, dry-run restore, confirm restore และ reject invalid backup
+  - เพิ่ม npm scripts และผูกเข้า regression/CI quality gate
+  - อัปเดต README, Web App usage, database migration/production readiness docs, CI docs และ `plan.md`
+  - ทดสอบ syntax, backup/restore regression, regression รวม และ CI quality
+
+### T40 - Postgres Query-level Tenant Enforcement
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-04 20:10:57 +07:00
+- เสร็จเมื่อ: 2026-06-04 20:18:25 +07:00
+- งานที่ต้องทำ:
+  - เพิ่ม Postgres scoped read helper ที่บังคับ tenant scope ใน SQL query ก่อนดึง record ออกจากฐานข้อมูล
+  - รองรับ platform scope สำหรับ owner/admin และ restricted scope สำหรับ user/advisor/customer
+  - ครอบคลุม tenant-scoped collections, users, organizations, sessions และ advisor assignments
+  - เพิ่ม regression test ด้วย fake Postgres client เพื่อยืนยันว่า scoped read ไม่ดึงข้อมูลข้าม organization/user
+  - อัปเดต repository metadata และเอกสาร production database/CI ให้ระบุ query-level tenant guard
+  - อัปเดต `plan.md` และ prompt ส่งต่อ
+  - ทดสอบ syntax, Postgres repository regression, regression รวม และ CI quality
+
+### T41 - SaaS Observability and Alerting Foundation
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-04 20:22:21 +07:00
+- เสร็จเมื่อ: 2026-06-04 20:33:40 +07:00
+- งานที่ต้องทำ:
+  - เพิ่ม operational readiness service สำหรับรวม health ของ repository, storage readiness, audit trail, payment provider, dependency risk และ subscription business signals
+  - เพิ่ม alert rule แบบ deterministic สำหรับสถานะ critical/warning/ok โดยไม่เพิ่ม dependency
+  - เพิ่ม API สำหรับ owner/admin ดู operational readiness และคง public health endpoint แบบ minimal
+  - เพิ่ม regression test ที่รันใน temporary directory เพื่อตรวจ alert severity และ auth guard
+  - เพิ่ม npm script และผูกเข้า regression/CI quality gate
+  - อัปเดต README, Web App usage, CI docs และ `plan.md`
+  - ทดสอบ syntax, observability regression, web smoke/regression รวม และ CI quality
+
+### T42 - Production Postgres Backup Runbook and Drill Foundation
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-04 21:00:58 +07:00
+- เสร็จเมื่อ: 2026-06-04 21:08:17 +07:00
+- งานที่ต้องทำ:
+  - เพิ่ม service สำหรับสร้าง Postgres backup/restore runbook แบบ dry-run โดยไม่แตะ production database
+  - รองรับ strategy `managed_snapshot`, `pg_dump` และ `both` พร้อม retention, RPO/RTO และ restore drill checklist
+  - sanitize `DATABASE_URL` เพื่อไม่ให้ password/secret หลุดใน output
+  - เพิ่ม CLI สำหรับพิมพ์ runbook/checklist และ validation summary
+  - เพิ่ม regression test เพื่อยืนยันว่า runbook ไม่เปิดเผย secret, ตรวจ strategy/retention และมี backup/restore commands ครบ
+  - เพิ่ม npm scripts และผูกเข้า regression/CI quality gate
+  - อัปเดต README, Web App usage, database migration docs, CI docs และ `plan.md`
+  - ทดสอบ syntax, Postgres backup runbook regression, regression รวม และ CI quality
+
+### T43 - Production Deployment Checklist and Environment Validation
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-04 21:14:16 +07:00
+- เสร็จเมื่อ: 2026-06-04 21:24:27 +07:00
+- งานที่ต้องทำ:
+  - เพิ่ม service สำหรับตรวจ deployment readiness แบบ dry-run จาก environment variables โดยไม่ deploy จริง
+  - ตรวจ production essentials เช่น `NODE_ENV`, Postgres adapter, `DATABASE_URL`, SSL mode, Stripe Checkout, signed webhooks, external audit, backup strategy และ CI gates
+  - sanitize/mask secret และ URL ใน output ทุกครั้ง
+  - เพิ่ม CLI สำหรับพิมพ์ deployment checklist แบบ JSON/text และ strict mode
+  - เพิ่ม regression test เพื่อยืนยัน ready/blocked cases, secret masking และ checklist commands
+  - เพิ่ม npm scripts และผูกเข้า regression/CI quality gate
+  - อัปเดต README, Web App usage, CI docs และ `plan.md`
+  - ทดสอบ syntax, deployment checklist regression, regression รวม และ CI quality
+
+### T44 - Operational Alert Delivery Webhook Foundation
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-05 07:34:39 +07:00
+- เสร็จเมื่อ: 2026-06-05 07:44:58 +07:00
+- งานที่ต้องทำ:
+  - เพิ่ม service สำหรับส่ง operational alerts ออกไป webhook ภายนอกแบบ opt-in โดยยังไม่ผูก provider จริงเฉพาะเจ้า
+  - รองรับ dry-run/disabled mode, required mode, HMAC signature, timeout และ sanitized payload
+  - ใช้ alert จาก operational readiness report เดิมเพื่อสร้าง payload ที่ส่งออกได้
+  - เพิ่ม CLI สำหรับ preview/dry-run alert delivery และ strict mode
+  - เพิ่ม regression test เพื่อยืนยัน disabled/dry-run/success/failure/required cases, signature และ secret masking
+  - เพิ่ม npm scripts และผูกเข้า regression/CI quality gate
+  - อัปเดต README, Web App usage, CI docs และ `plan.md`
+  - ทดสอบ syntax, alert delivery regression, regression รวม และ CI quality
+
+### T45 - In-app Browser Screenshot QA and Visual Polish
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-05 07:51:29 +07:00
+- เสร็จเมื่อ: 2026-06-05 08:06:55 +07:00
+- งานที่ต้องทำ:
+  - เปิด Web App ผ่าน in-app browser และตรวจหน้าแรกด้วย screenshot จริง
+  - ตรวจ desktop viewport สำหรับ landing/auth/dashboard markers หลังงาน SaaS/ops ล่าสุด
+  - ตรวจ mobile viewport เพื่อหา layout overflow, text overlap, navigation/button ที่อ่านยาก
+  - สมัคร/เข้าสู่ระบบด้วยข้อมูลชั่วคราวใน environment ชั่วคราวเพื่อดูหน้า customer/business ที่ต้อง login
+  - ตรวจ console errors และ basic API markers ที่ browser เห็นจริง
+  - หากพบปัญหา UI ให้แก้แบบจำกัด scope และไม่กระทบสูตรวิเคราะห์หุ้นเดิม
+  - เพิ่ม/ปรับ automated smoke หรือ visual marker regression เท่าที่เหมาะสม
+  - อัปเดตเอกสาร/`plan.md` พร้อมผล QA และข้อจำกัด
+  - ทดสอบ syntax, web smoke, regression รวม และ CI quality
+
+### T46 - Privacy-safe Commit and GitHub Push
+
+- สถานะ: Blocked at Push
+- เริ่มเมื่อ: 2026-06-05 08:17:58 +07:00
+- เสร็จเมื่อ: -
+- Blocked เมื่อ: 2026-06-05 08:30:59 +07:00
+- งานที่ต้องทำ:
+  - ตรวจไฟล์ portfolio ส่วนตัวที่ถูก track อยู่
+  - กัน `portfolio_eak.xlsx` และ `portfolio_aom.xlsx` ออกจาก Git ก่อน commit/push
+  - กัน report ที่สร้างจาก portfolio ส่วนตัวออกจาก Git ด้วยเพื่อลดความเสี่ยงข้อมูลรั่ว
+  - ปรับ regression/CI ไม่ให้พึ่งไฟล์ portfolio ส่วนตัว
+  - อัปเดตเอกสารและ `plan.md`
+  - รันทดสอบที่จำเป็นก่อน commit
+  - commit และ push branch `codex-node-web-app-migration` ไป GitHub
+
 ## บันทึกการอัปเดต
 
 - 2026-06-02 20:55:35 +07:00 - สร้าง `plan.md` และกำหนด Task list สำหรับ migration เป็น Node.js Web App
@@ -457,6 +701,42 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 - 2026-06-04 08:47:03 +07:00 - ทำ T28 เสร็จ: เพิ่ม state repository layer, repository metadata, regression test และผูกเข้า CI quality gate
 - 2026-06-04 08:56:07 +07:00 - เริ่ม T29: เพิ่ม external append-only audit trail prototype และ audit mirror readiness
 - 2026-06-04 09:00:19 +07:00 - ทำ T29 เสร็จ: เพิ่ม append-only audit trail mirror, API/UI metrics, regression test และเอกสาร audit mirror
+- 2026-06-04 09:13:33 +07:00 - เริ่ม T30: เพิ่ม approval workflow prototype สำหรับ SaaS advisor/customer
+- 2026-06-04 09:31:07 +07:00 - ทำ T30 เสร็จ: เพิ่ม approval workflow, API/UI, tenant-scoped schema, regression test และผูกเข้า CI quality gate
+- 2026-06-04 09:33:25 +07:00 - เริ่ม T31: เพิ่ม chart interaction และ Screener drilldown โดยไม่เปลี่ยนผลวิเคราะห์เดิม
+- 2026-06-04 09:36:48 +07:00 - ทำ T31 เสร็จ: เพิ่ม sector/trend filter และคลิก Sector count bar เพื่อ drilldown หน้า Screener
+- 2026-06-04 13:27:04 +07:00 - เริ่ม T32: เพิ่ม external immutable audit provider integration แบบ HTTP webhook
+- 2026-06-04 13:35:02 +07:00 - ทำ T32 เสร็จ: เพิ่ม external audit HTTP webhook provider, HMAC signature, receipt readiness และ regression test
+- 2026-06-04 13:36:35 +07:00 - เริ่ม T33: เพิ่ม dependency risk gate hardening สำหรับ npm audit advisories
+- 2026-06-04 13:41:35 +07:00 - ทำ T33 เสร็จ: เพิ่ม dependency risk gate, accepted risk register และผูกเข้า CI quality
+- 2026-06-04 13:47:43 +07:00 - เริ่ม T34: เพิ่ม Web App smoke verification harness สำหรับตรวจเว็บโดยไม่ต้องเปิด server background
+- 2026-06-04 13:53:15 +07:00 - ทำ T34 เสร็จ: เพิ่ม server factory, automated web smoke regression, npm script, CI docs และ quality gate ผ่าน
+- 2026-06-04 13:56:29 +07:00 - เริ่ม T35: เพิ่ม production database adapter implementation สำหรับ Postgres โดยคง local file เป็น default
+- 2026-06-04 14:06:13 +07:00 - ทำ T35 เสร็จ: เพิ่ม Postgres state adapter, bootstrap SQL, fake-client regression, npm script, docs และ CI quality ผ่าน
+- 2026-06-04 14:26:19 +07:00 - เริ่ม T36: เพิ่ม real payment provider integration แบบ Stripe Checkout opt-in โดยคง local gateway เป็น default
+- 2026-06-04 14:36:43 +07:00 - ทำ T36 เสร็จ: เพิ่ม Stripe Checkout provider, raw-body provider webhook, payment provider regression, docs และ CI quality ผ่าน
+- 2026-06-04 15:02:59 +07:00 - เริ่ม T37: เพิ่ม one-time importer จาก `app-state.json` เข้า Postgres พร้อม dry-run และ regression test
+- 2026-06-04 15:12:48 +07:00 - ทำ T37 เสร็จ: เพิ่ม one-time Postgres importer, dry-run readiness guard, fake-client regression, docs และ CI quality ผ่าน
+- 2026-06-04 15:15:28 +07:00 - อัปเดต prompt ส่งต่อหลัง T37 ให้ระบุว่างาน importer เสร็จแล้วและปรับงานต่อยอดถัดไป
+- 2026-06-04 15:16:36 +07:00 - เริ่ม T38: เพิ่ม package entitlement enforcement สำหรับ Starter/Pro/Advisor
+- 2026-06-04 15:41:09 +07:00 - ทำ T38 เสร็จ: เพิ่ม package entitlement policy/gate, upgrade card UI, regression test, docs และ CI quality ผ่าน
+- 2026-06-04 19:58:33 +07:00 - เริ่ม T39: เพิ่ม backup/restore drill สำหรับ local state และ production readiness
+- 2026-06-04 20:07:40 +07:00 - ทำ T39 เสร็จ: เพิ่ม backup/restore drill, manifest/checksum, dry-run/confirm guard, regression test, docs และ CI quality ผ่าน
+- 2026-06-04 20:10:57 +07:00 - เริ่ม T40: เพิ่ม query-level tenant enforcement สำหรับ Postgres production
+- 2026-06-04 20:18:25 +07:00 - ทำ T40 เสร็จ: เพิ่ม Postgres scoped read helper, SQL tenant WHERE guard, regression test, docs และ CI quality ผ่าน
+- 2026-06-04 20:22:21 +07:00 - เริ่ม T41: เพิ่ม observability และ alerting foundation สำหรับ subscription SaaS
+- 2026-06-04 20:33:40 +07:00 - ทำ T41 เสร็จ: เพิ่ม operational readiness API, alert rules, Business dashboard alert cards, regression test, docs และ CI quality ผ่าน
+- 2026-06-04 21:00:58 +07:00 - เริ่ม T42: เพิ่ม production Postgres backup runbook และ snapshot drill foundation
+- 2026-06-04 21:08:17 +07:00 - ทำ T42 เสร็จ: เพิ่ม Postgres backup runbook generator, CLI, secret masking, regression test, docs และ CI quality ผ่าน
+- 2026-06-04 21:14:16 +07:00 - เริ่ม T43: เพิ่ม production deployment checklist และ environment validation
+- 2026-06-04 21:24:27 +07:00 - ทำ T43 เสร็จ: เพิ่ม production deployment checklist dry-run, CLI strict mode, secret masking, regression test, docs และ CI quality ผ่าน
+- 2026-06-05 07:34:39 +07:00 - เริ่ม T44: เพิ่ม operational alert delivery webhook foundation แบบ opt-in
+- 2026-06-05 07:44:58 +07:00 - ทำ T44 เสร็จ: เพิ่ม operational alert delivery webhook, HMAC signature, dry-run/required mode, regression test, docs และ CI quality ผ่าน
+- 2026-06-05 07:51:29 +07:00 - เริ่ม T45: ทำ in-app browser screenshot QA และ visual polish
+- 2026-06-05 08:06:55 +07:00 - ทำ T45 เสร็จ: เพิ่ม frontend viewport/auth regression, mobile responsive polish, docs และ CI quality ผ่าน โดยบันทึกข้อจำกัดว่า in-app browser runtime ยังถูก Windows sandbox บล็อก
+- 2026-06-05 08:17:58 +07:00 - เริ่ม T46: เตรียม commit/push แบบไม่ส่งไฟล์ portfolio ส่วนตัวขึ้น GitHub
+- 2026-06-05 08:30:59 +07:00 - T46 ทำส่วน commit สำเร็จใน clone ชั่วคราว แต่ push ไป GitHub ถูก network/sandbox บล็อก จึงต้อง push ต่อจากเครื่องผู้ใช้หรือ environment ที่ออก GitHub ได้
+- 2026-06-05 08:42:14 +07:00 - ตรวจสาเหตุ push เพิ่ม: GitHub ตอบ HTTP 401 และ Git เรียก Credential Manager แต่ sandbox user ไม่มี GitHub credential; ไม่พบ `gh` CLI สำหรับ auth สำรอง
 
 ## ผลลัพธ์ T18: Audit Log and Activity Timeline Prototype
 
@@ -710,7 +990,8 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - เพิ่ม GitHub Actions workflow ชื่อ `Quality Gate`
   - trigger เมื่อ push, pull request ไป `main` และ manual dispatch
   - ใช้ Node.js `22.x`
-  - ตรวจ reference artifacts ที่ `npm run compare:python` ต้องใช้ ได้แก่ `siamchart_raw.csv`, `recommended_stocks.csv`, `portfolio_aom.xlsx`, `portfolio_aom_analysis_report.xlsx`
+  - ตรวจ reference artifacts ที่ `npm run compare:python` ต้องใช้ ได้แก่ `siamchart_raw.csv`, `recommended_stocks.csv`
+  - portfolio report regression ใช้ synthetic temporary workbook เพื่อไม่ต้อง commit ไฟล์ portfolio ส่วนตัว
   - รัน `npm ci` และ `npm run ci:quality`
 - `package.json`
   - เพิ่ม `npm run ci:quality` เพื่อรัน regression ทั้งหมดและ `npm audit --audit-level=high`
@@ -845,6 +1126,717 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 - `npm run compare:python` ผ่าน: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio sample mismatches 0
 - `npm audit --audit-level=high` ผ่านเกณฑ์ high; ยังมี moderate advisory จาก `uuid` ผ่าน `exceljs` และไม่มี fix available
 - `git diff --check` ผ่านโดยมีเฉพาะคำเตือน LF/CRLF ของ `.gitignore` และ `README.md`
+
+## ผลลัพธ์ T30: Approval Workflow Prototype
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/authService.js`
+  - เพิ่ม `approvalRequests` ใน local state พร้อม normalize และ tenant metadata
+  - เพิ่ม `listApprovalRequests`, `createApprovalRequest` และ `decideApprovalRequest`
+  - จำกัดสิทธิ์ owner/admin ให้เห็นทุก request, advisor เห็นเฉพาะลูกค้าที่ถูก assign และ customer เห็น/ตัดสินใจเฉพาะของตัวเอง
+  - เพิ่ม audit events `approval.request_created`, `approval.request_approved`, `approval.request_rejected`
+  - เพิ่ม business metrics: pending, approved และ rejected approvals
+- `src/services/stateSchemaService.js`
+  - เพิ่ม schema collection `approvalRequests` mapping ไป production table `approval_requests`
+  - ตรวจ required fields, tenant scope และ references ไป `users`/`organizations`
+- `src/routes/authRoutes.js`
+  - เพิ่ม API `GET /api/approvals`
+  - เพิ่ม API `POST /api/approvals`
+  - เพิ่ม API `POST /api/approvals/:approvalId/decision`
+- `src/public/index.html`, `src/public/app.js`, `src/public/styles.css`
+  - เพิ่มแท็บ `Approvals`
+  - เพิ่ม form ให้ owner/admin/advisor สร้าง approval request
+  - เพิ่ม table ให้ customer approve/reject request ของตัวเอง
+  - เพิ่ม Client approvals ใน Business/Workspace และ metric pending/approved/rejected approvals
+  - เพิ่ม label ใน Recent activity สำหรับ approval actions
+- `scripts/approvalWorkflowRegression.js`
+  - เพิ่ม regression test ที่ใช้ temporary directory แยกจากข้อมูล demo จริง
+  - ตรวจ advisor สร้าง approval ได้เฉพาะ assigned customer, customer เห็น/ตัดสินใจเฉพาะของตัวเอง, customer อื่นไม่เห็นข้อมูลข้ามกัน, metrics ถูกต้อง, audit integrity verified และ storage readiness ready
+- `package.json`
+  - เพิ่ม `npm run test:approval-workflow`
+  - อัปเดต `npm run test-regression` และ `npm run ci:quality` ให้รวม approval workflow regression
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`, `docs/DATABASE_MIGRATION_FOUNDATION.md`
+  - เพิ่มคำอธิบาย approval workflow, schema mapping และคำสั่งทดสอบ
+
+ผลการทดสอบ:
+
+- `node --check` ผ่านสำหรับ `src/public/app.js`, `src/services/authService.js`, `src/routes/authRoutes.js`, `scripts/approvalWorkflowRegression.js`
+- `npm run test:approval-workflow` ผ่าน: total approvals = 2, approved = 1, rejected = 1, owner scope = 2, advisor/customer scope ถูกต้อง, audit integrity = `verified`, storage readiness = `ready`
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `npm run compare:python` ผ่าน: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio sample mismatches 0
+- HTTP smoke test ผ่านบน port ชั่วคราว 3095: `/api/health` ตอบ ok, หน้าแรกโหลดได้ และมีแท็บ `Approvals`
+- in-app browser runtime ถูก Windows sandbox บล็อกตอนพยายาม spawn server จาก runtime จึงใช้ HTTP smoke test แทน
+- `npm audit --audit-level=high` ผ่านเกณฑ์ high; ยังมี moderate advisory จาก `uuid` ผ่าน `exceljs` และไม่มี fix available
+- `git diff --check` ผ่านโดยมีเฉพาะคำเตือน LF/CRLF ของไฟล์ที่แก้บน Windows
+
+## ผลลัพธ์ T31: Chart Interaction and Screener Drilldown
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/public/app.js`
+  - เพิ่ม filter ในหน้า Screener สำหรับ sector และ trend
+  - เพิ่มข้อความสรุปจำนวนหุ้นที่ match filter ปัจจุบัน
+  - ทำให้ Sector count visual เป็นปุ่มคลิกเพื่อกรองตารางตาม sector
+  - เพิ่ม helper `uniqueValues` สำหรับจัดรายการ filter ที่ไม่ซ้ำ
+  - ปรับ `renderBarList` ให้รองรับ action แบบ optional โดย visual อื่นยังแสดงเหมือนเดิม
+- `src/public/styles.css`
+  - เพิ่ม style สำหรับ bar row ที่เป็นปุ่มและสถานะ selected
+- `README.md`, `docs/WEB_APP_USAGE.md`
+  - เพิ่มคำอธิบาย sector/trend filter และ sector drilldown ใน Screener
+
+ผลการทดสอบ:
+
+- `node --check src/public/app.js` ผ่าน
+- `npm run test-regression` ผ่าน
+- `npm run compare:python` ผ่าน: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio sample mismatches 0
+- HTTP smoke test ผ่านบน port ชั่วคราว 3097: `/api/health` ตอบ ok, หน้าแรกยังมี `Approvals`, `app.js` มี `sectorFilter` และ `data-sector-filter`
+- `git diff --check` ผ่านโดยมีเฉพาะคำเตือน LF/CRLF ของไฟล์ที่แก้บน Windows
+- หมายเหตุ: T31 เป็น UI interaction ฝั่ง frontend ไม่เปลี่ยนสูตรวิเคราะห์ หุ้นแนะนำ หรือ report output เดิม
+
+## ผลลัพธ์ T32: External Immutable Audit Provider Integration
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/auditTrailRepository.js`
+  - เพิ่ม external audit provider แบบ HTTP webhook โดยเปิดใช้ด้วย `AUDIT_TRAIL_EXTERNAL_PROVIDER=http_webhook`
+  - เพิ่มการส่ง audit event ออกไป provider ภายนอกพร้อม HMAC SHA-256 signature และ timestamp headers
+  - เพิ่ม `data/audit-external-receipts.ndjson` สำหรับเก็บ receipt ของ event ที่ provider ตอบรับสำเร็จ
+  - เพิ่ม readiness report สำหรับ external provider เช่น enabled, endpointConfigured, receiptEvents, missingFromExternalCount และ invalidReceiptLineCount
+  - รองรับ `AUDIT_TRAIL_EXTERNAL_REQUIRED=true` เพื่อให้ระบบ fail-closed เมื่อ provider ภายนอกไม่พร้อม
+  - ค่า default ยังเป็น local-only และไม่บังคับ external provider
+- `src/services/stateRepository.js`
+  - เพิ่ม external provider metadata เข้า repository info
+- `src/services/authService.js`
+  - เพิ่ม external audit provider status เข้า Business metrics
+- `src/public/app.js`
+  - เพิ่ม Business metrics: External Audit และ External Audit Gaps
+  - เพิ่ม guidance card สำหรับ external audit provider
+- `.gitignore`
+  - ignore `data/audit-external-receipts.ndjson`
+- `scripts/auditTrailExternalProviderRegression.js`
+  - เพิ่ม regression test ด้วย local HTTP server ชั่วคราว
+  - ตรวจ HMAC-signed event delivery, receipt sync, missing external receipt เมื่อ provider ล่ม และ required mode fail-closed
+- `package.json`
+  - เพิ่ม `npm run test:audit-external`
+  - อัปเดต `npm run test-regression` และ `npm run ci:quality` ให้รวม external audit regression
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`, `docs/DATABASE_MIGRATION_FOUNDATION.md`
+  - เพิ่มคำอธิบาย external audit provider, env variables, receipt file และคำสั่งทดสอบ
+
+Environment variables สำหรับเปิด external provider:
+
+```text
+AUDIT_TRAIL_EXTERNAL_PROVIDER=http_webhook
+AUDIT_TRAIL_HTTP_URL=https://your-immutable-audit-provider.example/events
+AUDIT_TRAIL_HTTP_SECRET=your-production-secret
+AUDIT_TRAIL_EXTERNAL_REQUIRED=true
+```
+
+ผลการทดสอบ:
+
+- `node --check` ผ่านสำหรับ `auditTrailRepository.js`, `stateRepository.js`, `authService.js`, `auditTrailExternalProviderRegression.js`
+- `npm run test:audit-external` ผ่าน: external provider synced, stateEvents = 4, receiptEvents = 4, missingFromExternalCount = 1 เมื่อ provider ถูกปิด
+- `npm run test:audit-trail` ผ่าน ยืนยัน default local NDJSON behavior ยังเหมือนเดิม
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `npm run compare:python` ผ่าน: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio sample mismatches 0
+- HTTP smoke test ผ่านบน port ชั่วคราว 3098: `/api/health` ตอบ ok และ `app.js` มี External Audit metrics
+- `npm audit --audit-level=high` ผ่านเกณฑ์ high; ยังมี moderate advisory จาก `uuid` ผ่าน `exceljs` และไม่มี fix available
+- `git diff --check` ผ่านโดยมีเฉพาะคำเตือน LF/CRLF ของไฟล์ที่แก้บน Windows
+
+## ผลลัพธ์ T33: Dependency Risk Gate Hardening
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `scripts/dependencyRiskRegression.js`
+  - เพิ่ม dependency risk gate ที่อ่าน `npm audit --json` เป็นหลัก
+  - fail เมื่อพบ high/critical vulnerability
+  - fail เมื่อพบ moderate vulnerability ใหม่ที่ไม่อยู่ใน accepted risk register
+  - fail เมื่อ accepted moderate risk เริ่มมี `fixAvailable: true`
+  - เพิ่ม fallback อ่าน `package-lock.json` สำหรับ Windows sandbox ที่ Node child-process spawn เรียก `npm audit` ไม่ได้
+- `docs/DEPENDENCY_RISK_REGISTER.md`
+  - เพิ่ม accepted risk register สำหรับ moderate advisory ปัจจุบัน `exceljs -> uuid`
+  - ระบุ advisory `GHSA-w5hq-g745-h8pq`, สถานะ `fixAvailable: false` และ production action
+- `package.json`
+  - เพิ่ม `npm run test:dependency-risk`
+  - ปรับ `npm run ci:quality` ให้รัน regression รวมแล้วตามด้วย dependency risk gate
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - เพิ่มคำสั่ง `npm run test:dependency-risk` และอธิบาย dependency risk gate
+
+ผลการทดสอบ:
+
+- `node --check scripts/dependencyRiskRegression.js` ผ่าน
+- `npm run test:dependency-risk` ผ่าน: auditSource = `package-lock-fallback` ใน sandbox นี้, direct dependencies = `exceljs`, `express`, `multer`, accepted moderate risks = `exceljs`, `uuid`, high/critical = 0
+- `npm run ci:quality` ผ่าน
+- `npm run test-regression` ผ่าน
+- `npm run compare:python` ผ่าน: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio sample mismatches 0
+- `git diff --check` ผ่านโดยมีเฉพาะคำเตือน LF/CRLF ของไฟล์ที่แก้บน Windows
+
+## ผลลัพธ์ T34: Web App Smoke Verification Harness
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/server.js`
+  - เพิ่ม `createApp()` เพื่อสร้าง Express app สำหรับ production start และ test ได้จาก factory เดียวกัน
+  - เพิ่ม `startServer()` เพื่อให้ test เปิด server บน port ชั่วคราวใน process เดียวได้
+  - คง `npm start` ให้ทำงานเหมือนเดิมเมื่อรัน `node src/server.js`
+- `scripts/webAppSmokeRegression.js`
+  - เพิ่ม web smoke regression ที่สร้าง temporary directory แยกจากข้อมูล demo จริง
+  - เปิด Web App ใน process เดียวบน port ชั่วคราวโดยไม่ต้องใช้ background server
+  - ตรวจ `/api/health`, `/api/auth/me`, `/api/subscription/plans`, admin auth guard, หน้าแรก, `app.js` markers และ `styles.css` markers
+  - ตรวจ marker สำคัญของ SaaS UI เช่น Approvals navigation, Screener sector drilldown และ External Audit metrics
+- `package.json`
+  - เพิ่ม `npm run test:web-smoke`
+  - ผูก `test:web-smoke` เข้า `npm run test-regression` และส่งผลให้ `npm run ci:quality` ตรวจด้วย
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - เพิ่มคำอธิบาย automated web smoke regression และคำสั่งทดสอบ
+
+ผลการทดสอบ:
+
+- `node --check src/server.js` ผ่าน
+- `node --check scripts/webAppSmokeRegression.js` ผ่าน
+- `npm run test:web-smoke` ผ่าน: ตรวจ health, anonymous auth, subscription plans, admin auth guard, main HTML, frontend markers และ stylesheet markers
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `npm run compare:python` ผ่านใน regression รวม: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio sample mismatches 0
+- หมายเหตุ: งานนี้ยังไม่ใช่ screenshot QA ผ่าน in-app browser จริง แต่ช่วยปิดช่องว่างจาก Windows sandbox ที่ไม่ยอมให้เปิด server background ในรอบก่อนหน้า และทำให้ CI ตรวจเว็บพื้นฐานได้สม่ำเสมอ
+
+## ผลลัพธ์ T35: Production Database Adapter Implementation
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/postgresStateRepository.js`
+  - เพิ่ม Postgres state adapter แบบ opt-in หลัง repository boundary
+  - รองรับ `APP_STATE_REPOSITORY=postgres`, `DATABASE_URL` และ `DATABASE_SSL_MODE`
+  - เพิ่ม bootstrap SQL สำหรับสร้าง table ต่อ collection ตาม schema manifest โดยใช้ `record jsonb`, `organization_id`, `user_id`, `created_at` และ `updated_at`
+  - รองรับ whole-state transaction สำหรับ non-append collections และไม่ลบ append-only collection เช่น `auditEvents`
+  - dynamic import optional driver `pg` เฉพาะเมื่อเปิดใช้ Postgres adapter
+  - fail-fast เมื่อเปิด Postgres แต่ยังไม่ตั้ง `DATABASE_URL`
+- `src/services/stateRepository.js`
+  - เพิ่ม supported adapter `postgres`
+  - default ยังเป็น `local_file`
+  - route การอ่าน/เขียนไป Postgres เฉพาะเมื่อ env เลือก adapter
+  - metadata ของ `stateRepositoryInfo()` แสดง adapter, engine, production readiness และ bootstrap tables
+- `src/services/stateSchemaService.js`
+  - เพิ่ม `stateCollectionDefinitions()` เพื่อให้ adapter ใช้ table mapping จาก schema manifest เดิม
+- `scripts/postgresStateRepositoryRegression.js`
+  - เพิ่ม fake Postgres client regression โดยไม่ต้องต่อฐานข้อมูลจริง
+  - ตรวจ bootstrap SQL, read/write JSONB rows, transaction query, non-append rewrite, append-only audit behavior และ missing primary key guard
+- `scripts/stateRepositoryRegression.js`
+  - อัปเดตให้ตรวจ supported adapters และ Postgres fail-fast เมื่อไม่มี `DATABASE_URL`
+- `package.json`
+  - เพิ่ม `npm run test:postgres-repository`
+  - ผูกเข้า `npm run test-regression` และ `npm run ci:quality`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`, `docs/DATABASE_MIGRATION_FOUNDATION.md`
+  - เพิ่มคำอธิบาย Postgres adapter, env variables, optional `pg` driver, regression test และ production migration path
+
+ผลการทดสอบ:
+
+- `node --check src/services/postgresStateRepository.js` ผ่าน
+- `node --check src/services/stateRepository.js` ผ่าน
+- `node --check src/services/stateSchemaService.js` ผ่าน
+- `node --check scripts/postgresStateRepositoryRegression.js` ผ่าน
+- `node --check scripts/stateRepositoryRegression.js` ผ่าน
+- `npm run test:postgres-repository` ผ่าน: tables = 11, usersAfterRewrite = 1, auditEventsAfterRewrite = 2
+- `npm run test:state-repository` ผ่าน
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `npm run compare:python` ผ่านใน regression รวม: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio sample mismatches 0
+- หมายเหตุ: ยังไม่ได้ทดสอบกับ Postgres จริงใน sandbox นี้ เพราะไม่มี database/driver `pg` ติดตั้งใน environment ปัจจุบัน แต่ adapter logic, bootstrap SQL และ repository behavior ถูกตรวจด้วย fake client แล้ว
+
+## ผลลัพธ์ T36: Real Payment Provider Integration
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/paymentGatewayService.js`
+  - เพิ่ม payment gateway provider layer
+  - default ยังเป็น `local_gateway`
+  - เพิ่ม Stripe Checkout provider แบบ opt-in ผ่าน `PAYMENT_GATEWAY_PROVIDER=stripe_checkout`
+  - สร้าง Stripe Checkout Session ด้วย form-encoded API request โดยใช้ configured recurring price id ต่อ plan
+  - เพิ่ม Stripe-style webhook signature verification จาก raw body และ `Stripe-Signature`
+  - map `checkout.session.completed` และ `invoice.paid` เป็น `payment.succeeded`
+  - map `checkout.session.async_payment_failed`, `invoice.payment_failed` และ `payment_intent.payment_failed` เป็น `payment.failed`
+- `src/services/authService.js`
+  - ปรับ `checkoutSubscription` ให้ local gateway ยัง auto-complete เหมือนเดิม
+  - ถ้าใช้ Stripe provider จะสร้าง pending payment session และคืน checkout URL โดยไม่ activate subscription จนกว่า webhook สำเร็จ
+  - เพิ่ม `processProviderPaymentWebhook` สำหรับ public provider webhook endpoint
+  - เพิ่ม payment gateway metadata ใน Business metrics
+  - เพิ่ม `externalPaymentId`, `requiresRedirect` และ `providerStatus` ใน public payment session
+- `src/server.js`
+  - เก็บ `req.rawBody` สำหรับ `/api/payment/webhook/*` เพื่อให้ provider webhook verify signature จาก raw body ได้
+- `src/routes/authRoutes.js`
+  - เพิ่ม `POST /api/payment/webhook/provider/:provider`
+- `src/public/app.js`
+  - ปรับ checkout message ให้ external provider แสดง link `Open secure checkout`
+  - เพิ่ม Business guidance card สำหรับ payment gateway status
+- `scripts/paymentProviderRegression.js`
+  - เพิ่ม regression test ด้วย fake Stripe API และ fake Stripe webhook signature
+  - ตรวจ checkout session, pending subscription, success webhook, failed webhook, duplicate event และ invalid signature
+- `package.json`
+  - เพิ่ม `npm run test:payment-provider`
+  - ผูกเข้า `npm run test-regression` และ `npm run ci:quality`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - เพิ่มคำอธิบาย Stripe Checkout provider, env variables, provider webhook endpoint และ regression test
+
+Environment variables สำหรับ Stripe provider:
+
+```text
+PAYMENT_GATEWAY_PROVIDER=stripe_checkout
+PAYMENT_GATEWAY_STRIPE_SECRET_KEY=sk_live_or_test_key
+PAYMENT_GATEWAY_STRIPE_WEBHOOK_SECRET=whsec_your_endpoint_secret
+PAYMENT_GATEWAY_STRIPE_SUCCESS_URL=https://your-app.example/billing/success?session={sessionId}&plan={planId}
+PAYMENT_GATEWAY_STRIPE_CANCEL_URL=https://your-app.example/billing/cancel?session={sessionId}
+PAYMENT_GATEWAY_STRIPE_PRICE_STARTER=price_...
+PAYMENT_GATEWAY_STRIPE_PRICE_PRO=price_...
+PAYMENT_GATEWAY_STRIPE_PRICE_ADVISOR=price_...
+```
+
+ผลการทดสอบ:
+
+- `node --check src/services/paymentGatewayService.js` ผ่าน
+- `node --check src/services/authService.js` ผ่าน
+- `node --check src/routes/authRoutes.js` ผ่าน
+- `node --check src/server.js` ผ่าน
+- `node --check src/public/app.js` ผ่าน
+- `node --check scripts/paymentProviderRegression.js` ผ่าน
+- `npm run test:payment-provider` ผ่าน: checkoutRequests = 3, provider = `stripe_checkout`, paidSession = `paid`, failedSession = `failed`, rejectedWebhookEvents = 1
+- `npm run test:subscription-lifecycle` ผ่าน ยืนยัน local gateway default ยังเหมือนเดิม
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `npm run compare:python` ผ่านใน regression รวม: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio sample mismatches 0
+- หมายเหตุ: ยังไม่ได้ call Stripe จริงใน sandbox นี้ แต่ทดสอบด้วย fake Stripe API/fake webhook แล้ว และ implementation อิง official Stripe Checkout/Webhook raw body pattern
+
+## ผลลัพธ์ T37: One-time App State to Postgres Importer
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/postgresStateImporter.js`
+  - เพิ่ม importer service สำหรับอ่าน local `app-state.json`
+  - normalize state ด้วย `normalizeAppStateForImport`
+  - สร้าง import plan จาก storage readiness และ schema manifest
+  - รองรับ dry-run เพื่อดู readiness, blockers, record counts และ table mapping โดยไม่เขียนฐานข้อมูล
+  - ปฏิเสธ import จริงถ้า readiness เป็น `blocked` ยกเว้นตั้ง `allowBlocked`
+  - เขียนข้อมูลผ่าน Postgres adapter หรือ fake client ใน test
+- `scripts/importAppStateToPostgres.js`
+  - เพิ่ม CLI สำหรับ one-time import
+  - options: `--input`, `--dry-run`, `--allow-blocked`, `--help`
+  - script name: `npm run import:postgres`
+- `scripts/postgresStateImporterRegression.js`
+  - เพิ่ม fake-client regression
+  - ตรวจ dry-run, record counts, whole-state write, blocked readiness guard และ forced import ด้วย `allowBlocked`
+- `src/services/authService.js`
+  - export `normalizeAppStateForImport` เพื่อให้ importer ใช้ normalization logic เดิมก่อน import
+- `package.json`
+  - เพิ่ม `npm run test:postgres-importer`
+  - เพิ่ม `npm run import:postgres`
+  - ผูก `test:postgres-importer` เข้า `npm run test-regression` และ `npm run ci:quality`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`, `docs/DATABASE_MIGRATION_FOUNDATION.md`
+  - เพิ่มคำสั่ง dry-run/import จริง, readiness guard, `--allow-blocked` warning และ regression test
+
+คำสั่งใช้งาน:
+
+```text
+npm run import:postgres -- --dry-run
+npm run import:postgres -- --input data/app-state.json --dry-run
+APP_STATE_REPOSITORY=postgres DATABASE_URL=postgres://user:password@host:5432/database npm run import:postgres -- --input data/app-state.json
+```
+
+ผลการทดสอบ:
+
+- `node --check src/services/postgresStateImporter.js` ผ่าน
+- `node --check scripts/importAppStateToPostgres.js` ผ่าน
+- `node --check scripts/postgresStateImporterRegression.js` ผ่าน
+- `node --check src/services/authService.js` ผ่าน
+- `npm run test:postgres-importer` ผ่าน: dryRunRecords = 3, blockedStatus = `blocked`, blockedIssues = 1
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `npm run compare:python` ผ่านใน regression รวม: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio sample mismatches 0
+- หมายเหตุ: ยังไม่ได้ import เข้า Postgres จริงใน sandbox นี้ เพราะไม่มี database/driver `pg` ติดตั้งใน environment ปัจจุบัน แต่ importer behavior ถูกตรวจด้วย fake Postgres client แล้ว
+
+## ผลลัพธ์ T38: Package Entitlement Enforcement
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/authService.js`
+  - เพิ่ม package entitlement policy สำหรับ Starter / Pro / Advisor
+  - Starter ได้ portfolio analysis, saved snapshot, stock screener, billing, activity timeline และ customer approval decision
+  - Pro เพิ่ม sector analysis, strategy simulation และ advanced action plan
+  - Advisor เพิ่ม client workspace, advisor approval workflow, business metrics, audit/storage readiness, workspace management, role management และ advisor assignment
+  - เพิ่ม `subscriptionEntitlementSummary`, `hasPlanEntitlement`, `requirePlanEntitlement` และ upgrade-required error แบบ `402`
+  - normalize subscription เดิมให้มี `planId`, `plan`, `priceThb`, `billing`, `trialEndsAt` และ `renewsAt`
+  - ให้ owner/admin เป็น platform operator override สำหรับดูแลระบบหลังบ้าน
+- `src/routes/analysisRoutes.js`
+  - บังคับ `analysis.run` ก่อน run analysis
+  - บังคับ `simulation.run` ก่อน Strategy Simulation และคืน entitlement metadata เมื่อถูก block
+- `src/routes/authRoutes.js`
+  - เพิ่ม entitlement metadata ใน policy response
+  - บังคับ entitlement กับ Business metrics, team workspace, approvals, audit integrity, audit trail, storage readiness และ workspace management routes
+  - เพิ่ม `sendAuthError` เพื่อคืน feature/required plan/current plan เมื่อถูก block
+- `src/public/app.js`
+  - แสดง plan best-for, feature count และ client workspace limit ใน pricing cards
+  - แสดง plan access/locked feature count ใน account panel
+  - เพิ่ม upgrade card สำหรับ Sector, Simulation, Business และ Approvals เมื่อแพ็กเกจปัจจุบันยังไม่รวม feature
+  - ปุ่ม upgrade ใน locked card ใช้ checkout flow เดิม
+  - advisor ที่มี role แต่ยังไม่ใช่ Advisor plan จะเห็นทางเข้า Business แล้วเห็นเหตุผลว่าต้อง upgrade
+- `src/public/styles.css`
+  - เพิ่ม style สำหรับ plan tags และ locked upgrade card ในธีมดำ-แดง
+- `scripts/entitlementPolicyRegression.js`
+  - เพิ่ม regression test สำหรับ Starter/Pro/Advisor entitlement gate
+  - ตรวจ owner operator override, Starter block simulation, Pro unlock simulation/sector และ Advisor unlock workspace/approval
+- `scripts/tenantAccessRegression.js`, `scripts/approvalWorkflowRegression.js`
+  - ปรับ test เดิมให้ advisor ที่ต้องใช้ client workspace/approval workflow อยู่แพ็กเกจ Advisor ตามกฎใหม่
+- `package.json`
+  - เพิ่ม `npm run test:entitlements`
+  - ผูก `test:entitlements` เข้า `npm run test-regression` และ `npm run ci:quality`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - เพิ่มความแตกต่างของแพ็กเกจ, upgrade gate, test command และ failure guide
+
+สิทธิ์แพ็กเกจหลัก:
+
+```text
+Starter: portfolio analysis, saved snapshot, stock screener, billing history, activity timeline, customer approval decision
+Pro: everything in Starter + sector analysis, strategy simulation, advanced action plan
+Advisor: everything in Pro + client workspace, advisor approval workflow, business dashboard, audit/storage readiness, team/workspace management
+```
+
+ผลการทดสอบ:
+
+- `node --check src/services/authService.js` ผ่าน
+- `node --check src/routes/authRoutes.js` ผ่าน
+- `node --check src/routes/analysisRoutes.js` ผ่าน
+- `node --check src/public/app.js` ผ่าน
+- `node --check scripts/entitlementPolicyRegression.js` ผ่าน
+- `npm run test:entitlements` ผ่าน: starterFeatures = 6, proFeatures = 9, advisorFeatures = 17, Starter simulation reject requiredPlan = `pro`
+- `npm run test:tenant-access` ผ่านหลังปรับ advisor ให้เป็น Advisor plan
+- `npm run test:approval-workflow` ผ่านหลังปรับ advisor ให้เป็น Advisor plan
+- `npm run test:web-smoke` ผ่าน
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- HTTP gate บน server ชั่วคราวผ่าน: customer ที่ checkout เป็น Starter เรียก `/api/simulation/run` ได้ `402` และ message `Strategy simulation requires the Pro plan or higher.`
+- `npm run compare:python` ผ่านใน regression รวม: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio sample mismatches 0
+- หมายเหตุ: in-app browser screenshot QA ใช้ไม่ได้ใน sandbox รอบนี้เพราะ browser runtime เริ่มไม่สำเร็จ จึงตรวจด้วย automated web smoke และ HTTP gate แทน
+
+## ผลลัพธ์ T39: Backup and Restore Drill
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/pathService.js`
+  - เพิ่ม `BACKUP_DIR` และให้ `ensureDataDirs()` สร้าง `data/backups`
+- `src/services/backupService.js`
+  - เพิ่ม service สำหรับสร้าง backup ของ local app state, audit mirror และ external audit receipts
+  - เขียน `manifest.json` พร้อม schema version, repository metadata, readiness summary, record counts, file size และ SHA-256 checksum
+  - เพิ่ม verify flow เพื่อตรวจ manifest, supported files, file existence, checksum และ parse state ก่อน restore
+  - เพิ่ม restore flow พร้อม dry-run default, `confirm` guard ก่อนเขียนจริง และ safety backup ก่อน restore
+  - จำกัด restore สำหรับ `APP_STATE_REPOSITORY=local_file`; ถ้าใช้ Postgres ให้ใช้ managed snapshot หรือ `pg_dump/pg_restore`
+- `scripts/backupAppState.js`
+  - เพิ่ม CLI `npm run backup:state -- --reason before-deploy`
+- `scripts/restoreAppStateBackup.js`
+  - เพิ่ม CLI verify/dry-run/confirm เช่น `npm run restore:state -- --backup-dir data/backups/<backup-folder> --verify`
+- `scripts/backupRestoreRegression.js`
+  - เพิ่ม regression test ใน temporary directory สำหรับ create backup, verify, dry-run, reject restore without confirm, confirmed restore, safety backup และ checksum rejection
+- `package.json`
+  - เพิ่ม `npm run test:backup-restore`, `npm run backup:state`, `npm run restore:state`
+  - ผูก `test:backup-restore` เข้า `npm run test-regression` และ `npm run ci:quality`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/DATABASE_MIGRATION_FOUNDATION.md`, `docs/CI_QUALITY_GATE.md`
+  - เพิ่มคู่มือ backup/restore drill, คำสั่งใช้งาน, production note และ failure guide
+
+ผลการทดสอบ:
+
+- `node --check src/services/backupService.js` ผ่าน
+- `node --check scripts/backupAppState.js` ผ่าน
+- `node --check scripts/restoreAppStateBackup.js` ผ่าน
+- `node --check scripts/backupRestoreRegression.js` ผ่าน
+- `node --check src/services/pathService.js` ผ่าน
+- `npm run test:backup-restore` ผ่าน: users = 2, portfolioSnapshots = 1, billingEvents = 1, restored = true, safetyBackupCreated = true
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `npm run compare:python` ผ่านใน regression รวม: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio sample mismatches 0
+- หมายเหตุ: backup/restore ที่เพิ่มเป็น local-file drill สำหรับ state/audit files; production Postgres ยังควรมี runbook แยกสำหรับ managed snapshots, `pg_dump`, `pg_restore` และการซ้อม restore จริงใน environment production-like
+
+## ผลลัพธ์ T40: Postgres Query-level Tenant Enforcement
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/postgresStateRepository.js`
+  - เพิ่ม `readScopedPostgresAppState` และ `readScopedStateFromPostgresClient`
+  - เพิ่ม helper `postgresPlatformTenantScope` สำหรับ owner/admin style full-state visibility
+  - เพิ่ม helper `postgresRestrictedTenantScope` สำหรับ scope ที่จำกัดด้วย `userIds` และ `organizationIds`
+  - เพิ่ม `buildPostgresSelectQuery` เพื่อสร้าง SQL `WHERE` ก่อนดึง `record jsonb` จากฐานข้อมูล
+  - restricted scope ครอบคลุม tenant-scoped collections, `users`, `organizations`, `user_sessions` และ `advisor_assignments`
+  - เพิ่ม repository metadata `tenantQueryGuard` เพื่อบอกว่า adapter รองรับ scoped read แบบ SQL WHERE
+- `src/services/stateRepository.js`
+  - เพิ่ม `readScopedAppState(tenantScope, options)` เป็น wrapper กลาง
+  - เพิ่ม metadata `scopedReads` เพื่อแยก local-file service-level filtering กับ Postgres query-level filtering
+- `scripts/postgresStateRepositoryRegression.js`
+  - เพิ่ม fake Postgres regression สำหรับข้อมูลหลาย organization
+  - ตรวจว่า restricted scoped read ใส่ `WHERE` ทุก collection query
+  - ตรวจว่า scoped read เห็นเฉพาะ advisor/customer ที่อยู่ใน scope และไม่เห็นข้อมูล customer นอก scope
+  - ตรวจ platform scope ยังอ่าน full-state ได้
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/DATABASE_MIGRATION_FOUNDATION.md`, `docs/CI_QUALITY_GATE.md`
+  - เพิ่มคำอธิบาย Postgres scoped read, ข้อควรระวัง production endpoint ต้อง derive scope จาก signed-in viewer, และ failure guide ของ CI
+
+ผลการทดสอบ:
+
+- `node --check src/services/postgresStateRepository.js` ผ่าน
+- `node --check src/services/stateRepository.js` ผ่าน
+- `node --check scripts/postgresStateRepositoryRegression.js` ผ่าน
+- `npm run test:state-repository` ผ่าน
+- `npm run test:postgres-repository` ผ่าน: scopedRead users = 2, organizations = 2, portfolioSnapshots = 1, filteredSelects = 11
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `npm run compare:python` ผ่านใน regression รวม: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio sample mismatches 0
+- หมายเหตุ: default `readAppState()` ยังเป็น whole-state เพื่อคง migration/local-file behavior เดิม; production endpoint ที่ส่งข้อมูลเฉพาะ tenant ควรย้ายมาใช้ `readScopedAppState()` หลังคำนวณ allowed user ids และ organization ids จาก signed-in viewer แล้ว
+
+## ผลลัพธ์ T41: SaaS Observability and Alerting Foundation
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/observabilityService.js`
+  - เพิ่ม `operationalReadinessReport()` สำหรับรวม readiness ของ repository, storage, audit, external audit, payment, business signals และ dependency risk gate
+  - เพิ่ม `buildOperationalReadinessReport()` เป็น pure function สำหรับ regression test
+  - เพิ่ม deterministic alert rules เช่น `storage_blocked`, `audit_integrity_needs_review`, `external_audit_required_not_synced`, `payment_gateway_not_configured`, `webhook_rejection_spike`, `local_payment_gateway` และ `repository_not_production_ready`
+  - สรุปสถานะเป็น `ok`, `warning` หรือ `critical` พร้อมจำนวน critical/warning/info alerts และ runbook commands
+- `src/routes/authRoutes.js`
+  - เพิ่ม API `GET /api/ops/readiness`
+  - จำกัดสิทธิ์เฉพาะ owner/admin และใช้ entitlement `business.metrics`
+  - anonymous ได้ `401`; customer ได้ `403`
+- `src/public/app.js`
+  - โหลด operational readiness พร้อม Business metrics
+  - เพิ่ม metric `Ops Readiness` และ `Ops Alerts`
+  - เพิ่ม Operational readiness panel และ alert cards ในหน้า Business dashboard
+- `src/public/styles.css`
+  - เพิ่ม style สำหรับ `.ops-alert-grid` และ `.ops-alert-card` แยก critical/warning/ok ในธีมดำ-แดง
+- `scripts/observabilityRegression.js`
+  - เพิ่ม regression test สำหรับ alert rules แบบ critical
+  - ทดสอบ API guard anonymous/customer และ owner readiness response ใน temporary directory
+- `scripts/webAppSmokeRegression.js`
+  - เพิ่ม smoke check สำหรับ `/api/ops/readiness` auth guard และ frontend/style markers
+- `package.json`
+  - เพิ่ม `npm run test:observability`
+  - ผูกเข้า `npm run test-regression` และ `npm run ci:quality`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - เพิ่มคำอธิบาย operational readiness, endpoint, alert cards, test command และ failure guide
+
+ผลการทดสอบ:
+
+- `node --check src/services/observabilityService.js` ผ่าน
+- `node --check src/routes/authRoutes.js` ผ่าน
+- `node --check src/public/app.js` ผ่าน
+- `node --check scripts/observabilityRegression.js` ผ่าน
+- `node --check scripts/webAppSmokeRegression.js` ผ่าน
+- `npm run test:observability` ผ่าน: pureStatus = `critical`, ownerStatus = `warning`, ownerAlerts = `external_audit_disabled`, `local_payment_gateway`, `repository_not_production_ready`
+- `npm run test:web-smoke` ผ่าน: ตรวจ `ops-auth-guard` และ frontend/style markers
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `npm run compare:python` ผ่านใน regression รวม: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio sample mismatches 0
+- หมายเหตุ: readiness report เป็น foundation สำหรับ operational visibility ยังไม่ใช่ระบบ monitoring production real-time เต็มรูปแบบ; งานต่อยอดคือเชื่อม alert ไป Slack/email/APM/uptime monitor และกำหนด incident runbook
+
+## ผลลัพธ์ T42: Production Postgres Backup Runbook and Drill Foundation
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/postgresBackupRunbookService.js`
+  - เพิ่ม `buildPostgresBackupRunbook()` สำหรับสร้าง production Postgres backup/restore runbook แบบ dry-run
+  - รองรับ strategy `managed_snapshot`, `pg_dump` และ `both`
+  - รองรับ retention days, RPO/RTO และ readiness checks
+  - เพิ่ม `parseDatabaseUrl()` และ URL sanitization เพื่อ mask password จาก `DATABASE_URL`
+  - เพิ่ม managed snapshot checklist, `pg_dump` / `pg_restore` command templates, restore drill steps และ incident checklist
+  - เพิ่ม `renderPostgresBackupRunbookText()` สำหรับ output แบบอ่านง่าย
+- `scripts/postgresBackupRunbook.js`
+  - เพิ่ม CLI `npm run postgres:backup-runbook`
+  - รองรับ `--strategy`, `--retention-days`, `--rpo-minutes`, `--rto-minutes`, `--database-url`, `--repository-adapter`, `--format json|text` และ `--strict`
+  - คำสั่งนี้ไม่รัน `pg_dump`, `pg_restore`, snapshot หรือ restore writes จริง เป็น planning dry-run เท่านั้น
+- `scripts/postgresBackupRunbookRegression.js`
+  - เพิ่ม regression test ที่ตรวจ secret masking, strategy behavior, retention warning, backup/restore command templates และ text renderer
+- `package.json`
+  - เพิ่ม `npm run postgres:backup-runbook`
+  - เพิ่ม `npm run test:postgres-backup-runbook`
+  - ผูก test เข้า `npm run test-regression` และ `npm run ci:quality`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/DATABASE_MIGRATION_FOUNDATION.md`, `docs/CI_QUALITY_GATE.md`
+  - เพิ่มคำสั่งใช้งาน runbook, production guardrails, restore drill checklist, regression command และ failure guide
+
+ตัวอย่างคำสั่ง:
+
+```bash
+npm run postgres:backup-runbook -- --strategy both --retention-days 30 --format text
+```
+
+ผลการทดสอบ:
+
+- `node --check src/services/postgresBackupRunbookService.js` ผ่าน
+- `node --check scripts/postgresBackupRunbook.js` ผ่าน
+- `node --check scripts/postgresBackupRunbookRegression.js` ผ่าน
+- `npm run postgres:backup-runbook -- --strategy both --retention-days 30 --database-url "postgres://stockflix:***@db.example.com:5432/stockflix_prod" --repository-adapter postgres --format text` ผ่าน และ output mask password เป็น `****`
+- `npm run test:postgres-backup-runbook` ผ่าน: readyStatus = `ready`, planningStatus = `blocked`, strategy = `both`, maskedUrl = `postgres://stockflix:****@db.example.com:5432/stockflix_prod`
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `npm run compare:python` ผ่านใน regression รวม: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio sample mismatches 0
+- หมายเหตุ: T42 เป็น runbook/drill foundation และไม่ได้ backup/restore ฐานข้อมูลจริงใน sandbox นี้ การซ้อมจริงต้องทำใน staging/production-like environment ที่มี Postgres และ backup provider จริง
+
+## ผลลัพธ์ T43: Production Deployment Checklist and Environment Validation
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/deploymentChecklistService.js`
+  - เพิ่ม `buildProductionDeploymentChecklist()` สำหรับตรวจ production readiness จาก environment variables แบบ dry-run
+  - ตรวจ production essentials ได้แก่ `NODE_ENV`, `PORT`, `APP_STATE_REPOSITORY=postgres`, `DATABASE_URL`, `DATABASE_SSL_MODE=require`, Stripe Checkout env, signed webhook secret, external audit provider, backup strategy, backup retention และ CI/preflight gates
+  - คืนสถานะ `ready`, `needs_review` หรือ `blocked` พร้อม summary จำนวน ok/warning/blocker
+  - เพิ่ม `renderProductionDeploymentChecklistText()` สำหรับ output แบบอ่านง่าย
+  - sanitize `DATABASE_URL`, secret, password, token และ key ทุกตัวก่อนแสดงผล
+- `scripts/deploymentChecklist.js`
+  - เพิ่ม CLI `npm run deployment:check`
+  - รองรับ `--format json|text`, `--strict` และ `--help`
+  - คำสั่งนี้เป็น dry-run validation tool เท่านั้น ไม่ deploy, migrate, backup, restore หรือเรียก provider ภายนอกจริง
+- `scripts/deploymentChecklistRegression.js`
+  - เพิ่ม regression test สำหรับ ready/blocked cases, secret masking, text renderer, preflight/release/rollback checklist และ CLI strict exit code
+- `package.json`
+  - เพิ่ม `npm run deployment:check`
+  - เพิ่ม `npm run test:deployment-checklist`
+  - ผูก test เข้า `npm run test-regression` และ `npm run ci:quality`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - เพิ่มคำสั่งใช้งาน deployment checklist, strict mode, production env ที่ต้องตั้ง, regression command และ failure guide
+
+ตัวอย่างคำสั่ง:
+
+```bash
+npm run deployment:check -- --format text
+```
+
+ผลการทดสอบ:
+
+- `node --check src/services/deploymentChecklistService.js` ผ่าน
+- `node --check scripts/deploymentChecklist.js` ผ่าน
+- `node --check scripts/deploymentChecklistRegression.js` ผ่าน
+- `npm run deployment:check -- --format text` ผ่าน และรายงาน local environment ปัจจุบันเป็น `blocked` ตามจริง เพราะยังไม่ได้ตั้ง production env
+- `npm run test:deployment-checklist` ผ่าน: readyStatus = `ready`, blockedStatus = `blocked`, readyChecks = 16, blockedBlockers = 5
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `npm run compare:python` ผ่านใน regression รวม: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio sample mismatches 0
+- `git diff --check` ผ่าน ไม่มี whitespace error มีเฉพาะคำเตือน LF/CRLF จาก Git บน Windows
+- หมายเหตุ: T43 ไม่ได้ deploy จริงและไม่ได้เรียก payment/audit/database provider ภายนอก เป็น environment validation แบบ dry-run สำหรับใช้ก่อน staging/production release
+
+## ผลลัพธ์ T44: Operational Alert Delivery Webhook Foundation
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/operationalAlertDeliveryService.js`
+  - เพิ่ม `buildOperationalAlertPayload()` สำหรับสร้าง payload จาก operational readiness report เดิม
+  - เพิ่ม `buildOperationalAlertDeliveryPlan()` สำหรับ preview delivery config, request headers และ sanitized payload
+  - เพิ่ม `deliverOperationalAlerts()` สำหรับส่ง readiness alerts ไป generic webhook แบบ opt-in
+  - รองรับ disabled mode, dry-run, required mode, timeout, non-2xx handling และ `no_alerts`
+  - เพิ่ม HMAC signature header `x-stockflix-ops-signature` จาก `timestamp.payload`
+  - sanitize secret, token, password, key, URL query และ signature ก่อนแสดง output
+  - เพิ่ม `renderOperationalAlertDeliveryText()` สำหรับ output แบบอ่านง่าย
+- `scripts/operationalAlertDelivery.js`
+  - เพิ่ม CLI `npm run ops:alerts`
+  - รองรับ `--format json|text`, `--dry-run`, `--strict` และ `--help`
+  - ใช้ readiness report เดิมจาก `operationalReadinessReport()` แล้วส่ง/preview webhook ตาม environment variables
+- `scripts/operationalAlertDeliveryRegression.js`
+  - เพิ่ม regression test สำหรับ disabled mode, required blocked mode, dry-run, webhook success/failure, HMAC signature, CLI strict mode, secret masking และ URL query masking
+  - ใช้ local HTTP server จำลอง ไม่เรียก provider ภายนอกจริง
+- `src/services/observabilityService.js`
+  - เพิ่ม runbook command `npm run ops:alerts -- --dry-run --format text` ใน operational readiness report
+- `src/services/deploymentChecklistService.js`
+  - เพิ่ม preflight command สำหรับ preview operational alert delivery ใน production deployment checklist
+- `package.json`
+  - เพิ่ม `npm run ops:alerts`
+  - เพิ่ม `npm run test:ops-alerts`
+  - ผูก test เข้า `npm run test-regression` และ `npm run ci:quality`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - เพิ่มคำสั่งใช้งาน, env vars, HMAC signature, dry-run/required behavior, regression command และ failure guide
+
+ตัวอย่างคำสั่ง:
+
+```bash
+npm run ops:alerts -- --dry-run --format text
+```
+
+ผลการทดสอบ:
+
+- `node --check src/services/operationalAlertDeliveryService.js` ผ่าน
+- `node --check scripts/operationalAlertDelivery.js` ผ่าน
+- `node --check scripts/operationalAlertDeliveryRegression.js` ผ่าน
+- `node --check src/services/deploymentChecklistService.js` ผ่าน
+- `npm run ops:alerts -- --dry-run --format text` ผ่าน และรายงาน local environment ปัจจุบันเป็น `disabled` เพราะยังไม่ได้ตั้ง webhook URL จริง
+- `npm run test:ops-alerts` ผ่าน: alertCount = 5, disabledStatus = `disabled`, blockedStatus = `blocked`, cliDryRunStatus = `dry_run`
+- `npm run test:deployment-checklist` ผ่านหลังเพิ่ม preflight command ใหม่
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `npm run compare:python` ผ่านใน regression รวม: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio sample mismatches 0
+- `git diff --check` ผ่าน ไม่มี whitespace error มีเฉพาะคำเตือน LF/CRLF จาก Git บน Windows
+- หมายเหตุ: T44 เป็น webhook foundation แบบ generic และไม่ได้ส่ง alert ไป provider ภายนอกจริงใน sandbox นี้ การเชื่อม Slack/email/APM/uptime monitor จริงต้องตั้ง `OPERATIONAL_ALERT_WEBHOOK_URL` และ `OPERATIONAL_ALERT_WEBHOOK_SECRET` ใน staging/production
+
+## ผลลัพธ์ T45: In-app Browser Screenshot QA and Visual Polish
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/public/styles.css`
+  - เพิ่ม guardrail ลด horizontal overflow บน mobile
+  - เพิ่ม `max-width` และ `overflow-wrap` ให้ input/select/button เพื่อไม่ให้ข้อความยาวดัน layout
+  - ปรับ `.section-title`, `.header-actions`, `.app-header`, `.app-shell`, `.panel`, `.hero-panel` และ `h1` ใน mobile breakpoint ให้แสดงผลกระชับขึ้น
+  - เพิ่ม minimum tap target ให้ปุ่มใน view grid เหมาะกับมือถือมากขึ้น
+- `scripts/frontendViewportRegression.js`
+  - เพิ่ม static frontend regression สำหรับตรวจ viewport meta, responsive breakpoints, mobile section-title stacking, tap target height, button wrapping, table overflow และ key view markers
+- `scripts/frontendAuthenticatedSmokeRegression.js`
+  - เพิ่ม in-process authenticated smoke regression โดยใช้ temporary directory
+  - สมัคร owner/customer ชั่วคราว ตรวจ owner session, owner admin metrics, owner ops readiness และยืนยันว่า customer ถูกกันออกจาก admin/ops endpoints
+- `package.json`
+  - เพิ่ม `npm run test:frontend-viewport`
+  - เพิ่ม `npm run test:frontend-auth`
+  - ผูกสองชุดนี้เข้า `npm run test-regression` และ `npm run ci:quality`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - เพิ่มคำสั่ง regression ใหม่
+  - เพิ่มคำอธิบาย frontend viewport/auth smoke และ failure guide
+
+ผลการทดสอบ:
+
+- `npm run test:frontend-viewport` ผ่าน: ตรวจ `viewport-meta`, `responsive-breakpoints`, `mobile-section-title`, `tap-target-height`, `button-text-wrapping`, `table-overflow`, `key-view-markers`
+- `npm run test:frontend-auth` ผ่าน: owner role = `owner`, customer role = `customer`, operational readiness = `warning`, alertCount = 3
+- `npm run test:web-smoke` ผ่าน
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `npm run compare:python` ผ่านใน regression รวม: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio sample mismatches 0
+- `git diff --check` ผ่าน ไม่มี whitespace error มีเฉพาะคำเตือน LF/CRLF จาก Git บน Windows
+
+ข้อจำกัด:
+
+- พยายามเปิด in-app browser ด้วย Browser plugin แล้ว แต่ `node_repl`/browser runtime ถูก Windows sandbox บล็อกด้วยข้อความ `spawn setup refresh` จึงยังไม่ได้ screenshot จริง
+- พยายามเปิด background server สำหรับ browser QA บน port ชั่วคราวแล้ว process ตายหลัง shell จบโดยไม่มี stderr เพิ่มเติม จึงไม่ใช้ผลนั้นเป็นหลักฐาน QA
+- งานนี้จึงปิดด้วย fallback QA ที่ตรวจ static responsive markers, in-process authenticated/API smoke, web smoke, regression รวม และ CI quality แทน
+- งานต่อยอดยังควรทำ full in-app browser screenshot QA จริงอีกครั้งเมื่อ runtime/sandbox อนุญาต โดยเฉพาะ desktop/mobile visual overlap และ console errors
+
+## ผลลัพธ์ T46: Privacy-safe Commit and GitHub Push
+
+สิ่งที่ทำ:
+
+- ตรวจพบว่าไฟล์ portfolio ส่วนตัวถูก track อยู่ใน Git ได้แก่ `portfolio_aom.xlsx`, `portfolio_eak.xlsx`
+- ตรวจพบ report ที่สร้างจาก portfolio เดียวกันและมีโอกาสมีข้อมูลส่วนตัว ได้แก่ `portfolio_aom_analysis_report.xlsx`, `portfolio_eak_analysis_report.xlsx`
+- ถอดไฟล์ทั้ง 4 รายการออกจาก Git index แบบเก็บไฟล์จริงไว้ในเครื่องผู้ใช้
+- คง `.gitignore` ที่ ignore `*.xlsx` เพื่อกัน portfolio workbook/report ใหม่ไม่ให้ถูกเพิ่มเข้า Git โดยไม่ตั้งใจ
+- ปรับ `.github/workflows/quality-gate.yml` ให้ไม่ require `portfolio_aom.xlsx` หรือ `portfolio_aom_analysis_report.xlsx`
+- ปรับ `scripts/comparePythonOutputs.js` ให้สร้าง synthetic portfolio workbook ใน `data/outputs` ระหว่าง test แทนการอ่านไฟล์ portfolio ส่วนตัว
+- ปรับ `docs/CI_QUALITY_GATE.md` และ `plan.md` ให้บอกว่า portfolio report regression ไม่ต้องใช้ private portfolio files แล้ว
+- สร้าง commit ใน clone ชั่วคราวสำเร็จด้วย message `Harden SaaS readiness and remove private portfolios`
+
+ผลการทดสอบ:
+
+- `node --check scripts/comparePythonOutputs.js` ผ่าน
+- `npm run compare:python` ผ่าน: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio expected rows 5, JS rows 5, portfolio sample mismatches 0
+- `npm run ci:quality` ผ่าน
+
+ข้อจำกัด:
+
+- Push ไป GitHub ยังไม่สำเร็จใน sandbox นี้: `git ls-remote` เห็น GitHub ตอบ HTTP 401 แล้ว Git เรียก Credential Manager แต่ sandbox user ไม่มี GitHub credential; ไม่พบ `gh` CLI สำหรับ auth สำรอง
+- commit พร้อม push อยู่ที่ clone ชั่วคราว: `C:\Users\saraw\AppData\Local\Temp\stockinvestment-commit-f3edadec9fef4a1599330dee2055a890\repo`
+- คำสั่งสำหรับ push ต่อจากเครื่องที่ออก GitHub ได้:
+
+```bash
+cd C:\Users\saraw\AppData\Local\Temp\stockinvestment-commit-f3edadec9fef4a1599330dee2055a890\repo
+git push origin codex-node-web-app-migration
+```
+
+- การถอดไฟล์ออกจาก commit รอบนี้เป็นการลบออกจาก Git index/branch ปัจจุบัน ไม่ใช่การลบออกจากประวัติ Git เก่าทั้งหมด หากไฟล์เคยถูก push ไป GitHub แล้วและต้องการลบจาก history จริง ต้องทำ history rewrite แยกต่างหากพร้อมพิจารณา force push อย่างระมัดระวัง
 
 ## ผลลัพธ์ T04: Node.js Scaffolding
 
@@ -1172,8 +2164,8 @@ Dependency changes:
   - อ่าน `recommended_stocks.csv` เดิมจาก Python
   - รัน JS analyzer จาก raw input เดียวกัน
   - สร้าง `data/outputs/recommended_stocks_compare.csv`
-  - สร้าง JS portfolio report จาก `portfolio_aom.xlsx`
-  - เทียบกับ `portfolio_aom_analysis_report.xlsx` เดิม
+  - สร้าง synthetic temporary portfolio workbook เพื่อทดสอบ portfolio report โดยไม่ต้องใช้ไฟล์ portfolio ส่วนตัว
+  - เทียบ portfolio report กับ expected calculations จาก synthetic holdings และ market data
   - เขียนผลละเอียดลง `data/outputs/t10_comparison_report.json`
 - `package.json`
   - เพิ่ม script `compare:python`
@@ -1211,7 +2203,7 @@ Dependency changes:
 
 - `data/outputs/t10_comparison_report.json`
 - `data/outputs/recommended_stocks_compare.csv`
-- `data/outputs/portfolio_aom_compare_analysis_report.xlsx`
+- `data/outputs/portfolio_regression_compare_analysis_report.xlsx`
 
 ความต่างที่ยอมรับ/ต้องจำไว้:
 
@@ -2032,8 +3024,25 @@ Excel report:
 - T27 Done: เพิ่ม state schema manifest, storage readiness API/UI, regression test และเอกสาร production database migration foundation แล้ว
 - T28 Done: เพิ่ม state repository layer, repository metadata, regression test และผูกเข้า CI quality gate แล้ว
 - T29 Done: เพิ่ม append-only audit trail mirror, API/UI metrics, regression test และเอกสาร audit mirror แล้ว
-- Task list ชุดนี้เสร็จครบแล้ว
-- งานต่อยอดที่แนะนำ: production database adapter implementation, external immutable audit provider integration, approval workflow, chart interaction, verify browser, harden dependency และ real payment provider integration
+- T30 Done: เพิ่ม approval workflow prototype, API/UI, schema, audit events, metrics และ regression test แล้ว
+- T31 Done: เพิ่ม chart interaction ใน Screener ด้วย sector/trend filter และคลิก Sector count bar เพื่อ drilldown แล้ว
+- T32 Done: เพิ่ม external audit provider แบบ HTTP webhook, HMAC signature, receipt readiness และ regression test แล้ว
+- T33 Done: เพิ่ม dependency risk gate, accepted risk register และผูกเข้า CI quality แล้ว
+- T34 Done: เพิ่ม server factory และ automated web smoke regression สำหรับตรวจ Web App/API/UI markers โดยไม่ต้องเปิด background server แล้ว
+- T35 Done: เพิ่ม Postgres state adapter แบบ opt-in หลัง repository layer พร้อม bootstrap SQL, fake-client regression, docs และ CI quality แล้ว
+- T36 Done: เพิ่ม Stripe Checkout provider แบบ opt-in, raw-body provider webhook endpoint, payment provider regression, docs และ CI quality แล้ว
+- T37 Done: เพิ่ม one-time importer จาก `app-state.json` เข้า Postgres พร้อม dry-run/readiness guard, fake-client regression, docs และ CI quality แล้ว
+- T38 Done: เพิ่ม package entitlement enforcement สำหรับ Starter/Pro/Advisor พร้อม upgrade card UI, regression test, docs และ CI quality แล้ว
+- T39 Done: เพิ่ม backup/restore drill สำหรับ local state/audit files พร้อม manifest/checksum, dry-run/confirm guard, regression test, docs และ CI quality แล้ว
+- T40 Done: เพิ่ม Postgres query-level tenant scoped read helper พร้อม SQL WHERE guard, regression test, docs และ CI quality แล้ว
+- T41 Done: เพิ่ม operational readiness API, alert rules, Business dashboard alert cards, observability regression, docs และ CI quality แล้ว
+- T42 Done: เพิ่ม production Postgres backup runbook generator, CLI, secret masking, regression test, docs และ CI quality แล้ว
+- T43 Done: เพิ่ม production deployment checklist dry-run, CLI strict mode, secret masking, regression test, docs และ CI quality แล้ว
+- T44 Done: เพิ่ม operational alert delivery webhook แบบ opt-in, HMAC signature, dry-run/required mode, regression test, docs และ CI quality แล้ว
+- T45 Done: เพิ่ม frontend viewport/auth regression, mobile responsive polish, docs และ CI quality แล้ว แต่ in-app browser screenshot จริงยังถูก Windows sandbox บล็อก จึงบันทึกเป็นข้อจำกัด
+- T46 Blocked at Push: ถอด `portfolio_aom.xlsx`, `portfolio_eak.xlsx` และ report ที่เกี่ยวข้องออกจาก Git index, ปรับ CI/compare ให้ใช้ synthetic portfolio แทน private files และสร้าง commit ใน clone ชั่วคราวแล้ว แต่ push ไป GitHub ถูก sandbox/network บล็อก
+- Task list ชุดนี้เหลือขั้น push ของ T46
+- งานต่อยอดที่แนะนำ: full in-app browser screenshot QA เมื่อสภาพแวดล้อมอนุญาต, ถ้าต้องการลบ portfolio ส่วนตัวออกจาก GitHub history จริงให้ทำ history rewrite แยกต่างหาก, ตั้งค่า operational alert webhook ไปยัง Slack/email/APM/uptime monitor จริงใน staging/production, ซ้อม Postgres restore จริงใน staging/production-like environment, run deployment checklist แบบ strict ใน staging ที่ตั้ง env จริง และทยอยย้าย production endpoint เฉพาะ tenant มาใช้ `readScopedAppState()`
 
-ให้เริ่มจากอ่าน plan.md ก่อนเสมอ หากไม่มี Task ที่ Pending แล้ว ให้เลือกงานต่อยอดจากรายการแนะนำ หรือแก้ issue ที่ผู้ใช้แจ้ง และอัปเดต plan.md ทันทีเมื่อทำงานนั้นเสร็จ
+ให้เริ่มจากอ่าน plan.md ก่อนเสมอ หากต้องการทำ T46 ต่อ ให้ push จาก clone ชั่วคราว `C:\Users\saraw\AppData\Local\Temp\stockinvestment-commit-f3edadec9fef4a1599330dee2055a890\repo` ด้วย `git push origin codex-node-web-app-migration` ใน environment ที่ออก GitHub ได้ แล้วอัปเดต plan.md เป็น Done หลัง push สำเร็จ หากไม่มี Task ที่ Pending แล้ว ให้เลือกงานต่อยอดจากรายการแนะนำ หรือแก้ issue ที่ผู้ใช้แจ้ง และอัปเดต plan.md ทันทีเมื่อทำงานนั้นเสร็จ
 ```

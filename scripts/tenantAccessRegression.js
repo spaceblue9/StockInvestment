@@ -42,6 +42,7 @@ try {
   const adminUser = await updateUserRole(owner.id, admin.id, "admin");
   await moveUserToOrganization(owner.id, advisor.id, owner.organizationId);
   await moveUserToOrganization(owner.id, admin.id, owner.organizationId);
+  await checkoutSubscription(advisor.id, "advisor");
   await assignAdvisor(owner.id, customerA.id, advisor.id);
 
   await saveInvestorProfile(customerA.id, {
@@ -96,11 +97,11 @@ try {
   assertExactUsers(usersFrom(customerBScope), [customerB.id], "Customer B should see only self.");
 
   assertEqual(ownerScope.dataScope.portfolioSnapshots, 2, "Owner should see all portfolio snapshots.");
-  assertEqual(adminScope.dataScope.billingEvents, 2, "Admin should see all billing events.");
+  assertEqual(adminScope.dataScope.billingEvents, 3, "Admin should see all billing events.");
   assertEqual(advisorScope.dataScope.portfolioSnapshots, 1, "Advisor should see assigned customer portfolio only.");
-  assertEqual(advisorScope.dataScope.billingEvents, 1, "Advisor should see assigned customer billing only.");
-  assertEqual(advisorScope.dataScope.paymentSessions, 2, "Advisor should see assigned customer payment sessions only.");
-  assertEqual(advisorScope.dataScope.paymentWebhookEvents, 1, "Advisor should see assigned customer webhook events only.");
+  assertEqual(advisorScope.dataScope.billingEvents, 2, "Advisor should see own and assigned customer billing only.");
+  assertEqual(advisorScope.dataScope.paymentSessions, 3, "Advisor should see own and assigned customer payment sessions only.");
+  assertEqual(advisorScope.dataScope.paymentWebhookEvents, 2, "Advisor should see own and assigned customer webhook events only.");
   assertEqual(customerAScope.dataScope.portfolioSnapshots, 1, "Customer A should see one own portfolio snapshot.");
   assertEqual(customerBScope.dataScope.portfolioSnapshots, 1, "Customer B should see one own portfolio snapshot.");
   assertEqual(customerAScope.dataScope.billingEvents, 1, "Customer A should see one own paid billing event.");
@@ -126,7 +127,7 @@ try {
 
   assertOnlyUserSessions(await getPaymentSessions(customerA.id, { limit: 10 }), customerA.id, "Customer A payment sessions should be own only.");
   assertOnlyUserSessions(await getPaymentSessions(customerB.id, { limit: 10 }), customerB.id, "Customer B payment sessions should be own only.");
-  assertOnlyAllowedSessions(await getPaymentSessions(advisor.id, { limit: 10 }), [customerA.id], "Advisor payment sessions should be assigned customer only.");
+  assertOnlyAllowedSessions(await getPaymentSessions(advisor.id, { limit: 10 }), [advisor.id, customerA.id], "Advisor payment sessions should be own and assigned customer only.");
 
   assertOnlyBilling(await getBillingHistory(customerA.id), customerA.id, "Customer A billing history should be own only.");
   assertOnlyBilling(await getBillingHistory(customerB.id), customerB.id, "Customer B billing history should be own only.");

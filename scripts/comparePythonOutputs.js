@@ -88,20 +88,25 @@ const pythonRecommendations = await readCsv(path.join(rootDir, "recommended_stoc
 const jsRecommendations = await analyzeStocks(rawRows, {
   outputFile: path.join(outputDir, "recommended_stocks_compare.csv"),
 });
+const syntheticPortfolioRows = buildSyntheticPortfolioRows(pythonRecommendations);
+const syntheticPortfolioPath = path.join(outputDir, "portfolio_regression_fixture.xlsx");
+const syntheticPortfolioReportPath = path.join(outputDir, "portfolio_regression_compare_analysis_report.xlsx");
+await writeSyntheticPortfolioWorkbook(syntheticPortfolioRows, syntheticPortfolioPath);
 const portfolioRows = await analyzePortfolio(
-  path.join(rootDir, "portfolio_aom.xlsx"),
+  syntheticPortfolioPath,
   pythonRecommendations,
   {
-    outputFile: path.join(outputDir, "portfolio_aom_compare_analysis_report.xlsx"),
+    outputFile: syntheticPortfolioReportPath,
   },
 );
 
 const rawColumnCheck = checkColumns(rawRows[0], requiredRawColumns);
 const recommendedColumnCheck = checkColumns(pythonRecommendations[0], requiredRecommendedColumns);
 const formulaComparison = compareFormulaOutputs(pythonRecommendations, jsRecommendations);
-const reportComparison = await comparePortfolioReports({
-  pythonReportPath: path.join(rootDir, "portfolio_aom_analysis_report.xlsx"),
-  jsReportPath: path.join(outputDir, "portfolio_aom_compare_analysis_report.xlsx"),
+const reportComparison = await comparePortfolioReportAgainstExpected({
+  marketRows: pythonRecommendations,
+  portfolioRows: syntheticPortfolioRows,
+  jsReportPath: syntheticPortfolioReportPath,
 });
 
 const report = {
@@ -110,7 +115,7 @@ const report = {
     rawRows: rawRows.length,
     pythonRecommendedRows: pythonRecommendations.length,
     jsRecommendedRows: jsRecommendations.length,
-    portfolioRows: portfolioRows.length,
+    syntheticPortfolioRows: portfolioRows.length,
   },
   rawColumnCheck,
   recommendedColumnCheck,
@@ -118,7 +123,7 @@ const report = {
   reportComparison,
   notes: [
     "Formula comparison uses the existing Python-generated siamchart_raw.csv as shared input.",
-    "Portfolio comparison uses existing recommended_stocks.csv as market data to isolate portfolio report logic.",
+    "Portfolio comparison uses a synthetic temporary workbook to avoid committing private portfolio files.",
     "Live Node market data still differs from Python because Yahoo chart endpoint does not include PE/ROE/Yield/D/E/Sector.",
   ],
 };
@@ -205,47 +210,69 @@ function compareFormulaOutputs(pythonRows, jsRows) {
   };
 }
 
-async function comparePortfolioReports({ pythonReportPath, jsReportPath }) {
-  const pythonWorkbook = await readWorkbook(pythonReportPath);
+function buildSyntheticPortfolioRows(marketRows) {
+  const priceMultipliers = [1.12, 0.88, 1.03, 0.75, 1.25];
+  return marketRows
+    .filter((row) => row.Symbol && numberValue(row.Price) > 0)
+    .slice(0, priceMultipliers.length)
+    .map((row, index) => ({
+      Symbol: String(row.Symbol).trim().toUpperCase(),
+      Quantity: (index + 1) * 100,
+      Avg_Price: roundCurrency(numberValue(row.Price) * priceMultipliers[index]),
+    }));
+}
+
+async function writeSyntheticPortfolioWorkbook(rows, filePath) {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet("Portfolio");
+  worksheet.columns = [
+    { header: "Symbol", key: "Symbol", width: 12 },
+    { header: "Quantity", key: "Quantity", width: 12 },
+    { header: "Avg_Price", key: "Avg_Price", width: 12 },
+  ];
+  worksheet.addRows(rows);
+  await workbook.xlsx.writeFile(filePath);
+}
+
+async function comparePortfolioReportAgainstExpected({ marketRows, portfolioRows, jsReportPath }) {
   const jsWorkbook = await readWorkbook(jsReportPath);
-  const pythonSheet = pythonWorkbook.getWorksheet("Portfolio Analysis");
   const jsSheet = jsWorkbook.getWorksheet("Portfolio Analysis");
-  const pythonRows = sheetToObjects(pythonSheet);
   const jsRows = sheetToObjects(jsSheet);
   const jsBySymbol = new Map(jsRows.map((row) => [row.Symbol, row]));
+  const expectedRows = buildExpectedPortfolioRows(portfolioRows, marketRows);
   const mismatches = [];
 
-  for (const pythonRow of pythonRows) {
-    const jsRow = jsBySymbol.get(pythonRow.Symbol);
+  for (const expectedRow of expectedRows) {
+    const jsRow = jsBySymbol.get(expectedRow.Symbol);
     if (!jsRow) {
       mismatches.push({
-        symbol: pythonRow.Symbol,
+        symbol: expectedRow.Symbol,
         column: "Symbol",
-        python: pythonRow.Symbol,
+        expected: expectedRow.Symbol,
         js: null,
       });
       continue;
     }
 
     for (const column of reportColumns) {
-      const pythonValue = pythonRow[column];
+      const expectedValue = expectedRow[column];
       const jsValue = jsRow[column];
-      if (typeof pythonValue === "number" || typeof jsValue === "number") {
-        const diff = Math.abs(numberValue(pythonValue) - numberValue(jsValue));
+      if (typeof expectedValue === "number" || typeof jsValue === "number") {
+        const diff = Math.abs(numberValue(expectedValue) - numberValue(jsValue));
         if (diff > 1e-6 && mismatches.length < 25) {
           mismatches.push({
-            symbol: pythonRow.Symbol,
+            symbol: expectedRow.Symbol,
             column,
-            python: pythonValue,
+            expected: expectedValue,
             js: jsValue,
             diff,
           });
         }
-      } else if (String(pythonValue ?? "") !== String(jsValue ?? "") && mismatches.length < 25) {
+      } else if (String(expectedValue ?? "") !== String(jsValue ?? "") && mismatches.length < 25) {
         mismatches.push({
-          symbol: pythonRow.Symbol,
+          symbol: expectedRow.Symbol,
           column,
-          python: pythonValue,
+          expected: expectedValue,
           js: jsValue,
         });
       }
@@ -253,14 +280,108 @@ async function comparePortfolioReports({ pythonReportPath, jsReportPath }) {
   }
 
   return {
-    pythonSheets: pythonWorkbook.worksheets.map((worksheet) => worksheet.name),
+    expectedSource: "synthetic portfolio workbook",
     jsSheets: jsWorkbook.worksheets.map((worksheet) => worksheet.name),
-    pythonRows: pythonRows.length,
+    expectedRows: expectedRows.length,
     jsRows: jsRows.length,
     comparedColumns: reportColumns,
     mismatchCount: mismatches.length,
     sampleMismatches: mismatches,
   };
+}
+
+function buildExpectedPortfolioRows(portfolioRows, marketRows) {
+  const marketBySymbol = new Map(marketRows.map((row) => [String(row.Symbol).trim().toUpperCase(), row]));
+  return portfolioRows.map((holding) => {
+    const market = normalizeExpectedMarketRow(marketBySymbol.get(holding.Symbol));
+    const costValue = holding.Quantity * holding.Avg_Price;
+    const marketValue = holding.Quantity * market.Price;
+    const gainLossValue = marketValue - costValue;
+    const gainLossPct = holding.Avg_Price > 0
+      ? ((market.Price - holding.Avg_Price) / holding.Avg_Price) * 100
+      : 0;
+    const row = {
+      ...market,
+      ...holding,
+      Cost_Value: costValue,
+      Market_Value: marketValue,
+      Gain_Loss_Value: gainLossValue,
+      Gain_Loss_Pct: gainLossPct,
+    };
+    row.Advice = getExpectedAdvice(row);
+    row.Target_Action = getExpectedTargetAction(row);
+    return row;
+  });
+}
+
+function normalizeExpectedMarketRow(row = {}) {
+  return {
+    ...row,
+    Symbol: String(row.Symbol || "").trim().toUpperCase(),
+    Price: numberValue(row.Price),
+    Total_Score: numberValue(row.Total_Score),
+    RRR: numberValue(row.RRR),
+    Stop_Loss: numberValue(row.Stop_Loss),
+    Entry_Zone_High: numberValue(row.Entry_Zone_High),
+    Exit_Zone_Low: numberValue(row.Exit_Zone_Low),
+    Price_Position: numberValue(row.Price_Position),
+  };
+}
+
+function getExpectedAdvice(row) {
+  if (row.Total_Score === null || row.Total_Score === undefined) {
+    return "No Data";
+  }
+
+  if (row.Total_Score >= 70) {
+    if (row.Gain_Loss_Pct < 0) {
+      return "Buy More";
+    }
+
+    if (row.Price_Position < 40) {
+      return "Accumulate";
+    }
+
+    return "Hold";
+  }
+
+  if (row.Total_Score >= 45) {
+    return "Wait/Hold";
+  }
+
+  return row.Gain_Loss_Pct > 0 ? "Sell" : "Reduce/Cut";
+}
+
+function getExpectedTargetAction(row) {
+  if (row.Price <= row.Stop_Loss || row.Total_Score < 30) {
+    return "Exit All (100%)";
+  }
+
+  if (
+    row.Advice === "Sell"
+    || row.Advice === "Reduce/Cut"
+    || (row.Total_Score >= 30 && row.Total_Score < 45)
+  ) {
+    return "Reduce 50%";
+  }
+
+  if (row.Advice === "Hold" && row.Price >= row.Exit_Zone_Low) {
+    return `TP 50% @ ${row.Exit_Zone_Low.toFixed(2)}`;
+  }
+
+  if (row.Advice === "Buy More" || row.Advice === "Accumulate") {
+    if (row.Price > row.Entry_Zone_High) {
+      return `Wait & Bid @ ${row.Entry_Zone_High.toFixed(2)}`;
+    }
+
+    if (row.RRR >= 2.0) {
+      return "Buy Now (Good RRR)";
+    }
+
+    return "Buy Now (Low RRR)";
+  }
+
+  return "Keep Holding";
 }
 
 async function readWorkbook(filePath) {
@@ -299,7 +420,7 @@ function printSummary(report) {
   console.log(`recommended missing columns: ${report.recommendedColumnCheck.missing.join(", ") || "none"}`);
   console.log(`formula numeric mismatches: ${report.formulaComparison.numericMismatchCount}`);
   console.log(`formula text mismatches: ${report.formulaComparison.textMismatchCount}`);
-  console.log(`portfolio report rows: python=${report.reportComparison.pythonRows}, js=${report.reportComparison.jsRows}`);
+  console.log(`portfolio report rows: expected=${report.reportComparison.expectedRows}, js=${report.reportComparison.jsRows}`);
   console.log(`portfolio report sample mismatches: ${report.reportComparison.mismatchCount}`);
   console.log("detail: data/outputs/t10_comparison_report.json");
 }
@@ -307,4 +428,8 @@ function printSummary(report) {
 function numberValue(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : 0;
+}
+
+function roundCurrency(value) {
+  return Math.round(value * 100) / 100;
 }
