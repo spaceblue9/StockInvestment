@@ -36,6 +36,8 @@ const state = {
   organizations: [],
   tenantScope: null,
   operationalReadiness: null,
+  launchEvidence: null,
+  launchEvidenceExportMessage: "",
   entitlementErrors: {},
 };
 
@@ -53,6 +55,11 @@ document.addEventListener("click", (event) => {
   const upgradeButton = event.target.closest("[data-upgrade-plan]");
   if (upgradeButton) {
     checkoutPlan(upgradeButton.dataset.upgradePlan);
+  }
+
+  const launchEvidenceCopyButton = event.target.closest("[data-launch-evidence-copy]");
+  if (launchEvidenceCopyButton) {
+    copyLaunchEvidencePack(launchEvidenceCopyButton);
   }
 });
 
@@ -115,6 +122,8 @@ async function loadBusinessMetrics() {
   if (!canViewBusinessMetrics()) {
     state.businessMetrics = null;
     state.operationalReadiness = null;
+    state.launchEvidence = null;
+    state.launchEvidenceExportMessage = "";
     return;
   }
 
@@ -122,12 +131,14 @@ async function loadBusinessMetrics() {
   const data = await response.json();
   if (data.ok) {
     state.businessMetrics = data.metrics;
-    await loadOperationalReadiness();
+    await Promise.all([loadOperationalReadiness(), loadLaunchEvidence()]);
     return;
   }
 
   state.businessMetrics = null;
   state.operationalReadiness = null;
+  state.launchEvidence = null;
+  state.launchEvidenceExportMessage = "";
 }
 
 async function loadOperationalReadiness() {
@@ -144,6 +155,22 @@ async function loadOperationalReadiness() {
   }
 
   state.operationalReadiness = null;
+}
+
+async function loadLaunchEvidence() {
+  if (!canViewBusinessMetrics()) {
+    state.launchEvidence = null;
+    return;
+  }
+
+  const response = await fetch("/api/admin/launch-evidence");
+  const data = await response.json();
+  if (data.ok) {
+    state.launchEvidence = data.evidence;
+    return;
+  }
+
+  state.launchEvidence = null;
 }
 
 async function loadBillingHistory() {
@@ -837,6 +864,7 @@ function renderBusinessView() {
       <div class="guidance-card"><span>Operational readiness</span><strong>${readiness ? `${readiness.status} · ${readiness.summary?.criticalAlerts || 0} critical · ${readiness.summary?.warningAlerts || 0} warning` : "Loading operational checks"}</strong></div>
     </div>
     ${renderOperationalReadiness(readiness)}
+    ${renderLaunchEvidenceCenter(state.launchEvidence)}
     ${renderBusinessFunnel(metrics, profileCompletionPct, portfolioAttachPct)}
     ${renderTenantScopeSummary()}
     ${renderWorkspaceSummary(metrics.recentOrganizations || state.organizations)}
@@ -860,6 +888,110 @@ function renderBusinessView() {
   attachTeamActions();
   attachOrganizationActions();
   attachApprovalActions();
+}
+
+function renderLaunchEvidenceCenter(evidence = state.launchEvidence) {
+  if (!evidence) {
+    return `
+      <section class="chart-panel launch-evidence-panel" data-launch-evidence-center="true">
+        <h3>Launch Evidence Center</h3>
+        <p class="muted">Launch evidence is loading...</p>
+      </section>
+    `;
+  }
+
+  const items = evidence.items || [];
+  const commands = evidence.preflightCommands || [];
+  const rows = items.map((item) => ({
+    Evidence: item.title,
+    Status: evidenceStatusLabel(item.status),
+    Marker: item.markerEnv,
+    Category: item.category,
+  }));
+
+  return `
+    <section class="chart-panel launch-evidence-panel" data-launch-evidence-center="true">
+      <div class="section-title compact-title">
+        <div>
+          <p class="eyebrow">Go-live evidence</p>
+          <h3>Launch Evidence Center</h3>
+        </div>
+        <div class="launch-evidence-header-actions">
+          <span class="status-pill ${evidence.status === "ready" ? "ready" : ""}">${escapeHtml(evidence.status || "needs_evidence")}</span>
+          <button class="ghost-button" type="button" data-launch-evidence-copy="true">Copy sign-off pack</button>
+          <a class="download-link" href="/api/admin/launch-evidence/export?format=json" download>Download JSON</a>
+        </div>
+      </div>
+      ${state.launchEvidenceExportMessage ? `<p class="muted launch-evidence-export-message">${escapeHtml(state.launchEvidenceExportMessage)}</p>` : ""}
+      <div class="metric-grid">
+        ${metric("Ready Evidence", evidence.summary?.ready || 0)}
+        ${metric("Pending Evidence", evidence.summary?.pending || 0)}
+        ${metric("Blocked Evidence", evidence.summary?.blocked || 0)}
+        ${metric("Evidence Items", evidence.summary?.total || items.length)}
+      </div>
+      <div class="launch-evidence-grid">
+        ${items.map((item) => `
+          <article class="launch-evidence-card ${escapeHtml(item.status || "pending")}">
+            <span>${escapeHtml(item.category || "launch")}</span>
+            <strong>${escapeHtml(item.title)}</strong>
+            <p>${escapeHtml(item.evidence || "-")}</p>
+            <code>${escapeHtml(item.command || "-")}</code>
+          </article>
+        `).join("")}
+      </div>
+      <h3>Evidence checklist</h3>
+      ${renderTable(rows, ["Evidence", "Status", "Marker", "Category"])}
+      <h3>Preflight commands</h3>
+      <div class="command-list">
+        ${commands.map((command) => `<code>${escapeHtml(command)}</code>`).join("")}
+      </div>
+      <div class="guidance-grid">
+        ${(evidence.guardrails || []).slice(0, 4).map((item) => `<div class="guidance-card"><span>Guardrail</span><strong>${escapeHtml(item)}</strong></div>`).join("")}
+      </div>
+    </section>
+  `;
+}
+
+async function copyLaunchEvidencePack(button) {
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "Copying...";
+
+  try {
+    const response = await fetch("/api/admin/launch-evidence/export?format=text");
+    if (!response.ok) {
+      throw new Error(`Export failed with HTTP ${response.status}`);
+    }
+
+    const text = await response.text();
+    await copyTextToClipboard(text);
+    state.launchEvidenceExportMessage = "Sign-off pack copied. It is sanitized and ready for owner/admin review.";
+  } catch (error) {
+    state.launchEvidenceExportMessage = `Could not copy sign-off pack: ${error.message}`;
+  } finally {
+    button.disabled = false;
+    button.textContent = originalText;
+    if (state.activeView === "business") {
+      renderBusinessView();
+    }
+  }
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.setAttribute("readonly", "");
+  textArea.style.position = "fixed";
+  textArea.style.left = "-9999px";
+  document.body.appendChild(textArea);
+  textArea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textArea);
 }
 
 function renderOperationalReadiness(readiness) {
@@ -901,6 +1033,14 @@ function renderOperationalReadiness(readiness) {
       ${alertRows.length ? renderTable(alertRows, ["Severity", "Alert", "Action"]) : ""}
     </section>
   `;
+}
+
+function evidenceStatusLabel(status) {
+  return {
+    ready: "Ready",
+    pending: "Pending",
+    blocked: "Blocked",
+  }[status] || status || "Pending";
 }
 
 function renderApprovalsView() {

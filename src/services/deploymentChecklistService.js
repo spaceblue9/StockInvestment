@@ -43,6 +43,8 @@ export function buildProductionDeploymentChecklist(options = {}) {
       "npm run ci:quality",
       "npm run postgres:backup-runbook -- --strategy both --format text --strict",
       "npm run import:postgres -- --dry-run",
+      "npm run postgres:patch-validation -- --format text --strict",
+      "npm run postgres:patch-smoke -- --format text --strict",
       "GET /api/ops/readiness as owner/admin after staging deploy",
       "npm run ops:alerts -- --dry-run --format text",
     ],

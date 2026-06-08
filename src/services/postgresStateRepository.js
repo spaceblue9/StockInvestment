@@ -1,8 +1,11 @@
 import { stateCollectionDefinitions } from "./stateSchemaService.js";
+import { applyStatePatch } from "./statePatchService.js";
 
 const POSTGRES_DRIVER = "pg";
 const POSTGRES_SSL_MODES = new Set(["disable", "require"]);
 const collections = stateCollectionDefinitions();
+const collectionByName = new Map(collections.map((collection) => [collection.name, collection]));
+const patchOperationTypes = new Set(["upsert", "append", "delete"]);
 
 let poolPromise = null;
 
@@ -18,6 +21,10 @@ export async function writePostgresAppState(state = {}) {
   return withPostgresClient((client) => writeStateToPostgresClient(client, state));
 }
 
+export async function patchPostgresAppState(patch = {}, options = {}) {
+  return withPostgresClient((client) => patchStateToPostgresClient(client, patch, options));
+}
+
 export function postgresRepositoryInfo() {
   return {
     adapter: "postgres",
@@ -31,6 +38,7 @@ export function postgresRepositoryInfo() {
     sslMode: postgresSslMode(),
     bootstrapTables: collections.map((collection) => collection.productionTable),
     writeMode: "whole_state_transaction",
+    patchWriteMode: "collection_level_transaction",
     appendOnlyCollections: collections
       .filter((collection) => collection.appendOnly)
       .map((collection) => collection.name),
@@ -153,6 +161,51 @@ ON CONFLICT (record_id) DO UPDATE SET
   }
 }
 
+export async function patchStateToPostgresClient(client, patch = {}, options = {}) {
+  await client.query("BEGIN");
+  try {
+    await ensurePostgresSchema(client);
+    const currentState = options.currentState || await readStateFromPostgresClient(client, options);
+    const result = options.nextState
+      ? {
+        state: options.nextState,
+        summary: applyStatePatch(currentState, patch, options).summary,
+      }
+      : applyStatePatch(currentState, patch, options);
+    const operations = normalizePatchOperations(patch);
+
+    for (const operation of operations) {
+      const collection = collectionDefinition(operation.collection);
+
+      if (operation.type === "upsert") {
+        const record = finalRecordForPatchOperation(operation, collection, result.state);
+        await upsertRecordToPostgresClient(client, collection, record);
+        continue;
+      }
+
+      if (operation.type === "append") {
+        if (operation.dedupe && recordExistsForPatchOperation(operation, collection, currentState)) {
+          continue;
+        }
+
+        const record = finalRecordForPatchOperation(operation, collection, result.state);
+        await insertRecordToPostgresClient(client, collection, record);
+        continue;
+      }
+
+      if (operation.type === "delete") {
+        await deleteRecordFromPostgresClient(client, collection, operationKeyValue(operation.key, collection.primaryKey));
+      }
+    }
+
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  }
+}
+
 export async function ensurePostgresSchema(client) {
   for (const statement of buildPostgresBootstrapSql().split(/;\s*/).map((item) => item.trim()).filter(Boolean)) {
     await client.query(statement);
@@ -166,6 +219,124 @@ export function primaryKeyValue(record, primaryKey) {
   }
 
   return hasValue(record?.[primaryKey]) ? String(record[primaryKey]) : "";
+}
+
+function upsertRecordToPostgresClient(client, collection, record) {
+  const recordId = primaryKeyValue(record, collection.primaryKey);
+  assertPrimaryKey(recordId, collection.name);
+  const table = quoteIdentifier(collection.productionTable);
+
+  return client.query(
+    `INSERT INTO ${table} (record_id, organization_id, user_id, record, created_at, updated_at)
+VALUES ($1, $2, $3, $4::jsonb, COALESCE($5::timestamptz, now()), now())
+ON CONFLICT (record_id) DO UPDATE SET
+  organization_id = EXCLUDED.organization_id,
+  user_id = EXCLUDED.user_id,
+  record = EXCLUDED.record,
+  updated_at = now()`,
+    postgresRecordParams(recordId, record, collection.name),
+  );
+}
+
+function insertRecordToPostgresClient(client, collection, record) {
+  const recordId = primaryKeyValue(record, collection.primaryKey);
+  assertPrimaryKey(recordId, collection.name);
+  const table = quoteIdentifier(collection.productionTable);
+
+  return client.query(
+    `INSERT INTO ${table} (record_id, organization_id, user_id, record, created_at, updated_at)
+VALUES ($1, $2, $3, $4::jsonb, COALESCE($5::timestamptz, now()), now())`,
+    postgresRecordParams(recordId, record, collection.name),
+  );
+}
+
+function deleteRecordFromPostgresClient(client, collection, recordId) {
+  assertPrimaryKey(recordId, collection.name);
+  const table = quoteIdentifier(collection.productionTable);
+  return client.query(`DELETE FROM ${table} WHERE record_id = $1`, [recordId]);
+}
+
+function postgresRecordParams(recordId, record, collectionName) {
+  return [
+    recordId,
+    nullableString(record.organizationId),
+    nullableString(userReferenceForRecord(record, collectionName)),
+    JSON.stringify(record),
+    nullableString(record.createdAt || record.updatedAt || record.generatedAt || record.assignedAt),
+  ];
+}
+
+function normalizePatchOperations(patch = {}) {
+  const operations = Array.isArray(patch)
+    ? patch
+    : Array.isArray(patch.operations)
+      ? patch.operations
+      : [];
+
+  return operations.map((operation) => ({
+    ...operation,
+    type: normalizePatchOperationType(operation?.type),
+    collection: cleanText(operation?.collection),
+  }));
+}
+
+function normalizePatchOperationType(type) {
+  const normalized = cleanText(type).toLowerCase();
+  if (!patchOperationTypes.has(normalized)) {
+    throw new Error(`Unsupported state patch operation: ${type || ""}`);
+  }
+  return normalized;
+}
+
+function collectionDefinition(collectionName) {
+  const collection = collectionByName.get(cleanText(collectionName));
+  if (!collection) {
+    throw new Error(`Unknown state collection: ${collectionName || ""}`);
+  }
+
+  return collection;
+}
+
+function finalRecordForPatchOperation(operation, collection, state) {
+  const key = operationRecordKey(operation, collection);
+  const record = recordsFor(state, collection.name)
+    .find((candidate) => primaryKeyValue(candidate, collection.primaryKey) === key);
+  if (!record) {
+    throw new Error(`Cannot ${operation.type} ${collection.name}: patched record '${key}' was not found.`);
+  }
+
+  return record;
+}
+
+function recordExistsForPatchOperation(operation, collection, state) {
+  const key = operationRecordKey(operation, collection);
+  return recordsFor(state, collection.name)
+    .some((candidate) => primaryKeyValue(candidate, collection.primaryKey) === key);
+}
+
+function operationRecordKey(operation, collection) {
+  const key = primaryKeyValue(operation.record, collection.primaryKey);
+  assertPrimaryKey(key, collection.name);
+  return key;
+}
+
+function operationKeyValue(key, primaryKey) {
+  if (typeof key === "object" && key !== null) {
+    return primaryKeyValue(key, primaryKey);
+  }
+
+  return hasValue(key) ? String(key) : "";
+}
+
+function recordsFor(state, collectionName) {
+  const records = state?.[collectionName];
+  return Array.isArray(records) ? records : [];
+}
+
+function assertPrimaryKey(recordId, collectionName) {
+  if (!recordId) {
+    throw new Error(`Cannot persist ${collectionName}: missing primary key.`);
+  }
 }
 
 export function buildPostgresSelectQuery(collection, rawTenantScope = null) {

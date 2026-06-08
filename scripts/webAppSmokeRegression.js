@@ -47,6 +47,10 @@ try {
     "data-sector-filter",
     "External Audit",
     "Operational readiness",
+    "Launch Evidence Center",
+    "data-launch-evidence-center",
+    "Copy sign-off pack",
+    "/api/admin/launch-evidence/export?format=json",
     "renderApprovalsView",
   ], "Frontend bundle should include recent SaaS interaction markers.");
 

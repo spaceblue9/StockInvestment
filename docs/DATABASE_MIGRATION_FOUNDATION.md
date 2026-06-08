@@ -14,6 +14,26 @@ T39 adds a local backup/restore drill for `app-state.json`, the audit mirror, an
 
 T40 adds a Postgres scoped read helper so production flows can apply tenant filters in SQL before JSONB records leave the database.
 
+T48 adds a service-level tenant scoped read wrapper for customer/workspace read APIs. In local-file mode it applies an in-memory filter guard, while the Postgres path can use `readScopedAppState()` to apply query-level filters before returning tenant records.
+
+T49 adds a logical state patch write foundation. Local-file mode still writes the full JSON file after applying a patch, but service code can start describing writes as collection-level `upsert`, `append`, and `delete` operations that map more cleanly to future database DML.
+
+T50 starts adopting that boundary in business flows. Investor profile saves, payment session creation, and approval request creation now write through `patchAppState()` with paired append-only audit events while keeping behavior and regression output unchanged.
+
+T51 expands adoption to more complex multi-record flows. Payment webhook success/failure, rejected webhook logging, billing activation, already-paid webhook reconciliation, and approval decisions now use logical patch operations while preserving duplicate provider-event behavior and audit hash-chain integrity.
+
+T52 expands patch write adoption to workspace and team administration flows. Organization create/update, member moves, role updates, advisor assignment, and advisor unassignment now use logical patch operations while preserving permission checks, tenant visibility, and audit events.
+
+T53 expands patch write adoption to auth session flows. Session creation now appends `sessions`, logout deletes the matching session and appends `auth.logout`, expired-session cleanup deletes stale sessions, and standalone audit recording appends `auditEvents` through the patch boundary.
+
+T54 expands patch write adoption to account and portfolio snapshot flows. Registration now upserts the created workspace, appends the new user, and appends `auth.register`; login upserts the updated user and appends `auth.login`; saved portfolio snapshots upsert by `userId` and append `analysis.snapshot_saved`.
+
+T55 adds a Postgres collection-level patch write path. When `APP_STATE_REPOSITORY=postgres`, `patchAppState()` now validates the logical patch against the current state, then maps `upsert`, `append`, and `delete` operations to table-level statements in one Postgres transaction instead of calling the whole-state repository write path.
+
+T56 adds a Postgres patch write staging validation runbook. It is a dry-run CLI for planning real staging validation of collection-level patch writes, scoped reads, audit mirror checks, and rollback evidence without connecting to a database in CI.
+
+T57 adds a Postgres patch smoke execution harness. It defaults to dry-run, requires `--confirm` before writing canary data, emits sanitized evidence, and can exercise the Postgres patch write path in staging with guardrails.
+
 ## Schema Manifest
 
 The schema manifest lives in `src/services/stateSchemaService.js` and is exposed to owner/admin accounts through:
@@ -45,6 +65,7 @@ The repository layer exposes:
 - `readAppState({ normalize })`
 - `readScopedAppState(tenantScope, { normalize })`
 - `writeAppState(state)`
+- `patchAppState(patch, { normalize })`
 - `stateRepositoryInfo()`
 
 Current adapter:
@@ -69,6 +90,89 @@ data/audit-events.ndjson
 ```
 
 This file is append-only in normal app flow and is a prototype boundary for future external immutable audit storage.
+
+## Logical State Patch Writes
+
+The state patch helper lives in `src/services/statePatchService.js` and currently supports:
+
+- `upsert`: insert or merge a record by the collection primary key from the schema manifest
+- `append`: add a new record and reject duplicate primary keys unless explicitly deduped
+- `delete`: remove a record by primary key
+
+Append-only collections such as `auditEvents` are guarded:
+
+- `append` is the normal supported write path
+- `upsert` is rejected unless explicitly allowed for controlled maintenance
+- `delete` is rejected unless explicitly allowed for controlled maintenance
+
+The repository exposes:
+
+```js
+patchAppState({
+  operations: [
+    {
+      type: "upsert",
+      collection: "paymentSessions",
+      record: {
+        id: "payment_123",
+        userId: "user_123",
+        organizationId: "org_123",
+        status: "pending",
+      },
+    },
+    {
+      type: "append",
+      collection: "auditEvents",
+      record: {
+        id: "audit_123",
+        action: "payment.session_created",
+        actorUserId: "user_123",
+        organizationId: "org_123",
+      },
+    },
+  ],
+});
+```
+
+In local-file mode this still performs:
+
+```text
+read current state -> apply logical patch -> write app-state.json
+```
+
+In Postgres mode this now performs:
+
+```text
+read current state -> validate/apply logical patch -> run collection-level table transaction
+```
+
+The important production value is that write callers can move away from hand-editing whole state objects. The Postgres path maps the same patch operations to table-level `INSERT ... ON CONFLICT`, append-only inserts, and targeted deletes by `record_id`.
+
+First adopted app flows:
+
+- `saveInvestorProfile()`: upserts `investorProfiles` and appends `profile.update`
+- `createPaymentSession()`: appends `paymentSessions` and `payment.session_created`
+- `createApprovalRequest()`: appends `approvalRequests` and `approval.request_created`
+- `processPaymentWebhookInState()`: upserts `paymentSessions`, appends `paymentWebhookEvents`, appends paid `billingEvents`, upserts the subscribed `users` record when needed, and appends payment/billing audit events
+- `processSignedPaymentWebhook()` and `processProviderPaymentWebhook()`: append rejected `paymentWebhookEvents` and `payment.webhook_rejected` audit events through the patch boundary
+- `decideApprovalRequest()`: upserts decided `approvalRequests` and appends approval decision audit events
+- `createOrganization()` and `updateOrganization()`: append/upsert `organizations` and append workspace audit events
+- `moveUserToOrganization()` and `updateUserRole()`: upsert `users`, upsert touched `organizations`, delete stale `advisorAssignments` when needed, and append team/workspace audit events
+- `assignAdvisor()`: append/upsert/delete `advisorAssignments` and append advisor assignment audit events
+- `createSession()`, `logoutSession()`, and expired-session cleanup in `getUserFromRequest()`: append or delete `sessions` without rewriting unrelated collections during normal local-file patch flow
+- `recordAuditEvent()`: appends standalone `auditEvents` through the patch boundary while preserving audit hash-chain generation
+- `createUser()`: upserts the owner/customer `organizations` record, appends `users`, and appends `auth.register`
+- `loginUser()`: upserts the updated `users` record and appends `auth.login`
+- `saveCustomerPortfolioSnapshot()`: upserts `portfolioSnapshots` by `userId` and appends `analysis.snapshot_saved`
+
+These flows still fall back to the old whole-state write path if an audit append would require pruning beyond the local `MAX_AUDIT_EVENTS` cap. That keeps local-file behavior stable while allowing normal writes to use the patch boundary.
+
+Postgres patch write mapping:
+
+- `upsert`: writes one row with `INSERT ... ON CONFLICT (record_id) DO UPDATE`
+- `append`: writes one row with plain `INSERT`, after logical duplicate checks
+- `delete`: deletes one row with `DELETE ... WHERE record_id = $1`
+- append-only guards and duplicate append behavior are still validated through `applyStatePatch()`
 
 ## Postgres Adapter
 
@@ -138,6 +242,19 @@ Restricted reads add `WHERE` filters before fetching `record jsonb` from these c
 - `advisor_assignments` through customer, advisor, and assigner user references
 
 The default `readAppState()` behavior remains whole-state to preserve the current migration path and local-file compatibility. Production endpoints that serve tenant-specific data should move to scoped reads after deriving the viewer's allowed user ids and organization ids.
+
+The first customer/workspace read APIs now use this pattern through the auth service:
+
+- portfolio snapshot reads
+- investor profile reads
+- billing history
+- payment session history
+- approval request listing
+- audit timeline
+- tenant scope summary
+- workspace organization and user listing
+
+The helper still keeps write flows on whole-state reads so updates can preserve unrelated records until a narrower write model is introduced.
 
 ## One-time Importer
 
@@ -277,6 +394,128 @@ npm run test:postgres-backup-runbook
 
 The regression verifies secret masking, strategy behavior, retention warnings, backup/restore command templates, and render output without connecting to a real database.
 
+## Postgres Patch Write Validation Runbook
+
+T56 adds a dry-run runbook generator for validating collection-level patch writes in staging or a production-like database before enabling paid subscription traffic on the Postgres adapter. It does not connect to Postgres and does not write data. It prints a sanitized readiness plan that a deploy operator can use before running real canary writes.
+
+Generate a JSON runbook:
+
+```bash
+npm run postgres:patch-validation
+```
+
+Generate a text runbook:
+
+```bash
+npm run postgres:patch-validation -- --format text
+```
+
+Validate strictly and fail when the runbook is blocked:
+
+```bash
+APP_STATE_REPOSITORY=postgres DATABASE_URL=postgres://user:password@host:5432/database DATABASE_SSL_MODE=require npm run postgres:patch-validation -- --strict
+```
+
+Readiness flags used by the runbook:
+
+```text
+POSTGRES_PATCH_VALIDATION_PG_DRIVER_READY=true
+POSTGRES_PATCH_IMPORT_DRY_RUN_DONE=true
+POSTGRES_PATCH_STATE_IMPORTED=true
+POSTGRES_PATCH_BACKUP_VERIFIED=true
+POSTGRES_PATCH_ROLLBACK_PLAN_APPROVED=true
+POSTGRES_PATCH_SMOKE_APPROVED=true
+POSTGRES_PATCH_SCOPED_READ_VERIFIED=true
+POSTGRES_PATCH_AUDIT_MIRROR_VERIFIED=true
+```
+
+The runbook checks:
+
+- `APP_STATE_REPOSITORY=postgres`
+- sanitized `DATABASE_URL`
+- `DATABASE_SSL_MODE=require`
+- optional `pg` driver readiness in the target environment
+- repository metadata `patchWriteMode=collection_level_transaction`
+- importer dry-run and staging state import completion
+- backup/restore point and rollback plan approval
+- staging-only patch smoke approval
+- scoped read and audit mirror/hash-chain verification status
+
+Patch smoke matrix:
+
+- `upsert users` -> `INSERT ... ON CONFLICT (record_id) DO UPDATE`
+- `append sessions` -> plain `INSERT INTO user_sessions`
+- `delete sessions` -> `DELETE FROM user_sessions WHERE record_id = $1`
+- `append auditEvents` -> plain `INSERT INTO audit_events`
+
+The intended staging validation is:
+
+1. Prepare an isolated staging database and restore point.
+2. Run importer dry-run and real import in staging after readiness blockers are fixed.
+3. Start the app with the Postgres adapter.
+4. Run canary patch writes against staging-only user/session/audit ids.
+5. Verify row counts and scoped reads after the smoke writes.
+6. Verify audit mirror/hash-chain and external audit receipts if enabled.
+7. Record backup id, patch operation ids, verification output, rollback decision, and go/no-go sign-off.
+
+Regression:
+
+```bash
+npm run test:postgres-patch-validation
+```
+
+The regression verifies secret masking, ready/needs_review/blocked status handling, patch smoke matrix, verification queries, rollback plan, and strict CLI behavior without connecting to a real database.
+
+## Postgres Patch Smoke Harness
+
+T57 adds a dry-run-first CLI for executing a staging canary patch smoke only after the validation runbook, importer, backup, and rollback evidence are ready. The command defaults to dry-run and will not write data without `--confirm`.
+
+Preview the canary patch and evidence shape:
+
+```bash
+npm run postgres:patch-smoke -- --format text
+```
+
+Execute in staging after reviewing the runbook and attaching backup evidence:
+
+```bash
+APP_STATE_REPOSITORY=postgres \
+DATABASE_URL=postgres://user:password@host:5432/database \
+DATABASE_SSL_MODE=require \
+NODE_ENV=staging \
+POSTGRES_PATCH_VALIDATION_READY=true \
+POSTGRES_PATCH_SMOKE_BACKUP_EVIDENCE=snapshot-id \
+npm run postgres:patch-smoke -- --confirm --format json --strict
+```
+
+The smoke patch performs:
+
+- `upsert organizations` for a staging canary workspace
+- `upsert users` for a staging canary user
+- `append sessions` for a staging canary session
+- `delete sessions` for the same canary session
+- `append auditEvents` with a hash chained to the latest audit event when executed
+
+Execution guards:
+
+- `APP_STATE_REPOSITORY` must be `postgres`
+- `DATABASE_URL` must be configured and sanitized in output
+- `DATABASE_SSL_MODE=require` is recommended for production-like validation
+- default mode is dry-run unless `--confirm` is passed
+- `NODE_ENV=production` is blocked unless `--allow-production` is passed intentionally
+- canary ids must contain `staging` or `canary`
+- `POSTGRES_PATCH_VALIDATION_READY=true` and `POSTGRES_PATCH_SMOKE_BACKUP_EVIDENCE` are required for real execution
+
+The output includes before/after collection counts, patch summary, backup evidence id, canary ids, and a rollback reminder. Keep this output with release evidence.
+
+Regression:
+
+```bash
+npm run test:postgres-patch-smoke
+```
+
+The regression verifies dry-run default behavior, blocked guard behavior, confirmed execution through an injected fake writer, evidence counts, audit hash chaining, CLI strict behavior, and secret masking without connecting to a real database.
+
 T32 adds an opt-in external audit provider over HTTP webhook. It is disabled by default and can be enabled with:
 
 ```text
@@ -344,6 +583,8 @@ Run:
 ```bash
 npm run test:storage-readiness
 npm run test:state-repository
+npm run test:state-patch
+npm run test:scoped-read
 npm run test:postgres-repository
 npm run test:postgres-importer
 npm run test:audit-trail
@@ -351,11 +592,23 @@ npm run test:approval-workflow
 npm run test:audit-external
 npm run test:backup-restore
 npm run test:postgres-backup-runbook
+npm run test:postgres-patch-validation
+npm run test:postgres-patch-smoke
 ```
 
 The storage readiness test creates a temporary state store, verifies a clean state is `ready`, then injects duplicate and orphaned records to confirm the report becomes `blocked`.
 
 The state repository test verifies that the local file adapter reads, writes, exposes metadata, and preserves normalized reads without touching demo data.
+
+The state patch test verifies pure patch behavior, repository-level patch writes, and adopted app flows. It confirms unrelated collections are preserved, upserts merge by primary key, audit events append safely, invalid patches are rejected, duplicate append is blocked, append-only audit deletion is guarded, account registration/login/portfolio snapshot writes persist their paired records and audit events, investor profile/payment session/approval request writes still persist their paired audit events, and auth session create/logout/expired cleanup plus standalone audit recording still work through the patch boundary.
+
+The Postgres repository test verifies bootstrap SQL, whole-state transaction compatibility, scoped read SQL filters, and collection-level patch writes using a fake Postgres client. It confirms table-level user upsert, session append/delete by `record_id`, audit append, duplicate append rejection, append-only upsert rejection, and that patch writes do not clear unrelated tables.
+
+The subscription lifecycle test now also verifies that a new signed success webhook on an already-paid session is recorded without creating a duplicate invoice. The approval workflow test verifies approve/reject decisions still preserve tenant scope and audit integrity after moving to patch writes.
+
+The tenant access and scoped read tests cover workspace/team patch-write adoption. They verify role updates, member moves, advisor assignments, organization create/update, workspace visibility, tenant metadata, and audit integrity remain correct.
+
+The scoped read test verifies that customer/advisor read APIs and direct tenant filters do not leak users, organizations, portfolio snapshots, billing events, payment sessions, approval requests, or audit events across workspace boundaries.
 
 The Postgres repository test uses a fake Postgres client to verify bootstrap SQL, JSONB row writes, reads, non-append collection rewrites, append-only audit table behavior, missing primary key guardrails, query-level tenant scoped reads, and repository metadata without connecting to a real database.
 
@@ -371,6 +624,10 @@ The backup/restore test creates temporary SaaS state, writes a backup with manif
 
 The Postgres backup runbook test verifies that production backup planning masks `DATABASE_URL` secrets, validates strategy/retention/readiness, and includes managed snapshot plus `pg_dump` / `pg_restore` restore-drill commands.
 
+The Postgres patch validation test verifies that staging validation planning masks `DATABASE_URL` secrets, reports ready/needs_review/blocked status, includes the collection-level patch smoke matrix, emits verification queries and rollback steps, and fails strict CLI mode while blocked.
+
+The Postgres patch smoke test verifies that the canary smoke harness defaults to dry-run, blocks unsafe execution, executes through an injected fake writer when confirmed, emits before/after evidence, preserves audit hash chaining, and masks `DATABASE_URL` secrets.
+
 `npm run test-regression` and `npm run ci:quality` include this test.
 
 ## Production Migration Path
@@ -385,5 +642,8 @@ Recommended next steps:
 6. Run the real importer in staging, then production.
 7. Configure managed Postgres snapshots or `pg_dump` / `pg_restore` runbooks.
 8. Run `npm run postgres:backup-runbook -- --strategy both --format text` and rehearse restore into staging.
-9. Replace tenant-specific production flows with scoped reads after deriving allowed user ids and organization ids from the signed-in viewer.
-10. Move audit events to append-only or immutable storage.
+9. Run `npm run postgres:patch-validation -- --format text --strict` in staging after importer, backup, rollback, scoped-read, and audit evidence is ready.
+10. Run `npm run postgres:patch-smoke -- --confirm --format json --strict` in staging after reviewing the dry-run output and attaching backup evidence.
+11. Continue replacing tenant-specific production flows with scoped reads after deriving allowed user ids and organization ids from the signed-in viewer.
+12. Move any remaining write flows from whole-state updates to `patchAppState()` operations and validate them through the Postgres patch runbook/smoke harness.
+13. Move audit events to append-only or immutable storage.

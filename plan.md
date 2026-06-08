@@ -638,10 +638,9 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T46 - Privacy-safe Commit and GitHub Push
 
-- สถานะ: Blocked at Push
+- สถานะ: Done
 - เริ่มเมื่อ: 2026-06-05 08:17:58 +07:00
-- เสร็จเมื่อ: -
-- Blocked เมื่อ: 2026-06-05 08:30:59 +07:00
+- เสร็จเมื่อ: 2026-06-05 08:46:18 +07:00
 - งานที่ต้องทำ:
   - ตรวจไฟล์ portfolio ส่วนตัวที่ถูก track อยู่
   - กัน `portfolio_eak.xlsx` และ `portfolio_aom.xlsx` ออกจาก Git ก่อน commit/push
@@ -650,6 +649,213 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - อัปเดตเอกสารและ `plan.md`
   - รันทดสอบที่จำเป็นก่อน commit
   - commit และ push branch `codex-node-web-app-migration` ไป GitHub
+
+### T47 - Private Portfolio History Cleanup Preparation
+
+- สถานะ: Deferred - Ready for Force Push
+- เริ่มเมื่อ: 2026-06-05 08:48:51 +07:00
+- เสร็จเมื่อ: -
+- Ready เมื่อ: 2026-06-05 08:53:28 +07:00
+- งานที่ต้องทำ:
+  - เตรียม rewrite history เพื่อลบไฟล์ portfolio ส่วนตัวออกจากประวัติ branch `codex-node-web-app-migration`
+  - ตรวจ availability ของ `git-filter-repo`; หากไม่มีให้ใช้ built-in Git history rewrite แบบจำกัด branch
+  - ทำงานใน clone ชั่วคราวเท่านั้น ไม่ลบไฟล์จริงใน workspace หลัก
+  - ลบ `portfolio_aom.xlsx`, `portfolio_eak.xlsx`, `portfolio_aom_analysis_report.xlsx`, `portfolio_eak_analysis_report.xlsx` จากทุก commit ของ branch ปัจจุบัน
+  - ตรวจ `git log --all -- <files>` ว่าไม่พบไฟล์ใน history ของ clone ที่ rewrite แล้ว
+  - บันทึกคำสั่ง force push ให้ผู้ใช้รันจาก PowerShell ปกติ เพราะ sandbox ไม่มี GitHub credential
+  - บันทึกข้อจำกัดว่าหากต้องการลบจากทุก branch/tag/fork/PR cache ต้องทำ mirror rewrite และประสาน GitHub Support ตามความจำเป็น
+
+### T48 - Tenant-scoped Read Adoption for Customer Workspace APIs
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-05 21:06:36 +07:00
+- เสร็จเมื่อ: 2026-06-05 21:14:46 +07:00
+- งานที่ต้องทำ:
+  - ข้ามขั้น GitHub force push ของ T47 ชั่วคราวตามคำสั่งผู้ใช้
+  - เพิ่ม service-level tenant scope helper สำหรับอ่าน state ตาม user/workspace scope
+  - ให้ customer/advisor workspace APIs สำคัญเริ่มใช้ scoped read แทนการอ่าน full state ตรง ๆ เมื่อเป็น read-only endpoint
+  - คง local file mode ให้ทำงานเหมือนเดิม แต่เพิ่ม filter guard เพื่อกันข้อมูลข้าม workspace
+  - เพิ่ม regression test ที่ยืนยันว่า customer/advisor ไม่เห็นข้อมูล user, portfolio, billing, payment, approval และ audit ของ workspace อื่น
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ syntax, scoped read regression, tenant access regression และ regression รวมเท่าที่เหมาะสม
+
+### T49 - Narrower State Write Model Foundation
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-05 21:39:23 +07:00
+- เสร็จเมื่อ: 2026-06-05 21:47:42 +07:00
+- งานที่ต้องทำ:
+  - เพิ่ม state patch helper สำหรับ upsert, append และ delete records ตาม schema collection primary key
+  - รองรับ append-only guard เพื่อป้องกันการลบ audit events โดยไม่ตั้งใจ
+  - เพิ่ม repository-level patch function ที่อ่าน state ปัจจุบัน, apply patch, แล้วเขียนกลับโดย preserve collections อื่น
+  - เพิ่ม regression test สำหรับ patch behavior เช่น preserve unrelated records, upsert by primary key, append audit event และ reject invalid patch
+  - ผูก regression test เข้า `npm run test-regression` และ `npm run ci:quality`
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ syntax, patch regression, regression รวม และ CI quality
+
+### T50 - Adopt Patch Writes in Critical SaaS Write Flows
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-05 21:49:59 +07:00
+- เสร็จเมื่อ: 2026-06-05 21:57:06 +07:00
+- งานที่ต้องทำ:
+  - เลือก write flows สำคัญชุดแรกที่เหมาะกับ `patchAppState()` เช่น payment session, billing event, investor profile หรือ approval request
+  - ย้ายเฉพาะ flow ที่มีความเสี่ยงต่ำจาก whole-state mutation ไปใช้ logical patch operations
+  - รักษา behavior เดิมของ Web App และ regression เดิมให้ผ่านทั้งหมด
+  - เพิ่มหรือปรับ regression test เพื่อยืนยันว่า patch write ไม่ลบ records อื่นและยังบันทึก audit ได้ครบ
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ syntax, targeted regression, regression รวม และ CI quality
+
+### T51 - Expand Patch Writes to Webhook and Decision Flows
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-06 20:29:41 +07:00
+- เสร็จเมื่อ: 2026-06-06 20:37:53 +07:00
+- งานที่ต้องทำ:
+  - วิเคราะห์ payment webhook reconciliation, billing checkout success/failure และ approval decision flows ที่ยังใช้ whole-state mutation
+  - ย้าย flow ที่เหมาะสมไปใช้ `patchAppState()` โดยยังรักษา idempotency, duplicate webhook handling และ audit hash chain
+  - เพิ่ม regression ที่จับ duplicate provider event, failed payment, approval approve/reject และ audit integrity หลัง patch write
+  - ตรวจว่า local-file behavior ยังเหมือนเดิม และ Postgres future path สามารถ map เป็น collection-level writes ได้ง่ายขึ้น
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ syntax, targeted regression, regression รวม และ CI quality
+
+### T52 - Reduce Whole-state Writes in Workspace and Team Flows
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-06 20:41:10 +07:00
+- เสร็จเมื่อ: 2026-06-06 20:47:09 +07:00
+- งานที่ต้องทำ:
+  - วิเคราะห์ write flows ฝั่ง workspace/team/admin เช่น create/update organization, move user, role update, advisor assignment และ session cleanup
+  - ย้าย flow ที่เหมาะสมไปใช้ `patchAppState()` โดยรักษา permission checks, tenant scope และ audit trail
+  - เพิ่ม regression สำหรับ workspace/team write behavior ที่ย้ายแล้ว และตรวจว่า owner/admin/advisor/customer scope ยังถูกต้อง
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ syntax, targeted regression, regression รวม และ CI quality
+
+### T53 - Reduce Whole-state Writes in Auth Session Flows
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-06 21:03:10 +07:00
+- เสร็จเมื่อ: 2026-06-06 21:13:42 +07:00
+- งานที่ต้องทำ:
+  - วิเคราะห์ auth/session write flows ที่ยังใช้ whole-state writes เช่น create session, logout session, expired session cleanup และ standalone audit event utility
+  - ย้ายเฉพาะ flow ที่เหมาะสมไปใช้ `patchAppState()` โดยรักษา login/logout behavior, cookie/session expiry และ audit trail
+  - เพิ่ม regression สำหรับ session create/logout/expired cleanup หากยังไม่มี coverage เพียงพอ
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ syntax, targeted regression, regression รวม และ CI quality
+
+### T54 - Reduce Whole-state Writes in Account and Portfolio Snapshot Flows
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-06 21:18:13 +07:00
+- เสร็จเมื่อ: 2026-06-06 21:26:28 +07:00
+- งานที่ต้องทำ:
+  - วิเคราะห์ whole-state write flows ที่เหลือใน `createUser()`, `loginUser()` และ `saveCustomerPortfolioSnapshot()`
+  - ย้าย flow ที่เหมาะสมไปใช้ `patchAppState()` โดยรักษา first-owner registration, customer workspace creation, login last-seen update, session cookie behavior, portfolio entitlement และ audit trail
+  - เพิ่ม regression สำหรับ register/login/snapshot behavior หาก coverage เดิมยังไม่พอ
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ syntax, targeted regression, regression รวม และ CI quality
+
+### T55 - Postgres Collection-level Patch Write Adapter Prototype
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-06 21:30:06 +07:00
+- เสร็จเมื่อ: 2026-06-06 21:37:24 +07:00
+- งานที่ต้องทำ:
+  - วิเคราะห์ `patchAppState()` และ Postgres adapter ปัจจุบันที่ยังใช้ logical patch แล้วตามด้วย whole-state write
+  - เพิ่ม Postgres patch write path แบบ opt-in หรือ adapter-aware ให้ map `upsert`, `append`, `delete` ไปยัง table-level operations โดยรักษา local-file behavior เดิม
+  - เพิ่ม fake-client regression สำหรับ patch writes ระดับ table เช่น upsert user/session, append audit, delete session และ append-only guard
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ syntax, targeted regression, regression รวม และ CI quality
+
+### T56 - Postgres Patch Write Staging Validation Runbook
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-06 21:42:03 +07:00
+- เสร็จเมื่อ: 2026-06-06 21:52:01 +07:00
+- งานที่ต้องทำ:
+  - เพิ่ม runbook/CLI dry-run สำหรับตรวจ Postgres patch write readiness ใน staging หรือ production-like database จริง
+  - ระบุขั้นตอน migrate/import state, run patch smoke, verify scoped reads, verify audit mirror และ rollback/restore plan
+  - เพิ่ม regression สำหรับ runbook output, secret masking และ blocked/ready checks โดยไม่ต่อ database จริง
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ syntax, targeted regression, regression รวม และ CI quality
+
+### T57 - Postgres Patch Smoke Execution Harness
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-06 21:54:56 +07:00
+- เสร็จเมื่อ: 2026-06-06 22:05:07 +07:00
+- งานที่ต้องทำ:
+  - เพิ่ม CLI แบบ dry-run-first สำหรับ canary patch smoke ใน staging โดยใช้ Postgres patch write path เมื่อมี `--confirm` เท่านั้น
+  - สร้าง evidence JSON/text ที่มี operation ids, canary ids, before/after count summary, verification checklist และ secret masking
+  - เพิ่ม regression ด้วย fake/dry-run path โดยไม่ต่อ database จริง และตรวจ confirm guard ไม่ให้เขียนข้อมูลโดยไม่ตั้งใจ
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ syntax, targeted regression, regression รวม และ CI quality
+
+### T58 - Owner Launch Evidence Center
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-08 07:41:30 +07:00
+- เสร็จเมื่อ: 2026-06-08 07:51:44 +07:00
+- งานที่ต้องทำ:
+  - เพิ่ม owner/admin launch evidence center ใน Business dashboard เพื่อสรุป command/evidence ที่ต้องครบก่อนเปิดขายจริง
+  - แสดงสถานะหรือ checklist สำหรับ CI quality, Postgres backup runbook, importer dry-run, patch validation, patch smoke, deployment checklist, ops alerts และ audit evidence
+  - เพิ่ม API/service helper แบบไม่เปิดเผย secret และไม่รันคำสั่งจริงจาก frontend
+  - เพิ่ม regression/frontend smoke marker สำหรับ launch evidence UI
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ syntax, targeted regression, regression รวม และ CI quality
+
+### T59 - Browser Visual QA for Business Launch Evidence Center
+
+- สถานะ: Deferred - Browser Sandbox Blocked
+- เริ่มเมื่อ: 2026-06-08 07:57:01 +07:00
+- เสร็จเมื่อ: -
+- งานที่ต้องทำ:
+  - เปิด Web App ด้วย browser/in-app browser เมื่อเครื่องมือพร้อม เพื่อ visual QA หน้า Business dashboard หลังเพิ่ม Launch Evidence Center
+  - ตรวจ desktop/mobile ว่า cards, command list, table และ metrics ไม่ล้น/ทับกัน
+  - ตรวจ owner flow แบบสมัคร account แรก, เปิด Business, ดู Launch Evidence Center และ customer access guard
+  - หากพบปัญหาให้ปรับ CSS/UI และเพิ่ม regression marker เท่าที่เหมาะสม
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ targeted regression, regression รวม และ CI quality
+
+### T60 - Launch Evidence Center UI Guardrail Regression
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-08 07:57:01 +07:00
+- เสร็จเมื่อ: 2026-06-08 08:04:52 +07:00
+- งานที่ต้องทำ:
+  - เพิ่ม automated regression เฉพาะ Launch Evidence Center เพื่อชดเชยระหว่างที่ Browser visual QA ยังถูก sandbox block
+  - ตรวจ owner/admin API access, customer access guard และ secret masking
+  - ตรวจ frontend renderer markers, loading state, evidence card statuses, checklist table, command list และ guardrail output
+  - ตรวจ CSS guardrails สำหรับ long command wrapping และ responsive grid fallback
+  - ผูก test เข้า `npm run test-regression` และ `npm run ci:quality`
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ syntax, targeted regression, regression รวม และ CI quality
+
+### T61 - Launch Evidence Export and Owner Sign-off Pack
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-08 08:08:20 +07:00
+- เสร็จเมื่อ: 2026-06-08 08:16:17 +07:00
+- งานที่ต้องทำ:
+  - เพิ่ม owner/admin export สำหรับ Launch Evidence Center เป็น JSON/text sign-off pack โดยยังไม่รันคำสั่งจาก frontend
+  - รวม generated time, status summary, evidence items, preflight commands, sanitized environment และ guardrails ใน export
+  - เพิ่มปุ่มหรือ action ใน Business dashboard เพื่อ copy/download evidence pack ให้เจ้าของ SaaS ใช้ส่งทีม deploy หรือ auditor
+  - ตรวจ customer/advisor access guard และ secret masking ใน export
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ syntax, targeted regression, regression รวม และ CI quality
+
+### T62 - Audit Logged Launch Evidence Export Trail
+
+- สถานะ: Pending
+- เริ่มเมื่อ: -
+- เสร็จเมื่อ: -
+- งานที่ต้องทำ:
+  - บันทึก audit event เมื่อ owner/admin export Launch Evidence sign-off pack เพื่อให้ตรวจย้อนหลังได้ว่าใคร export ก่อน deploy
+  - แยก format `json`/`text`, launch status, evidence summary และ sanitized metadata ใน audit details โดยไม่เก็บ raw secret
+  - แสดง recent export activity ใน Business dashboard หรือ Recent activity เดิมให้ owner/admin ตรวจได้
+  - เพิ่ม regression สำหรับ owner export audit event, customer export guard และ secret masking ใน audit details
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ syntax, targeted regression, regression รวม และ CI quality
 
 ## บันทึกการอัปเดต
 
@@ -737,6 +943,39 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 - 2026-06-05 08:17:58 +07:00 - เริ่ม T46: เตรียม commit/push แบบไม่ส่งไฟล์ portfolio ส่วนตัวขึ้น GitHub
 - 2026-06-05 08:30:59 +07:00 - T46 ทำส่วน commit สำเร็จใน clone ชั่วคราว แต่ push ไป GitHub ถูก network/sandbox บล็อก จึงต้อง push ต่อจากเครื่องผู้ใช้หรือ environment ที่ออก GitHub ได้
 - 2026-06-05 08:42:14 +07:00 - ตรวจสาเหตุ push เพิ่ม: GitHub ตอบ HTTP 401 และ Git เรียก Credential Manager แต่ sandbox user ไม่มี GitHub credential; ไม่พบ `gh` CLI สำหรับ auth สำรอง
+- 2026-06-05 08:46:18 +07:00 - ทำ T46 เสร็จ: ผู้ใช้เพิ่ม safe.directory แล้ว push commit `0a8096c` ไป GitHub สำเร็จบน branch `codex-node-web-app-migration`
+- 2026-06-05 08:48:51 +07:00 - เริ่ม T47: เตรียมลบไฟล์ portfolio ส่วนตัวออกจาก Git history ของ branch ปัจจุบันแบบทำใน clone ชั่วคราวก่อน
+- 2026-06-05 08:53:28 +07:00 - T47 rewrite history ใน clone ชั่วคราวสำเร็จ และตรวจ `git log --all -- portfolio_...` แล้วไม่พบไฟล์ส่วนตัว เหลือให้ผู้ใช้รัน force push แบบมี lease จาก PowerShell ปกติ
+- 2026-06-05 20:53:36 +07:00 - ปรับคำสั่ง T47: short hash `0a8096c` parse ไม่ได้หลังล้าง object เก่าใน clone ที่ rewrite แล้ว จึงเปลี่ยนเป็นดึง full remote hash ด้วย `git ls-remote` ก่อน push แบบมี lease
+- 2026-06-05 20:57:21 +07:00 - ผู้ใช้พบ `git-remote-https.exe` crash ระหว่างติดต่อ GitHub ผ่าน HTTPS; clone ชั่วคราวยังพร้อม push อยู่ จึงแนะนำ fallback เป็น SSH remote หรือซ่อม/อัปเดต Git for Windows ก่อน push
+- 2026-06-05 20:59:57 +07:00 - ตรวจ SSH แล้ว host GitHub ถูกเพิ่มใน known_hosts สำเร็จ แต่ authentication ยัง fail ด้วย `Permission denied (publickey)` แปลว่ายังไม่มี SSH key ที่ GitHub ยอมรับ ต้องเพิ่ม public key เข้า GitHub หรือซ่อม HTTPS ก่อน push
+- 2026-06-05 21:06:36 +07:00 - ผู้ใช้ให้ข้ามเรื่อง GitHub ก่อน จึงเลื่อน T47 ไว้และเริ่ม T48: เพิ่ม tenant-scoped read adoption สำหรับ customer/workspace APIs
+- 2026-06-05 21:14:46 +07:00 - ทำ T48 เสร็จ: เพิ่ม `tenantScopeService`, ย้าย customer/workspace read APIs สำคัญไปใช้ scoped read wrapper, เพิ่ม `test:scoped-read`, อัปเดตเอกสาร และ `npm run ci:quality` ผ่าน
+- 2026-06-05 21:39:23 +07:00 - เริ่ม T49: เพิ่ม narrower state write model foundation ด้วย state patch helper โดยไม่แตะไฟล์ portfolio ส่วนตัวที่มีสถานะ modified
+- 2026-06-05 21:47:42 +07:00 - ทำ T49 เสร็จ: เพิ่ม `statePatchService`, `patchAppState`, `test:state-patch`, เอกสาร state patch write foundation และ `npm run ci:quality` ผ่าน
+- 2026-06-05 21:49:59 +07:00 - เริ่ม T50: ย้าย critical SaaS write flows ชุดแรกไปใช้ `patchAppState()` โดยเลือก flow ความเสี่ยงต่ำก่อน เช่น investor profile, payment session creation และ approval request creation
+- 2026-06-05 21:57:06 +07:00 - ทำ T50 เสร็จ: ย้าย investor profile save, payment session creation และ approval request creation ไปใช้ `patchAppState()` พร้อม paired audit append, เพิ่ม regression ใน `test:state-patch`, อัปเดตเอกสาร และ `npm run ci:quality` ผ่าน
+- 2026-06-06 20:29:41 +07:00 - เริ่ม T51: ขยาย patch write adoption ไปยัง payment webhook/billing reconciliation และ approval decision flows โดยต้องรักษา duplicate handling, idempotency และ audit hash chain
+- 2026-06-06 20:37:53 +07:00 - ทำ T51 เสร็จ: ย้าย payment webhook success/failure, rejected webhook logging, billing activation และ approval decisions ไปใช้ patch writes, เพิ่ม already-paid webhook regression, อัปเดตเอกสาร และ `npm run ci:quality` ผ่าน
+- 2026-06-06 20:41:10 +07:00 - เริ่ม T52: ลด whole-state writes ใน workspace/team/admin flows โดยเริ่มจาก organization, role update, advisor assignment และ member move ที่มี regression ครอบอยู่แล้ว
+- 2026-06-06 20:47:09 +07:00 - ทำ T52 เสร็จ: ย้าย organization create/update, member move, role update และ advisor assignment/unassignment ไปใช้ patch writes, เพิ่ม tenant access regression สำหรับ organization create/update, อัปเดตเอกสาร และ `npm run ci:quality` ผ่าน
+- 2026-06-06 21:03:10 +07:00 - เริ่ม T53: ลด whole-state writes ใน auth/session flows เช่น create session, logout session, expired session cleanup และ standalone audit event utility
+- 2026-06-06 21:13:42 +07:00 - ทำ T53 เสร็จ: ย้าย session create/logout/expired cleanup และ `recordAuditEvent()` ไปใช้ patch writes, เพิ่ม state patch และ frontend auth regression coverage, อัปเดตเอกสาร และ `npm run ci:quality` ผ่าน
+- 2026-06-06 21:18:13 +07:00 - เริ่ม T54: ลด whole-state writes ใน account และ portfolio snapshot flows เช่น register, login และ snapshot save
+- 2026-06-06 21:26:28 +07:00 - ทำ T54 เสร็จ: ย้าย `createUser()`, `loginUser()` และ `saveCustomerPortfolioSnapshot()` ไปใช้ patch writes, เพิ่ม account/snapshot regression coverage, อัปเดตเอกสาร และ `npm run ci:quality` ผ่าน
+- 2026-06-06 21:30:06 +07:00 - เริ่ม T55: เพิ่ม Postgres collection-level patch write adapter prototype สำหรับ map logical patch เป็น table-level transaction
+- 2026-06-06 21:37:24 +07:00 - ทำ T55 เสร็จ: เพิ่ม Postgres patch write path, fake-client regression สำหรับ upsert/append/delete, metadata/docs และ `npm run ci:quality` ผ่าน
+- 2026-06-06 21:39:57 +07:00 - อัปเดตสรุปผล T55 และ Prompt AI ส่งต่อให้ชี้ไป T56 เป็นงานถัดไป
+- 2026-06-06 21:42:03 +07:00 - เริ่ม T56: เพิ่ม Postgres patch write staging validation runbook/CLI dry-run สำหรับตรวจ readiness ก่อนใช้ database จริง
+- 2026-06-06 21:52:01 +07:00 - ทำ T56 เสร็จ: เพิ่ม Postgres patch validation runbook/CLI, regression สำหรับ ready/needs_review/blocked และ secret masking, deployment checklist preflight, docs และ `npm run ci:quality` ผ่าน
+- 2026-06-06 21:54:56 +07:00 - เริ่ม T57: เพิ่ม Postgres patch smoke execution harness แบบ dry-run-first และต้องมี confirm guard ก่อนเขียน staging database
+- 2026-06-06 22:05:07 +07:00 - ทำ T57 เสร็จ: เพิ่ม Postgres patch smoke harness, confirm/production/canary guards, evidence output, audit hash canary event, regression/docs และ `npm run ci:quality` ผ่าน
+- 2026-06-08 07:41:30 +07:00 - เริ่ม T58: เพิ่ม owner/admin Launch Evidence Center ใน Business dashboard เพื่อสรุป command/evidence readiness ก่อนเปิดขายจริง
+- 2026-06-08 07:51:44 +07:00 - ทำ T58 เสร็จ: เพิ่ม Launch Evidence Center service/API/UI, secret masking, owner/customer access regression, docs และ `npm run ci:quality` ผ่าน
+- 2026-06-08 07:57:01 +07:00 - เริ่มตรวจ T59 แต่ Browser/in-app browser ยังถูก Windows sandbox block ระหว่าง setup (`windows sandbox failed: spawn setup refresh`) จึงเลื่อน T59 ไว้แบบไม่ปิดงานหลอก และเริ่ม T60 เพื่อเพิ่ม automated guardrail ระหว่างรอ Browser ใช้งานได้
+- 2026-06-08 08:04:52 +07:00 - ทำ T60 เสร็จ: เพิ่ม `test:launch-evidence`, ตรวจ pending/blocked/ready evidence, importer dry-run marker, secret masking, frontend/CSS guardrails, owner/customer API guard, docs และ `npm run ci:quality` ผ่าน
+- 2026-06-08 08:08:20 +07:00 - เริ่ม T61: เพิ่ม Launch Evidence export/sign-off pack สำหรับ owner/admin โดยยังไม่รันคำสั่งจาก frontend และต้องไม่เปิดเผย secret
+- 2026-06-08 08:16:17 +07:00 - ทำ T61 เสร็จ: เพิ่ม Launch Evidence JSON/text sign-off export, copy/download action ใน Business dashboard, export regression/header/customer guard/docs และ `npm run ci:quality` ผ่าน; Browser visual QA ยังถูก sandbox block จึงยังไม่ปิด T59
 
 ## ผลลัพธ์ T18: Audit Log and Activity Timeline Prototype
 
@@ -1827,16 +2066,593 @@ npm run ops:alerts -- --dry-run --format text
 
 ข้อจำกัด:
 
-- Push ไป GitHub ยังไม่สำเร็จใน sandbox นี้: `git ls-remote` เห็น GitHub ตอบ HTTP 401 แล้ว Git เรียก Credential Manager แต่ sandbox user ไม่มี GitHub credential; ไม่พบ `gh` CLI สำหรับ auth สำรอง
-- commit พร้อม push อยู่ที่ clone ชั่วคราว: `C:\Users\saraw\AppData\Local\Temp\stockinvestment-commit-f3edadec9fef4a1599330dee2055a890\repo`
-- คำสั่งสำหรับ push ต่อจากเครื่องที่ออก GitHub ได้:
+- Push สำเร็จแล้วจาก PowerShell ปกติของผู้ใช้ เพราะ sandbox user ไม่มี GitHub credential จึง push เองไม่ได้
+- การถอดไฟล์ออกจาก commit รอบนี้เป็นการลบออกจาก Git index/branch ปัจจุบัน ไม่ใช่การลบออกจากประวัติ Git เก่าทั้งหมด หากไฟล์เคยถูก push ไป GitHub แล้วและต้องการลบจาก history จริง ต้องทำ history rewrite แยกต่างหากพร้อมพิจารณา force push อย่างระมัดระวัง
 
-```bash
-cd C:\Users\saraw\AppData\Local\Temp\stockinvestment-commit-f3edadec9fef4a1599330dee2055a890\repo
-git push origin codex-node-web-app-migration
+## ผลลัพธ์ T47: Private Portfolio History Cleanup Preparation
+
+สิ่งที่ทำ:
+
+- ตรวจพบ `git-filter-repo` ยังไม่ได้ติดตั้งใน environment นี้
+- ใช้ built-in `git filter-branch` ผ่าน Git Bash ใน clone ชั่วคราวเพื่อ rewrite history ของ refs ที่ clone มีอยู่
+- ลบไฟล์ต่อไปนี้ออกจากทุก commit ของ branch `codex-node-web-app-migration` ใน clone ชั่วคราว:
+  - `portfolio_aom.xlsx`
+  - `portfolio_eak.xlsx`
+  - `portfolio_aom_analysis_report.xlsx`
+  - `portfolio_eak_analysis_report.xlsx`
+- ล้าง `refs/original`, reflog และรัน `git gc --prune=now --aggressive` ใน clone ชั่วคราว
+- ตรวจหลัง rewrite ด้วย `git log --all -- <files>` แล้วไม่พบไฟล์ portfolio ส่วนตัวใน history ของ clone ชั่วคราว
+- ตรวจ `git ls-files -- <files>` แล้วไม่พบไฟล์ทั้ง 4 ใน index ของ clone ชั่วคราว
+
+สถานะปัจจุบัน:
+
+- Clone ชั่วคราวที่ rewrite แล้ว: `C:\Users\saraw\AppData\Local\Temp\stockinvestment-commit-f3edadec9fef4a1599330dee2055a890\repo`
+- Branch ใน clone ชั่วคราว: `codex-node-web-app-migration`
+- หลัง rewrite history ต้อง force push เพื่อแทนที่ branch remote
+- ใช้คำสั่งแบบมี lease โดยดึง full hash ปัจจุบันจาก GitHub ก่อน เพราะหลัง rewrite แล้ว short hash `0a8096c` อาจ parse ไม่ได้ใน clone ที่ล้าง object เก่าแล้ว:
+
+```powershell
+$expected = (git ls-remote origin refs/heads/codex-node-web-app-migration).Split()[0]
+if (-not $expected) { throw "Cannot read remote branch hash" }
+if (-not $expected.StartsWith("0a8096c")) { Write-Host "Remote branch changed to $expected. Stop and send this output to Codex."; exit 1 }
+git push "--force-with-lease=refs/heads/codex-node-web-app-migration:${expected}" origin codex-node-web-app-migration
 ```
 
-- การถอดไฟล์ออกจาก commit รอบนี้เป็นการลบออกจาก Git index/branch ปัจจุบัน ไม่ใช่การลบออกจากประวัติ Git เก่าทั้งหมด หากไฟล์เคยถูก push ไป GitHub แล้วและต้องการลบจาก history จริง ต้องทำ history rewrite แยกต่างหากพร้อมพิจารณา force push อย่างระมัดระวัง
+ข้อจำกัด:
+
+- งานนี้ rewrite เฉพาะ refs ที่มีใน clone ชั่วคราว ซึ่งมี branch `codex-node-web-app-migration` และ remote tracking branch เดียว ไม่ใช่ mirror clone ครบทุก branch/tag ของ GitHub
+- หากต้องการลบข้อมูลออกจากทุก branch/tag/fork/PR cache บน GitHub อย่างสมบูรณ์ ควรทำ mirror clone จาก GitHub ด้วย credential ของผู้ใช้ แล้วใช้ `git-filter-repo --sensitive-data-removal` ตามคู่มือ GitHub และอาจต้องติดต่อ GitHub Support เพื่อล้าง cached PR refs/views
+- Sandbox ยังไม่มี GitHub credential จึงไม่สามารถ force push เองได้ ต้องให้ผู้ใช้รันจาก PowerShell ปกติ
+- หาก `git-remote-https.exe` crash ระหว่าง `git ls-remote` หรือ `git push` ให้เลี่ยง HTTPS ชั่วคราวโดยเปลี่ยน remote เป็น SSH แล้วรันคำสั่งเดิมอีกครั้ง หรือ repair/update Git for Windows ก่อนกลับมา push
+- หาก SSH ขึ้น `Permission denied (publickey)` ให้สร้างหรือใช้ public key ใน `~/.ssh/*.pub`, เพิ่มใน GitHub Settings > SSH and GPG keys แล้วทดสอบ `ssh -T git@github.com` ให้ผ่านก่อน push
+
+## ผลลัพธ์ T48: Tenant-scoped Read Adoption for Customer Workspace APIs
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/tenantScopeService.js`
+  - เพิ่ม helper สำหรับสร้าง tenant scope จาก viewer role
+  - รองรับ `platform` scope สำหรับ owner/admin และ `restricted` scope สำหรับ customer/advisor
+  - เพิ่ม in-memory filter guard สำหรับ local-file mode เพื่อกรอง users, organizations, sessions, portfolio snapshots, billing, payment sessions, payment webhooks, advisor assignments, approvals และ audit events ตาม user/workspace ที่มองเห็นได้
+- `src/services/authService.js`
+  - import `readScopedAppState()` และเชื่อมกับ `tenantScopeService`
+  - เพิ่ม `readScopedStateForViewer()` สำหรับ read-only service path
+  - ย้าย customer/workspace read APIs สำคัญให้ใช้ scoped read wrapper ได้แก่ portfolio snapshot read, investor profile read, billing history, payment sessions, approval list, audit timeline, tenant scope summary, organizations list และ workspace users list
+  - เพิ่ม `scopedRead` summary ใน `tenantAccessSummary().isolation` เพื่อให้เห็นว่า viewer ใช้ `platform` หรือ `restricted` scope
+- `scripts/scopedReadRegression.js`
+  - เพิ่ม regression test สำหรับตรวจว่า customer/advisor ไม่เห็นข้อมูลข้าม workspace
+  - ตรวจทั้ง service APIs และ direct filter ของ `tenantScopeService`
+- `package.json`
+  - เพิ่ม `npm run test:scoped-read`
+  - ผูก `test:scoped-read` เข้า `npm run test-regression` และ `npm run ci:quality`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`, `docs/DATABASE_MIGRATION_FOUNDATION.md`
+  - อัปเดตคำสั่งทดสอบและ production-readiness note ให้ระบุ scoped read adoption รอบนี้
+
+ผลการทดสอบ:
+
+- `node --check src/services/tenantScopeService.js` ผ่าน
+- `node --check src/services/authService.js` ผ่าน
+- `node --check scripts/scopedReadRegression.js` ผ่าน
+- `npm run test:scoped-read` ผ่าน: owner scope = `platform`, advisor scope = `restricted` เห็น 2 users, customer scope = `restricted` เห็น 1 user
+- `npm run test:tenant-access` ผ่าน
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `npm run compare:python` ผ่านใน regression รวม: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio expected rows 5, JS rows 5, portfolio sample mismatches 0
+- `git diff --check` ผ่าน ไม่มี whitespace error มีเฉพาะคำเตือน LF/CRLF จาก Git บน Windows
+
+ข้อจำกัด:
+
+- Write flows ยังใช้ whole-state read/write เพื่อรักษา record อื่นไม่ให้หายจนกว่าจะออกแบบ narrower write model
+- `getUserFromRequest()` ยังอ่าน session/user จาก state ปกติ จึงควรย้ายเป็น scoped/session-aware repository path เพิ่มเมื่อ production database พร้อม
+- T47 GitHub force push ยังถูกเลื่อนไว้ตามคำสั่งผู้ใช้ และต้องกลับไปทำเมื่อพร้อมแก้ GitHub auth/SSH/HTTPS
+
+## ผลลัพธ์ T49: Narrower State Write Model Foundation
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/statePatchService.js`
+  - เพิ่ม `applyStatePatch()` สำหรับ logical patch แบบ pure function โดยไม่ mutate source state
+  - รองรับ operation `upsert`, `append` และ `delete` ตาม primary key จาก schema manifest
+  - รองรับ composite primary key โดยรวม key เป็น string สำหรับเทียบ record
+  - เพิ่ม append-only guard สำหรับ `auditEvents`: ใช้ `append` เป็น path ปกติ, block `upsert/delete` เว้นแต่ตั้ง flag maintenance ชัดเจน
+  - เพิ่ม duplicate append guard และ missing primary key guard
+  - เพิ่ม `statePatchCapabilities()` เพื่อรายงาน supported operations, collection metadata, append-only guard และ production target
+- `src/services/stateRepository.js`
+  - เพิ่ม `patchAppState()` ที่อ่าน state ปัจจุบัน, apply logical patch, แล้วเขียนกลับผ่าน repository boundary
+  - เพิ่ม `patchWrites` ใน `stateRepositoryInfo()` เพื่อบอกว่า repository รองรับ patch write foundation แล้ว
+  - local file mode ยังเป็น `logical_patch_then_local_file_write` เพื่อรักษา behavior เดิม แต่เปิดทางให้ Postgres map เป็น collection-level DML ในอนาคต
+- `scripts/statePatchRegression.js`
+  - เพิ่ม regression test สำหรับ pure patch และ repository patch
+  - ตรวจว่า upsert merge ตาม primary key, append audit event, delete billing event, preserve users/organizations, reject missing key, reject duplicate append และ reject delete append-only audit event
+- `package.json`
+  - เพิ่ม `npm run test:state-patch`
+  - ผูก `test:state-patch` เข้า `npm run test-regression` และ `npm run ci:quality`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`, `docs/DATABASE_MIGRATION_FOUNDATION.md`
+  - อัปเดตคำสั่งทดสอบและ production-readiness note ให้ระบุ state patch write foundation รอบนี้
+
+ผลการทดสอบ:
+
+- `node --check src/services/statePatchService.js` ผ่าน
+- `node --check src/services/stateRepository.js` ผ่าน
+- `node --check scripts/statePatchRegression.js` ผ่าน
+- `npm run test:state-patch` ผ่าน: patch mode = `logical_patch_then_local_file_write`, supported operations = `upsert`, `append`, `delete`, stored users = 2, payment sessions = 1, audit events = 2
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `npm run compare:python` ผ่านใน regression รวม: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio expected rows 5, JS rows 5, portfolio sample mismatches 0
+- `git diff --check` ผ่าน ไม่มี whitespace error มีเฉพาะคำเตือน LF/CRLF จาก Git บน Windows
+
+ข้อจำกัด:
+
+- T49 ยังเป็น foundation: local-file mode ยังคงเขียน `app-state.json` ทั้งไฟล์หลัง apply patch เพื่อรักษา compatibility
+- Business write flows ส่วนใหญ่ยังต้องทยอยย้ายมาใช้ `patchAppState()` ใน T50 เพื่อให้ production database path ลดการพึ่ง whole-state mutation จริง
+- T47 GitHub force push ยังถูกเลื่อนไว้ตามคำสั่งผู้ใช้ และต้องกลับไปทำเมื่อพร้อมแก้ GitHub auth/SSH/HTTPS
+
+## ผลลัพธ์ T50: Adopt Patch Writes in Critical SaaS Write Flows
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/authService.js`
+  - import `patchAppState()` จาก repository layer
+  - เพิ่ม helper `patchState()` และ `patchStateWithAudit()` เพื่อรวม logical patch operations กับ append-only audit event
+  - `patchStateWithAudit()` จะ fallback ไป `writeState()` เฉพาะกรณี audit log ถึง `MAX_AUDIT_EVENTS` แล้วต้อง trim รายการเก่า เพื่อรักษาพฤติกรรม local-file เดิม
+  - ย้าย `saveInvestorProfile()` จาก whole-state mutation/write ไปใช้ `upsert investorProfiles` + `append auditEvents`
+  - ย้าย `createPaymentSession()` จาก whole-state mutation/write ไปใช้ `append paymentSessions` + `append auditEvents`
+  - ย้าย `createApprovalRequest()` จาก whole-state mutation/write ไปใช้ `append approvalRequests` + `append auditEvents`
+- `scripts/statePatchRegression.js`
+  - เพิ่ม regression สำหรับ app write flows ที่ adopt patch แล้ว
+  - ตรวจว่า investor profile, payment session creation และ approval request creation ยัง persist record ได้ครบ
+  - ตรวจว่า paired audit events `profile.update`, `payment.session_created` และ `approval.request_created` ถูก append ครบ
+  - ตรวจว่า users เดิมยังถูก preserve หลังหลาย patch flows
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`, `docs/DATABASE_MIGRATION_FOUNDATION.md`
+  - อัปเดตให้ระบุ first adopted patch write flows และ production migration path ที่เหลือ
+
+ผลการทดสอบ:
+
+- `node --check src/services/authService.js` ผ่าน
+- `node --check scripts/statePatchRegression.js` ผ่าน
+- `npm run test:state-patch` ผ่าน: stored users = 2, investor profiles = 1, payment sessions = 2, approval requests = 1, audit events = 5
+- `npm run test:subscription-lifecycle` ผ่าน
+- `npm run test:payment-provider` ผ่าน
+- `npm run test:approval-workflow` ผ่าน
+- `npm run test:tenant-access` ผ่าน
+- `npm run test:scoped-read` ผ่าน
+- `npm run test:storage-readiness` ผ่าน
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `npm run compare:python` ผ่านใน regression รวม: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio expected rows 5, JS rows 5, portfolio sample mismatches 0
+- `git diff --check` ผ่าน ไม่มี whitespace error มีเฉพาะคำเตือน LF/CRLF จาก Git บน Windows
+
+ข้อจำกัด:
+
+- T50 ย้ายเฉพาะ write flows ความเสี่ยงต่ำชุดแรก ยังไม่ย้าย payment webhook reconciliation, billing paid/failed mutation และ approval decision เพราะ flow เหล่านั้นมี idempotency และหลาย record change ใน operation เดียว
+- `patchStateWithAudit()` ยังต้อง fallback เป็น whole-state write เมื่อ audit log เต็มถึง cap เพื่อรักษา behavior การ trim รายการเก่า
+- T47 GitHub force push ยังถูกเลื่อนไว้ตามคำสั่งผู้ใช้ และต้องกลับไปทำเมื่อพร้อมแก้ GitHub auth/SSH/HTTPS
+
+## ผลลัพธ์ T51: Expand Patch Writes to Webhook and Decision Flows
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/authService.js`
+  - ปรับ `patchStateWithAudit()` ให้รองรับ audit event หลายรายการใน patch เดียว เพื่อให้ billing audit และ payment webhook audit ต่อ hash chain ตามลำดับ
+  - เพิ่ม `patchRejectedPaymentWebhook()` สำหรับ rejected signed/provider webhook path
+  - ย้าย rejected webhook logging จาก `writeState()` ไปใช้ `append paymentWebhookEvents` + `append auditEvents`
+  - ย้าย `processPaymentWebhookInState()` ให้บันทึกผ่าน patch operations:
+    - `upsert paymentSessions`
+    - `append paymentWebhookEvents`
+    - `append billingEvents` เฉพาะเมื่อมี invoice ใหม่
+    - `upsert users` เฉพาะเมื่อ subscription ถูก activate
+    - `append auditEvents` สำหรับ `billing.checkout` และ `payment.webhook_succeeded/payment.webhook_failed`
+  - เพิ่ม `createdBillingEvent` guard เพื่อกันการ append billing event ซ้ำเมื่อมี success webhook ใหม่บน session ที่ paid ไปแล้ว
+  - ย้าย `decideApprovalRequest()` ไปใช้ `upsert approvalRequests` + `append auditEvents`
+  - แยก `billingCheckoutAuditInput()` และ `paymentWebhookPatchOperations()` เพื่อให้ flow หลาย record อ่านง่ายขึ้น
+- `scripts/subscriptionLifecycleRegression.js`
+  - เพิ่มเคส signed success webhook ใหม่บน session ที่ paid แล้ว
+  - ยืนยันว่า webhook ใหม่ถูกบันทึก แต่ไม่สร้าง invoice ซ้ำ และ metrics `verifiedWebhookEvents` เพิ่มตาม expected
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`, `docs/DATABASE_MIGRATION_FOUNDATION.md`
+  - อัปเดตให้ระบุ T51 patch write adoption สำหรับ payment webhook/billing reconciliation, rejected webhook logging และ approval decisions
+
+ผลการทดสอบ:
+
+- `node --check src/services/authService.js` ผ่าน
+- `node --check scripts/subscriptionLifecycleRegression.js` ผ่าน
+- `npm run test:subscription-lifecycle` ผ่าน: failed session = `failed`, paid session = `paid`, duplicate reconciled = true, billing events = 1, verified webhook events = 3, rejected webhook events = 4, audit integrity = `verified`
+- `npm run test:payment-provider` ผ่าน
+- `npm run test:approval-workflow` ผ่าน
+- `npm run test:tenant-access` ผ่าน
+- `npm run test:scoped-read` ผ่าน
+- `npm run test:storage-readiness` ผ่าน
+- `npm run test:state-patch` ผ่าน
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `npm run compare:python` ผ่านใน regression รวม: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio expected rows 5, JS rows 5, portfolio sample mismatches 0
+- `git diff --check` ผ่าน ไม่มี whitespace error มีเฉพาะคำเตือน LF/CRLF จาก Git บน Windows
+
+ข้อจำกัด:
+
+- T51 ยังไม่ย้าย write flows ฝั่ง workspace/team/admin เช่น organization create/update, role update, advisor assignment และ member move ซึ่งถูกแยกเป็น T52
+- `patchStateWithAudit()` ยัง fallback เป็น whole-state write เมื่อ audit append จะทำให้เกิน `MAX_AUDIT_EVENTS` เพื่อรักษา behavior local-file เดิม
+- T47 GitHub force push ยังถูกเลื่อนไว้ตามคำสั่งผู้ใช้ และต้องกลับไปทำเมื่อพร้อมแก้ GitHub auth/SSH/HTTPS
+
+## ผลลัพธ์ T52: Reduce Whole-state Writes in Workspace and Team Flows
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/authService.js`
+  - ย้าย `createOrganization()` ไปใช้ `append organizations` + `append auditEvents`
+  - ย้าย `updateOrganization()` ไปใช้ `upsert organizations` + `append auditEvents`
+  - ย้าย `moveUserToOrganization()` ไปใช้ `upsert users`, `upsert organizations` และ `append auditEvents`
+  - ย้าย `updateUserRole()` ไปใช้ `upsert users`, `delete advisorAssignments` เมื่อ demote advisor และ `append auditEvents`
+  - ย้าย `assignAdvisor()` ไปใช้ `append/upsert/delete advisorAssignments` และ `append auditEvents`
+  - รองรับกรณี reassign advisor โดย delete assignment key เดิมก่อน append assignment ใหม่ เพื่อเลี่ยง composite key เก่าค้างใน `advisorAssignments`
+  - รองรับกรณี unassign advisor โดย delete assignment ที่ตรงกับ customerId และยังบันทึก audit event ผ่าน patch boundary
+- `scripts/tenantAccessRegression.js`
+  - เพิ่ม regression สำหรับ `createOrganization()` และ `updateOrganization()` เพื่อยืนยันว่า workspace patch writes persist ถูกต้อง
+  - tenant access regression เดิมยังตรวจ role update, member move, advisor assignment, tenant metadata, visible users/workspaces และ audit integrity
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`, `docs/DATABASE_MIGRATION_FOUNDATION.md`
+  - อัปเดตให้ระบุ workspace/team/admin patch write adoption รอบนี้
+
+ผลการทดสอบ:
+
+- `node --check src/services/authService.js` ผ่าน
+- `node --check scripts/tenantAccessRegression.js` ผ่าน
+- `npm run test:tenant-access` ผ่าน: owner visible users = 5, advisor visible users = 2, tenant metadata gaps = 0, audit integrity = `verified`
+- `npm run test:scoped-read` ผ่าน
+- `npm run test:approval-workflow` ผ่าน
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `npm run compare:python` ผ่านใน regression รวม: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio expected rows 5, JS rows 5, portfolio sample mismatches 0
+- `git diff --check` ผ่าน ไม่มี whitespace error มีเฉพาะคำเตือน LF/CRLF จาก Git บน Windows
+
+ข้อจำกัด:
+
+- หลัง T53 เสร็จแล้ว write flows ที่ยังเป็น whole-state ใน `authService` เหลือกลุ่ม account/portfolio เช่น `createUser()`, `loginUser()` และ `saveCustomerPortfolioSnapshot()` ซึ่งถูกแยกเป็น T54
+- `patchStateWithAudit()` ยัง fallback เป็น whole-state write เมื่อ audit append จะทำให้เกิน `MAX_AUDIT_EVENTS` เพื่อรักษา behavior local-file เดิม
+- T47 GitHub force push ยังถูกเลื่อนไว้ตามคำสั่งผู้ใช้ และต้องกลับไปทำเมื่อพร้อมแก้ GitHub auth/SSH/HTTPS
+
+## ผลลัพธ์ T53: Reduce Whole-state Writes in Auth Session Flows
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/authService.js`
+  - ย้าย `createSession()` ไปใช้ `patchAppState()` โดย `append sessions` สำหรับ session ใหม่ และ `delete sessions` สำหรับ session ที่หมดอายุก่อนสร้าง session ใหม่
+  - ย้าย `logoutSession()` ไปใช้ `delete sessions` + `append auditEvents` ผ่าน `patchStateWithAudit()` โดยยังบันทึก `auth.logout`
+  - ย้าย expired session cleanup ใน `getUserFromRequest()` ไปใช้ `delete sessions` ผ่าน patch boundary และยังคืน `null` เมื่อ session ไม่มีหรือหมดอายุ
+  - ย้าย `recordAuditEvent()` ไปใช้ `patchStateWithAudit()` เพื่อ append standalone audit event โดยรักษา audit hash chain และ public audit output เดิม
+  - กรณี `patchStateWithAudit()` ต้อง prune audit เกิน `MAX_AUDIT_EVENTS` ยัง fallback เป็น whole-state write เพื่อรักษา local-file behavior เดิม
+- `scripts/statePatchRegression.js`
+  - เพิ่ม regression สำหรับ create session ผ่าน `createUser()`, logout session deletion, `auth.logout` audit append, expired session cleanup และ standalone `recordAuditEvent()`
+- `scripts/frontendAuthenticatedSmokeRegression.js`
+  - เพิ่ม smoke test ให้ customer logout แล้วนำ cookie เก่ามาเรียก `/api/auth/me` ต้องได้ `user: null`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`, `docs/DATABASE_MIGRATION_FOUNDATION.md`
+  - อัปเดตให้ระบุ auth session patch write adoption และ regression coverage รอบนี้
+- `plan.md`
+  - ปิด T53 และเพิ่ม T54 เป็นงานถัดไปสำหรับ account/portfolio snapshot whole-state writes ที่ยังเหลือ
+
+ผลการทดสอบ:
+
+- `node --check src/services/authService.js` ผ่าน
+- `node --check scripts/statePatchRegression.js` ผ่าน
+- `node --check scripts/frontendAuthenticatedSmokeRegression.js` ผ่าน
+- `npm run test:state-patch` ผ่าน: ตรวจ session create/logout/expired cleanup และ standalone audit utility ผ่าน patch boundary
+- `npm run test:frontend-auth` ผ่าน: customer logout แล้ว session cookie เก่า authenticate ไม่ได้
+- `npm run test:tenant-access` ผ่าน
+- `npm run test:scoped-read` ผ่าน
+- `npm run test:approval-workflow` ผ่าน
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `npm run compare:python` ผ่านใน regression รวม: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio expected rows 5, JS rows 5, portfolio sample mismatches 0
+- `git diff --check` ผ่าน ไม่มี whitespace error มีเฉพาะคำเตือน LF/CRLF จาก Git บน Windows
+
+ข้อจำกัด:
+
+- `createUser()`, `loginUser()` และ `saveCustomerPortfolioSnapshot()` ยังมี whole-state writes ซึ่งถูกแยกเป็น T54
+- `patchStateWithAudit()` ยัง fallback เป็น whole-state write เมื่อ audit append จะทำให้เกิน `MAX_AUDIT_EVENTS` เพื่อรักษา behavior local-file เดิม
+- T47 GitHub force push ยังถูกเลื่อนไว้ตามคำสั่งผู้ใช้ และต้องกลับไปทำเมื่อพร้อมแก้ GitHub auth/SSH/HTTPS
+
+## ผลลัพธ์ T54: Reduce Whole-state Writes in Account and Portfolio Snapshot Flows
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/authService.js`
+  - ย้าย `createUser()` ไปใช้ `patchStateWithAudit()` โดย `upsert organizations`, `append users` และ `append auditEvents` สำหรับ `auth.register`
+  - ย้าย `loginUser()` ไปใช้ `upsert users` เพื่อบันทึก `lastLoginAt` และ `append auditEvents` สำหรับ `auth.login`
+  - ย้าย `saveCustomerPortfolioSnapshot()` ไปใช้ `upsert portfolioSnapshots` ตาม `userId` และ `append auditEvents` สำหรับ `analysis.snapshot_saved`
+  - ยังคงการสร้าง session ผ่าน `createSession()` หลัง register/login เหมือนเดิม เพื่อรักษา session cookie behavior
+  - ตรวจแล้ว `await writeState(state)` ใน `authService` เหลือเฉพาะ fallback ของ `patchStateWithAudit()` เมื่อ audit append ต้อง prune เกิน `MAX_AUDIT_EVENTS`
+- `scripts/statePatchRegression.js`
+  - เพิ่ม regression ด้วย state เปล่าสำหรับ first-owner registration, customer workspace creation, login `lastLoginAt` update, session creation หลัง login และ portfolio snapshot upsert ซ้ำโดยไม่เพิ่ม record ซ้ำ
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`, `docs/DATABASE_MIGRATION_FOUNDATION.md`
+  - อัปเดตให้ระบุ account/portfolio snapshot patch write adoption และ regression coverage รอบนี้
+- `plan.md`
+  - ปิด T54 และเพิ่ม T55 เป็นงานถัดไปสำหรับ Postgres collection-level patch write adapter prototype
+
+ผลการทดสอบ:
+
+- `node --check src/services/authService.js` ผ่าน
+- `node --check scripts/statePatchRegression.js` ผ่าน
+- `npm run test:state-patch` ผ่าน: ตรวจ account registration, login update, portfolio snapshot upsert, auth session และ standalone audit patch flows
+- `npm run test:frontend-auth` ผ่าน
+- `npm run test:tenant-access` ผ่าน
+- `npm run test:scoped-read` ผ่าน
+- `npm run test:backup-restore` ผ่าน
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `npm run compare:python` ผ่านใน regression รวม: raw rows 108, recommended rows 108, numeric/text mismatches 0, portfolio expected rows 5, JS rows 5, portfolio sample mismatches 0
+- `git diff --check` ผ่าน ไม่มี whitespace error มีเฉพาะคำเตือน LF/CRLF จาก Git บน Windows
+
+ข้อจำกัด:
+
+- `patchStateWithAudit()` ยัง fallback เป็น whole-state write เมื่อ audit append จะทำให้เกิน `MAX_AUDIT_EVENTS` เพื่อรักษา behavior local-file เดิม
+- `patchAppState()` ยังเป็น logical patch แล้วเขียนผ่าน repository write ทั้งก้อนใน Postgres adapter ปัจจุบัน จึงแยก T55 สำหรับ map patch writes เป็น collection-level DML จริง
+- T47 GitHub force push ยังถูกเลื่อนไว้ตามคำสั่งผู้ใช้ และต้องกลับไปทำเมื่อพร้อมแก้ GitHub auth/SSH/HTTPS
+
+## ผลลัพธ์ T55: Postgres Collection-level Patch Write Adapter Prototype
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/postgresStateRepository.js`
+  - เพิ่ม `patchPostgresAppState()` และ `patchStateToPostgresClient()` สำหรับ Postgres adapter
+  - map logical patch operations เป็น table-level transaction: `upsert` ใช้ `INSERT ... ON CONFLICT`, `append` ใช้ plain `INSERT`, และ `delete` ใช้ `DELETE ... WHERE record_id = $1`
+  - validate patch ด้วย `applyStatePatch()` ก่อนเขียนจริง เพื่อรักษา duplicate append guard, append-only guard และ behavior ของ logical patch เดิม
+  - เพิ่ม repository metadata `patchWriteMode: collection_level_transaction`
+- `src/services/stateRepository.js`
+  - ปรับ `patchAppState()` ให้ใช้ Postgres patch write path เมื่อ `APP_STATE_REPOSITORY=postgres`
+  - local-file repository ยังใช้ behavior เดิมคือ apply logical patch แล้วเขียน state ทั้งก้อน เพื่อไม่เปลี่ยนพฤติกรรมของ local demo/data file
+  - mirror audit trail ก่อนส่ง patch ไป Postgres เหมือน whole-state write path เดิม
+- `scripts/postgresStateRepositoryRegression.js`
+  - เพิ่ม fake-client regression สำหรับ collection-level patch write
+  - ตรวจ user upsert, session append/delete by `record_id`, audit append, duplicate append rejection และ append-only audit upsert rejection
+  - ตรวจว่า patch write ไม่ล้าง table ทั้งก้อน เช่นไม่มี `DELETE FROM "users"` หรือ `DELETE FROM "user_sessions"` แบบ full-table clear
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`, `docs/DATABASE_MIGRATION_FOUNDATION.md`
+  - อัปเดตเอกสารให้ระบุ Postgres collection-level patch write prototype, mapping ของ `upsert`/`append`/`delete`, regression coverage และข้อควร validate กับ staging database จริง
+- `plan.md`
+  - ปิด T55, เพิ่ม T56 เป็นงานถัดไปสำหรับ Postgres patch write staging validation runbook และอัปเดต Prompt AI ส่งต่อ
+
+ผลการทดสอบ:
+
+- `node --check src/services/postgresStateRepository.js` ผ่าน
+- `node --check src/services/stateRepository.js` ผ่าน
+- `node --check scripts/postgresStateRepositoryRegression.js` ผ่าน
+- `npm run test:postgres-repository` ผ่าน: `patchWrite` ได้ `upserted=1`, `appended=2`, `deleted=1`, `sessionCount=1`
+- `npm run test:state-patch` ผ่าน
+- `npm run test:postgres-importer` ผ่าน
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `git diff --check` ผ่าน ไม่มี whitespace error มีเฉพาะคำเตือน LF/CRLF จาก Git บน Windows
+
+ข้อจำกัด:
+
+- T55 ยัง validate ด้วย fake Postgres client ใน regression เป็นหลัก ต้องมี T56 เพื่อทำ staging validation runbook หรือ dry-run checklist กับ production-like database จริงก่อนเปิดขาย
+- `writePostgresAppState()` และ importer ยังรองรับ whole-state transaction สำหรับ import/maintenance compatibility
+- T47 GitHub force push ยังถูกเลื่อนไว้ตามคำสั่งผู้ใช้ และต้องกลับไปทำเมื่อพร้อมแก้ GitHub auth/SSH/HTTPS
+
+## ผลลัพธ์ T56: Postgres Patch Write Staging Validation Runbook
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/postgresPatchValidationRunbookService.js`
+  - เพิ่ม `buildPostgresPatchValidationRunbook()` สำหรับสร้าง readiness runbook แบบ JSON โดยไม่ต่อ database จริง
+  - เพิ่ม `renderPostgresPatchValidationRunbookText()` สำหรับ output แบบอ่านง่ายใน terminal
+  - ตรวจสถานะ `ready`, `needs_review`, `blocked` จาก adapter, sanitized `DATABASE_URL`, SSL mode, optional `pg` driver readiness, importer dry-run, staging import, backup/restore point, rollback approval, patch smoke approval, scoped read verification และ audit mirror verification
+  - เพิ่ม patch smoke matrix สำหรับ `upsert users`, `append sessions`, `delete sessions` และ `append auditEvents`
+  - เพิ่ม verification queries, rollback plan และ evidence checklist สำหรับ staging validation
+- `scripts/postgresPatchValidationRunbook.js`
+  - เพิ่ม CLI `npm run postgres:patch-validation` ที่รองรับ `--format json|text`, `--strict`, `--database-url`, `--repository-adapter`, `--ssl-mode`, `--backup-strategy` และ readiness flags
+  - command นี้เป็น dry-run planning tool เท่านั้น ไม่ต่อ Postgres และไม่เขียนข้อมูล
+- `scripts/postgresPatchValidationRunbookRegression.js`
+  - เพิ่ม regression สำหรับ ready/needs_review/blocked status, CLI strict mode, patch smoke matrix, verification queries, rollback plan และ secret masking โดยไม่ต่อ database จริง
+- `package.json`
+  - เพิ่ม `test:postgres-patch-validation`
+  - เพิ่ม `postgres:patch-validation`
+  - ผูก `test:postgres-patch-validation` เข้า `test-regression` และ `ci:quality`
+- `src/services/deploymentChecklistService.js`, `scripts/deploymentChecklistRegression.js`
+  - เพิ่ม `npm run postgres:patch-validation -- --format text --strict` ใน deployment preflight commands และ regression coverage
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`, `docs/DATABASE_MIGRATION_FOUNDATION.md`
+  - อัปเดตคู่มือให้ระบุ Postgres patch validation runbook, readiness flags, secret masking, test command และ production migration path
+- `plan.md`
+  - ปิด T56 และเพิ่ม T57 Pending สำหรับ Postgres patch smoke execution harness แบบ dry-run-first/confirm guard
+
+ผลการทดสอบ:
+
+- `node --check src/services/postgresPatchValidationRunbookService.js` ผ่าน
+- `node --check scripts/postgresPatchValidationRunbook.js` ผ่าน
+- `node --check scripts/postgresPatchValidationRunbookRegression.js` ผ่าน
+- `node --check src/services/deploymentChecklistService.js` ผ่าน
+- `node --check scripts/deploymentChecklistRegression.js` ผ่าน
+- `npm run test:postgres-patch-validation` ผ่าน: ready=`ready`, needsReview=`needs_review`, blocked=`blocked`, checkCount=13
+- `npm run test:deployment-checklist` ผ่าน: ready=`ready`, blocked=`blocked`, readyChecks=16
+- `npm run test-regression` ผ่าน และ `compare:python` ยัง mismatch 0
+- `npm run ci:quality` ผ่าน รวม dependency risk gate โดยยังมี accepted moderate risks เดิมจาก `exceljs` และ transitive `uuid` ที่ยังไม่มี fix available
+
+ข้อจำกัด:
+
+- T56 ยังเป็น dry-run planning/runbook tool ไม่ได้ execute canary patch smoke กับ database จริง
+- ก่อนเปิดขายจริงยังต้องรัน runbook ใน staging/prod-like environment พร้อม env จริง, backup id, importer evidence, scoped read evidence และ audit evidence
+- งาน execute canary patch smoke จริงถูกแยกเป็น T57 เพื่อเพิ่ม `--confirm` guard และ evidence output โดยไม่ทำให้ T56 เสี่ยงเขียนข้อมูล
+
+## ผลลัพธ์ T57: Postgres Patch Smoke Execution Harness
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/postgresPatchSmokeService.js`
+  - เพิ่ม `runPostgresPatchSmoke()` สำหรับ preview หรือ execute staging canary patch smoke
+  - ค่าเริ่มต้นเป็น dry-run และไม่เขียนข้อมูล ถ้าจะ execute จริงต้องมี `confirm`
+  - เพิ่ม guard สำหรับ `APP_STATE_REPOSITORY=postgres`, `DATABASE_URL`, `DATABASE_SSL_MODE`, `NODE_ENV=production`, canary ids, validation readiness และ backup evidence
+  - เพิ่ม `buildCanaryPatch()` ที่สร้าง patch operations สำหรับ `upsert organizations`, `upsert users`, `append sessions`, `delete sessions` และ `append auditEvents`
+  - canary audit event คำนวณ `eventHash` และ `previousHash` ให้ chain ต่อจาก audit event ล่าสุดเมื่อ execute จริง
+  - output มี sanitized environment, patch operation summary, before/after collection counts, patch summary, backup evidence และ rollback reminder
+- `scripts/postgresPatchSmoke.js`
+  - เพิ่ม CLI `npm run postgres:patch-smoke`
+  - รองรับ `--format json|text`, `--strict`, `--dry-run`, `--confirm`, `--allow-production`, `--backup-evidence`, `--validation-runbook-ready` และ canary id options
+  - ถ้า strict และ readiness blocked จะ exit 1
+- `scripts/postgresPatchSmokeRegression.js`
+  - เพิ่ม regression สำหรับ dry-run default, production guard, confirm execution ผ่าน injected fake writer, evidence counts, audit hash chaining, CLI strict behavior และ secret masking โดยไม่ต่อ database จริง
+- `package.json`
+  - เพิ่ม `test:postgres-patch-smoke`
+  - เพิ่ม `postgres:patch-smoke`
+  - ผูก `test:postgres-patch-smoke` เข้า `test-regression` และ `ci:quality`
+- `src/services/deploymentChecklistService.js`, `scripts/deploymentChecklistRegression.js`
+  - เพิ่ม `npm run postgres:patch-smoke -- --format text --strict` ใน deployment preflight และ regression coverage
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`, `docs/DATABASE_MIGRATION_FOUNDATION.md`
+  - อัปเดตคู่มือให้ระบุ smoke harness, guard, staging command, test command และ production migration path
+- `plan.md`
+  - ปิด T57 และเพิ่ม T58 Pending สำหรับ owner/admin launch evidence center บน Business dashboard
+
+ผลการทดสอบ:
+
+- `node --check src/services/postgresPatchSmokeService.js` ผ่าน
+- `node --check scripts/postgresPatchSmoke.js` ผ่าน
+- `node --check scripts/postgresPatchSmokeRegression.js` ผ่าน
+- `node --check src/services/deploymentChecklistService.js` ผ่าน
+- `node --check scripts/deploymentChecklistRegression.js` ผ่าน
+- `npm run test:postgres-patch-validation` ผ่าน
+- `npm run test:postgres-patch-smoke` ผ่าน: dryRun=`dry_run`, executed=`executed`, blocked=`blocked`, writerCalled=1, operationCount=5
+- `npm run test:deployment-checklist` ผ่าน
+- `npm run test-regression` ผ่าน และ `compare:python` ยัง mismatch 0
+- `npm run ci:quality` ผ่าน รวม dependency risk gate โดยยังมี accepted moderate risks เดิมจาก `exceljs` และ transitive `uuid` ที่ยังไม่มี fix available
+
+ข้อจำกัด:
+
+- Execution จริงของ `postgres:patch-smoke -- --confirm` ยังต้องทำใน staging/prod-like environment ที่มี Postgres จริง, `pg`, backup evidence และ validation evidence พร้อม
+- Regression ใช้ injected fake writer เพื่อไม่ต่อ database จริงตามข้อกำหนดความปลอดภัย
+- ยังไม่ได้แสดง launch evidence checklist นี้ในหน้า Business dashboard จึงแยกเป็น T58
+
+## ผลลัพธ์ T58: Owner Launch Evidence Center
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/launchEvidenceService.js`
+  - เพิ่ม `buildLaunchEvidenceCenter()` สำหรับสร้าง checklist/evidence readiness แบบไม่รันคำสั่งจริง
+  - ครอบคลุม CI quality, Postgres backup runbook, importer dry-run, patch validation, patch smoke, deployment checklist, ops alerts และ audit evidence
+  - sanitize env สำคัญ เช่น `DATABASE_URL` และ key/secret ก่อนส่งออก
+  - ใช้ env marker เช่น `LAUNCH_EVIDENCE_CI_QUALITY_DONE`, `POSTGRES_PATCH_VALIDATION_READY`, `LAUNCH_EVIDENCE_PATCH_SMOKE_DONE` เพื่อแสดง readiness
+- `src/routes/authRoutes.js`
+  - เพิ่ม API `GET /api/admin/launch-evidence`
+  - จำกัดสิทธิ์เฉพาะ owner/admin ที่ผ่าน entitlement `business.metrics`
+  - customer/advisor ถูกปฏิเสธ และ frontend ไม่สามารถรันคำสั่ง terminal ผ่าน API นี้
+- `src/public/app.js`
+  - เพิ่ม state/load function สำหรับ launch evidence
+  - เพิ่ม Launch Evidence Center ใน Business dashboard พร้อม metric summary, evidence cards, checklist table, preflight command list และ guardrails
+- `src/public/styles.css`
+  - เพิ่ม responsive layout สำหรับ launch evidence cards และ command list
+- `scripts/frontendAuthenticatedSmokeRegression.js`
+  - ตรวจ owner เรียก `/api/admin/launch-evidence` ได้
+  - ตรวจ customer ถูกปฏิเสธ
+  - ตรวจ `DATABASE_URL` ถูก mask และไม่มี raw secret ใน JSON
+- `scripts/webAppSmokeRegression.js`
+  - เพิ่ม frontend markers `Launch Evidence Center` และ `data-launch-evidence-center`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - อัปเดตเอกสารให้ระบุ Launch Evidence Center, API, guardrails และ regression coverage
+- `plan.md`
+  - ปิด T58 และเพิ่ม T59 Pending สำหรับ Browser visual QA เมื่อเครื่องมือ browser พร้อมใช้งาน
+
+ผลการทดสอบ:
+
+- `node --check src/services/launchEvidenceService.js` ผ่าน
+- `node --check src/routes/authRoutes.js` ผ่าน
+- `node --check src/public/app.js` ผ่าน
+- `node --check scripts/frontendAuthenticatedSmokeRegression.js` ผ่าน
+- `node --check scripts/webAppSmokeRegression.js` ผ่าน
+- `npm run test:frontend-auth` ผ่าน: ownerRole=`owner`, customerRole=`customer`, launchEvidence=`needs_evidence`
+- `npm run test:web-smoke` ผ่าน
+- `npm run test-regression` ผ่าน และ `compare:python` ยัง mismatch 0
+- `npm run ci:quality` ผ่าน รวม dependency risk gate โดยยังมี accepted moderate risks เดิมจาก `exceljs` และ transitive `uuid` ที่ยังไม่มี fix available
+
+ข้อจำกัด:
+
+- รอบ T58 ยังไม่ได้ทำ visual screenshot QA จริง และรอบ T59 ภายหลังพบว่า Browser/in-app browser setup ถูก Windows sandbox block
+- Launch Evidence Center แสดง command/evidence readiness เท่านั้น ไม่ execute command จาก frontend ตามข้อกำหนดความปลอดภัย
+- T59 ถูกเพิ่มไว้สำหรับ visual QA และ polish บน desktop/mobile เมื่อ browser tool พร้อม
+
+## ผลลัพธ์ T59/T60: Browser Deferred and Launch Evidence Guardrail Regression
+
+สถานะ T59:
+
+- พยายามต่อ Browser/in-app browser แล้ว แต่ setup ผ่าน Browser skill ล้มเหลวด้วย `windows sandbox failed: spawn setup refresh`
+- ยังไม่ได้ทำ screenshot/visual QA จริง จึงบันทึก T59 เป็น `Deferred - Browser Sandbox Blocked` และไม่ปิดเป็น Done
+
+ไฟล์และความสามารถที่เพิ่ม/แก้ใน T60:
+
+- `src/services/launchEvidenceService.js`
+  - เพิ่ม `POSTGRES_PATCH_IMPORT_DRY_RUN_DONE` ใน sanitized environment เพื่อให้ evidence marker ของ importer dry-run แสดงครบ
+- `scripts/launchEvidenceCenterRegression.js`
+  - เพิ่ม regression เฉพาะ Launch Evidence Center
+  - ตรวจสถานะ pending เมื่อ marker ยังไม่ครบ
+  - ตรวจสถานะ blocked เมื่อ patch smoke marked done แต่ไม่มี backup evidence
+  - ตรวจสถานะ ready เมื่อ marker สำคัญครบ
+  - ตรวจว่า `DATABASE_URL` password ไม่หลุดใน JSON/API output
+  - ตรวจ owner API access, unauth 401 และ customer 403
+  - ตรวจ frontend renderer markers, loading state, evidence table/command list และ CSS command wrapping/responsive grid fallback
+- `package.json`
+  - เพิ่ม `npm run test:launch-evidence`
+  - ผูก `test:launch-evidence` เข้า `npm run test-regression` และ `npm run ci:quality`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - อัปเดตคำสั่ง test และ coverage ของ Launch Evidence regression
+- `plan.md`
+  - เลื่อน T59 อย่างโปร่งใส, ปิด T60 และเพิ่ม T61 Pending สำหรับ evidence export/sign-off pack
+
+ผลการทดสอบ:
+
+- `node --check scripts/launchEvidenceCenterRegression.js` ผ่าน
+- `node --check src/services/launchEvidenceService.js` ผ่าน
+- `npm run test:frontend-auth` ผ่าน
+- `npm run test:launch-evidence` ผ่าน: checked pending/blocked/ready, secret masking, renderer markers, CSS guardrails, owner/customer guard
+- `npm run test:web-smoke` ผ่าน
+- `npm run ci:quality` ผ่าน รวม `test:launch-evidence`, `compare:python` mismatch 0 และ dependency risk gate ยังผ่านโดยมี accepted moderate risks เดิมจาก `exceljs` และ transitive `uuid` ที่ยังไม่มี fix available
+- `git diff --check` ผ่าน มีเฉพาะคำเตือน LF/CRLF จาก Git บน Windows
+
+ข้อจำกัด:
+
+- T60 เป็น automated guardrail ไม่ใช่ visual screenshot QA จริง จึงยังต้องกลับมาทำ T59 เมื่อ Browser/in-app browser ใช้งานได้
+- ยังไม่ได้เพิ่ม export/download evidence pack ให้ owner ใช้ส่งทีม deploy หรือ auditor จึงแยกเป็น T61
+
+## ผลลัพธ์ T61: Launch Evidence Export and Owner Sign-off Pack
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/launchEvidenceService.js`
+  - เพิ่ม `buildLaunchEvidenceSignoffPack()` สำหรับสร้าง owner/admin sign-off pack จาก Launch Evidence Center
+  - เพิ่ม `renderLaunchEvidenceSignoffText()` สำหรับ export เป็น text pack ที่อ่านง่าย
+  - pack รวม generated/exported time, launch status, summary, evidence items, preflight commands, sanitized environment, guardrails, sign-off checklist และ security notes
+  - ยังไม่รัน terminal command จาก frontend และไม่เปิดเผย raw `DATABASE_URL` password หรือ secret
+- `src/routes/authRoutes.js`
+  - เพิ่ม API `GET /api/admin/launch-evidence/export?format=json`
+  - เพิ่ม API `GET /api/admin/launch-evidence/export?format=text`
+  - จำกัดสิทธิ์เฉพาะ owner/admin ที่ผ่าน entitlement `business.metrics`
+  - ส่ง `Content-Disposition` สำหรับ download JSON/text filename
+  - unsupported format เช่น `pdf` คืน 400
+- `src/public/app.js`
+  - เพิ่มปุ่ม `Copy sign-off pack` ใน Launch Evidence Center เพื่อ copy text pack
+  - เพิ่มลิงก์ `Download JSON` สำหรับ download sign-off pack
+  - เพิ่มข้อความสถานะหลัง copy และ fallback clipboard สำหรับ browser ที่ใช้ `navigator.clipboard` ไม่ได้
+- `src/public/styles.css`
+  - เพิ่ม layout สำหรับ action header, download link และ copy status message
+- `scripts/launchEvidenceCenterRegression.js`
+  - ตรวจ sign-off pack builder, text render, JSON/text export, download headers, unsupported format, owner access, customer export guard และ secret masking
+- `scripts/webAppSmokeRegression.js`
+  - เพิ่ม frontend marker สำหรับ export action
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - อัปเดตการใช้งาน Launch Evidence export/sign-off pack และ regression coverage
+- `plan.md`
+  - ปิด T61 และเพิ่ม T62 Pending สำหรับ audit logged export trail
+
+ผลการทดสอบ:
+
+- `node --check src/services/launchEvidenceService.js` ผ่าน
+- `node --check src/routes/authRoutes.js` ผ่าน
+- `node --check src/public/app.js` ผ่าน
+- `node --check scripts/launchEvidenceCenterRegression.js` ผ่าน
+- `node --check scripts/webAppSmokeRegression.js` ผ่าน
+- `npm run test:launch-evidence` ผ่าน: owner JSON/text export, customer export guard, download headers และ secret masking
+- `npm run test:frontend-auth` ผ่าน
+- `npm run test:web-smoke` ผ่าน
+- `npm run ci:quality` ผ่าน รวม `test:launch-evidence`, `compare:python` mismatch 0 และ dependency risk gate ยังผ่านโดยมี accepted moderate risks เดิมจาก `exceljs` และ transitive `uuid` ที่ยังไม่มี fix available
+- `git diff --check` ผ่าน มีเฉพาะคำเตือน LF/CRLF จาก Git บน Windows
+
+ข้อจำกัด:
+
+- Browser/in-app browser setup ยังถูก Windows sandbox block (`windows sandbox failed: spawn setup refresh`) จึงยังไม่ได้ทำ visual screenshot QA จริง และ T59 ยัง Deferred
+- การ export sign-off pack ยังไม่ได้บันทึก audit event แยก จึงเพิ่ม T62 เพื่อทำ export audit trail ต่อ
 
 ## ผลลัพธ์ T04: Node.js Scaffolding
 
@@ -3040,9 +3856,25 @@ Excel report:
 - T43 Done: เพิ่ม production deployment checklist dry-run, CLI strict mode, secret masking, regression test, docs และ CI quality แล้ว
 - T44 Done: เพิ่ม operational alert delivery webhook แบบ opt-in, HMAC signature, dry-run/required mode, regression test, docs และ CI quality แล้ว
 - T45 Done: เพิ่ม frontend viewport/auth regression, mobile responsive polish, docs และ CI quality แล้ว แต่ in-app browser screenshot จริงยังถูก Windows sandbox บล็อก จึงบันทึกเป็นข้อจำกัด
-- T46 Blocked at Push: ถอด `portfolio_aom.xlsx`, `portfolio_eak.xlsx` และ report ที่เกี่ยวข้องออกจาก Git index, ปรับ CI/compare ให้ใช้ synthetic portfolio แทน private files และสร้าง commit ใน clone ชั่วคราวแล้ว แต่ push ไป GitHub ถูก sandbox/network บล็อก
-- Task list ชุดนี้เหลือขั้น push ของ T46
-- งานต่อยอดที่แนะนำ: full in-app browser screenshot QA เมื่อสภาพแวดล้อมอนุญาต, ถ้าต้องการลบ portfolio ส่วนตัวออกจาก GitHub history จริงให้ทำ history rewrite แยกต่างหาก, ตั้งค่า operational alert webhook ไปยัง Slack/email/APM/uptime monitor จริงใน staging/production, ซ้อม Postgres restore จริงใน staging/production-like environment, run deployment checklist แบบ strict ใน staging ที่ตั้ง env จริง และทยอยย้าย production endpoint เฉพาะ tenant มาใช้ `readScopedAppState()`
+- T46 Done: ถอด `portfolio_aom.xlsx`, `portfolio_eak.xlsx` และ report ที่เกี่ยวข้องออกจาก Git index, ปรับ CI/compare ให้ใช้ synthetic portfolio แทน private files และ push commit `0a8096c` ไป GitHub สำเร็จแล้ว
+- T47 Deferred - Ready for Force Push: rewrite history ของ clone ชั่วคราวเพื่อลบ private portfolio files ออกจาก branch `codex-node-web-app-migration` แล้ว ตรวจไม่พบไฟล์ใน history ของ clone ชั่วคราว แต่ผู้ใช้ให้ข้าม GitHub push ไว้ก่อน เพราะ HTTPS helper crash และ SSH ยังไม่มี public key ที่ GitHub ยอมรับ
+- T48 Done: เพิ่ม `tenantScopeService`, service-level scoped read wrapper สำหรับ customer/workspace read APIs, `npm run test:scoped-read`, docs และ CI quality ผ่าน
+- T49 Done: เพิ่ม `statePatchService`, `patchAppState`, `npm run test:state-patch`, docs และ CI quality ผ่าน เพื่อเป็น foundation ของ narrower write model
+- T50 Done: ย้าย investor profile save, payment session creation และ approval request creation ไปใช้ `patchAppState()` พร้อม paired audit append, เพิ่ม regression ใน `test:state-patch`, docs และ CI quality ผ่าน
+- T51 Done: ย้าย payment webhook success/failure, rejected webhook logging, billing activation และ approval decisions ไปใช้ patch writes, เพิ่ม already-paid webhook regression, docs และ CI quality ผ่าน
+- T52 Done: ย้าย organization create/update, member move, role update และ advisor assignment/unassignment ไปใช้ patch writes, เพิ่ม tenant access regression สำหรับ organization create/update, docs และ CI quality ผ่าน
+- T53 Done: ย้าย session create/logout/expired cleanup และ standalone `recordAuditEvent()` ไปใช้ patch writes, เพิ่ม session patch regression และ frontend logout smoke coverage, docs และ CI quality ผ่าน
+- T54 Done: ย้าย `createUser()`, `loginUser()` และ `saveCustomerPortfolioSnapshot()` ไปใช้ patch writes, เพิ่ม first-owner/customer workspace/login/snapshot upsert regression, docs และ CI quality ผ่าน
+- T55 Done: เพิ่ม Postgres collection-level patch write adapter prototype เพื่อ map `upsert`, `append`, `delete` จาก `patchAppState()` ไปยัง table-level transaction จริง, fake-client regression/docs และ CI quality ผ่าน
+- T56 Done: เพิ่ม Postgres patch write staging validation runbook/CLI dry-run, readiness flags, patch smoke matrix, secret masking, deployment checklist preflight, docs และ CI quality ผ่าน
+- T57 Done: เพิ่ม Postgres patch smoke execution harness แบบ dry-run-first/confirm guard, evidence output, audit hash canary event, regression/docs และ CI quality ผ่าน
+- T58 Done: เพิ่ม owner/admin Launch Evidence Center ใน Business dashboard, API/service helper, secret masking, frontend markers, docs และ CI quality ผ่าน
+- T59 Deferred - Browser Sandbox Blocked: พยายามต่อ Browser/in-app browser แล้วแต่ Windows sandbox ยัง block setup (`windows sandbox failed: spawn setup refresh`) จึงยังไม่ได้ทำ screenshot QA จริง
+- T60 Done: เพิ่ม Launch Evidence Center UI/API guardrail regression, importer dry-run marker visibility, secret masking checks, docs และ CI quality ผ่าน
+- T61 Done: เพิ่ม Launch Evidence JSON/text export/sign-off pack, copy/download action ใน Business dashboard, regression/docs และ CI quality ผ่าน
+- T62 Pending: เพิ่ม audit logged Launch Evidence export trail สำหรับ owner/admin
+- Task list ชุดนี้เหลือ T47 ที่ถูก defer เฉพาะขั้น force push ไป GitHub, T59 ที่ต้องรอ Browser/in-app browser ใช้งานได้ และ T62 ที่เป็นงานต่อยอดใน codebase
+- งานต่อยอดที่แนะนำถ้ายังไม่กลับไปทำ GitHub: ทำ T62 Audit Logged Launch Evidence Export Trail, กลับมาทำ T59 Browser Visual QA เมื่อ Browser พร้อม, ตั้งค่า operational alert webhook ไปยัง Slack/email/APM/uptime monitor จริงใน staging/production, ซ้อม Postgres restore จริงใน staging/production-like environment หรือ run deployment checklist แบบ strict ใน staging ที่ตั้ง env จริง
 
-ให้เริ่มจากอ่าน plan.md ก่อนเสมอ หากต้องการทำ T46 ต่อ ให้ push จาก clone ชั่วคราว `C:\Users\saraw\AppData\Local\Temp\stockinvestment-commit-f3edadec9fef4a1599330dee2055a890\repo` ด้วย `git push origin codex-node-web-app-migration` ใน environment ที่ออก GitHub ได้ แล้วอัปเดต plan.md เป็น Done หลัง push สำเร็จ หากไม่มี Task ที่ Pending แล้ว ให้เลือกงานต่อยอดจากรายการแนะนำ หรือแก้ issue ที่ผู้ใช้แจ้ง และอัปเดต plan.md ทันทีเมื่อทำงานนั้นเสร็จ
+ให้เริ่มจากอ่าน plan.md ก่อนเสมอ หากต้องการทำ T47 ต่อ ให้แก้ GitHub auth ก่อนโดยเพิ่ม SSH public key ใน GitHub หรือซ่อม Git HTTPS แล้วเปิด PowerShell ที่ `C:\Users\saraw\AppData\Local\Temp\stockinvestment-commit-f3edadec9fef4a1599330dee2055a890\repo` จากนั้นรัน force push แบบมี lease ตามผลลัพธ์ T47 หากผู้ใช้ยังให้ข้าม GitHub ให้ทำ T62 ต่อเป็นลำดับถัดไป โดยเพิ่ม audit event เมื่อ owner/admin export Launch Evidence sign-off pack, บันทึก format/status/summary แบบ sanitized, ตรวจ customer export guard และ secret masking ใน audit details, ให้ Recent activity หรือ Business dashboard แสดง export activity, อัปเดต docs, รัน targeted regression + `npm run ci:quality` และอัปเดต plan.md ทันทีเมื่อทำงานนั้นเสร็จ หาก Browser/in-app browser กลับมาใช้งานได้ ให้กลับมาทำ T59 โดยเปิด Web App บน localhost, สมัคร owner account แรก, เปิด Business dashboard, ตรวจ Launch Evidence Center ทั้ง desktop/mobile ว่า card, command list, table และ metric ไม่ล้น/ทับกัน, ตรวจ customer access guard, ปรับ CSS/UI หากจำเป็น และบันทึกผลใน plan.md
 ```

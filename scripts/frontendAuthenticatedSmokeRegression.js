@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from "url";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "stockflix-frontend-auth-"));
+process.env.DATABASE_URL = "postgres://stockflix:super-secret-launch@db.example.com:5432/stockflix";
 
 process.chdir(tempRoot);
 
@@ -42,6 +43,13 @@ try {
   assert(business.metrics.storageReadiness?.status, "Business metrics should include storage readiness summary.");
   assert(business.metrics.paymentGateway?.provider, "Business metrics should include payment gateway summary.");
 
+  const launchEvidence = await getJson(`${baseUrl}/api/admin/launch-evidence`, ownerCookie);
+  assertEqual(launchEvidence.ok, true, "Owner should load launch evidence center.");
+  assert(launchEvidence.evidence.items.length >= 8, "Launch evidence should include go-live checklist items.");
+  assert(launchEvidence.evidence.preflightCommands.some((command) => command.includes("postgres:patch-smoke")), "Launch evidence should include patch smoke command.");
+  assert(launchEvidence.evidence.sanitizedEnvironment.DATABASE_URL.includes("****"), "Launch evidence should mask database password.");
+  assert(!JSON.stringify(launchEvidence).includes("super-secret-launch"), "Launch evidence JSON must not expose database password.");
+
   const readiness = await getJson(`${baseUrl}/api/ops/readiness`, ownerCookie);
   assertEqual(readiness.ok, true, "Owner should load operational readiness.");
   assert(["ok", "warning", "critical"].includes(readiness.readiness.status), "Operational readiness should report a known status.");
@@ -61,17 +69,29 @@ try {
   });
   assertEqual(customerBusiness.status, 403, "Customer should not load Business metrics.");
 
+  const customerLaunchEvidence = await fetch(`${baseUrl}/api/admin/launch-evidence`, {
+    headers: { Cookie: customerCookie },
+  });
+  assertEqual(customerLaunchEvidence.status, 403, "Customer should not load launch evidence.");
+
   const customerOps = await fetch(`${baseUrl}/api/ops/readiness`, {
     headers: { Cookie: customerCookie },
   });
   assertEqual(customerOps.status, 403, "Customer should not load operational readiness.");
+
+  const customerLogout = await postJson(`${baseUrl}/api/auth/logout`, {}, customerCookie);
+  assertEqual(customerLogout.body.ok, true, "Customer logout should succeed.");
+  const customerAfterLogout = await getJson(`${baseUrl}/api/auth/me`, customerCookie);
+  assertEqual(customerAfterLogout.user, null, "Deleted customer session should no longer authenticate.");
 
   console.log(JSON.stringify({
     ok: true,
     tempRoot,
     ownerRole: ownerRegister.body.user.role,
     customerRole: customerRegister.body.user.role,
+    customerLogoutClearedSession: true,
     readiness: readiness.readiness.status,
+    launchEvidence: launchEvidence.evidence.status,
     alertCount: readiness.readiness.alerts.length,
   }, null, 2));
 } finally {

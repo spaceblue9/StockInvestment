@@ -32,10 +32,16 @@ Web App รองรับความสามารถหลักเหล่
 - มี operational alert delivery webhook แบบ opt-in สำหรับส่ง readiness alerts ไปยัง Slack/email/APM/uptime bridge พร้อม HMAC signature, dry-run และ required mode
 - มี storage readiness report สำหรับเตรียมย้ายจาก local file ไป production database
 - มี state repository layer สำหรับแยกการอ่าน/เขียน state ออกจาก business service
+- มี state patch write foundation สำหรับ upsert/append/delete records ผ่าน repository boundary พร้อม append-only guard สำหรับ audit events และเริ่มใช้กับ account, portfolio snapshot, investor profile, payment, approval, workspace, team/admin และ auth session write flows สำคัญแล้ว
 - มี Postgres state adapter แบบ opt-in ผ่าน `APP_STATE_REPOSITORY=postgres` และ `DATABASE_URL`
+- Postgres adapter เริ่มรองรับ collection-level patch writes โดย map `upsert`, `append`, `delete` เป็น table-level transaction สำหรับ `patchAppState()`
 - มี Postgres scoped read helper สำหรับบังคับ tenant filter ใน SQL query ก่อนดึง JSONB record
+- มี service-level scoped read wrapper สำหรับ customer/workspace read APIs สำคัญ เพื่อให้ local file mode มี filter guard และต่อยอด Postgres query-level scope ได้
 - มี one-time importer จาก `data/app-state.json` เข้า Postgres พร้อม dry-run readiness guard
 - มี backup/restore drill สำหรับ local state, audit mirror และ external audit receipts พร้อม checksum และ confirm guard
+- มี Postgres patch write staging validation runbook แบบ dry-run สำหรับตรวจ readiness, secret masking, patch smoke plan, scoped read verification และ rollback plan ก่อนใช้ database จริง
+- มี Postgres patch smoke harness แบบ dry-run-first สำหรับ staging canary writes พร้อม `--confirm` guard, evidence output และ secret masking
+- มี Launch Evidence Center ใน Business dashboard สำหรับ owner/admin เพื่อรวม command/evidence ก่อนเปิดขายจริง โดย frontend ไม่รันคำสั่งและ API ไม่เปิดเผย secret
 - มี production deployment checklist แบบ dry-run สำหรับตรวจ env, Postgres, Stripe, webhook, external audit, backup และ CI gate โดย mask secret เสมอ
 - มี append-only audit trail mirror แบบ local NDJSON สำหรับเตรียมต่อยอดเป็น external immutable audit storage
 - เก็บ investor onboarding profile ของลูกค้า
@@ -165,6 +171,36 @@ Web App มี visual dashboard ในตัวโดยไม่ต้องต
 - advisor assignments
 - activity events
 - team/client workspace
+- Launch Evidence Center สำหรับ go-live evidence เช่น CI quality, Postgres backup/import, patch validation, patch smoke, deployment checklist, ops alerts และ audit evidence
+
+## Launch Evidence Center
+
+หน้า `Business` ของ owner/admin มี Launch Evidence Center เพื่อรวม checklist ก่อนเปิดบริการแบบเก็บเงินรายเดือนจริง:
+
+- CI quality gate
+- Postgres backup runbook
+- Postgres importer dry-run
+- Postgres patch validation
+- Postgres patch smoke
+- production deployment checklist
+- operational alert delivery
+- audit integrity / audit trail evidence
+
+API ที่ใช้:
+
+```text
+GET /api/admin/launch-evidence
+GET /api/admin/launch-evidence/export?format=json
+GET /api/admin/launch-evidence/export?format=text
+```
+
+ข้อสำคัญ:
+
+- frontend แสดง command/evidence เท่านั้น ไม่รันคำสั่ง terminal จาก browser
+- output sanitize `DATABASE_URL` และ key/secret ทุกตัว
+- customer/advisor ไม่มีสิทธิ์เรียก API นี้
+- ใช้ env marker เช่น `LAUNCH_EVIDENCE_CI_QUALITY_DONE=true`, `POSTGRES_PATCH_VALIDATION_READY=true`, `LAUNCH_EVIDENCE_PATCH_SMOKE_DONE=true` เพื่อบันทึกว่า evidence แต่ละข้อพร้อมแล้วใน staging/deploy environment
+- owner/admin สามารถกด `Copy sign-off pack` เพื่อ copy text pack หรือ `Download JSON` เพื่อเก็บ evidence pack ที่มี generated/exported time, status summary, evidence items, preflight commands, sanitized environment และ guardrails
 
 ## Role และ Advisor Workspace
 
@@ -223,7 +259,7 @@ API ที่เพิ่มสำหรับตรวจ scope:
 
 หน้า `Business` แสดง Tenant isolation summary สำหรับ owner/admin/advisor เพื่อดูว่า account นั้นมองเห็นข้อมูลกี่ workspace, กี่ user และ critical records กี่รายการ หาก `Record Metadata Gaps` มากกว่า 0 แปลว่ายังมีข้อมูลเก่าหรือข้อมูลผิดรูปที่ต้อง cleanup ก่อน production
 
-ข้อจำกัด: ส่วนนี้ยังเป็น local file-backed prototype ไม่ใช่ tenant isolation ระดับฐานข้อมูลจริง ก่อนเปิดขายควรย้ายไป production database, บังคับ tenant filter ใน query ทุกจุด, เพิ่ม webhook signature verification และแยก secret/config ออกจาก source code
+ข้อจำกัด: ส่วนนี้ยังเป็น local file-backed prototype ไม่ใช่ tenant isolation ระดับฐานข้อมูลจริง แม้ customer/workspace read APIs สำคัญเริ่มใช้ service-level scoped read แล้ว ก่อนเปิดขายควรย้ายไป production database, บังคับ tenant filter ใน query ทุกจุดรวมถึง write flow/global tools และแยก secret/config ออกจาก source code
 
 ## Activity Timeline / Audit Log
 
@@ -545,6 +581,80 @@ runbook จะ sanitize `DATABASE_URL` โดย mask password ก่อนแ�
 
 คำสั่งนี้เป็น dry-run planning tool เท่านั้น การ backup/restore จริงต้องทำใน production/staging environment ที่ควบคุมโดยทีม deploy
 
+## Postgres Patch Write Validation Runbook
+
+ระบบมี runbook generator สำหรับเตรียม validate collection-level patch writes กับ staging หรือ production-like Postgres database จริง โดยคำสั่งนี้ไม่ต่อ database และไม่เขียนข้อมูล:
+
+```bash
+npm run postgres:patch-validation -- --format text
+```
+
+หากต้องการให้ command fail เมื่อยังมี blocker ใช้ strict mode:
+
+```bash
+npm run postgres:patch-validation -- --format json --strict
+```
+
+สิ่งที่ตรวจหลัก:
+
+- `APP_STATE_REPOSITORY=postgres`
+- `DATABASE_URL` ที่ถูก sanitize ก่อนแสดงผล
+- `DATABASE_SSL_MODE=require`
+- optional `pg` driver readiness ใน target environment
+- importer dry-run, staging state import, backup/restore point และ rollback plan
+- approval สำหรับ patch smoke window ใน staging
+- post-smoke verification เช่น scoped read และ audit mirror/hash-chain
+
+runbook จะให้ patch smoke matrix สำหรับ `upsert users`, `append sessions`, `delete sessions` และ `append auditEvents` เพื่อยืนยันว่า Postgres adapter ใช้ row-level operations เช่น `INSERT ... ON CONFLICT`, plain `INSERT` และ `DELETE ... WHERE record_id = $1` แทนการ clear table ทั้งก้อน
+
+ตัวอย่าง env marker ที่ใช้บอกว่า checklist พร้อมแล้วใน staging:
+
+```text
+POSTGRES_PATCH_VALIDATION_PG_DRIVER_READY=true
+POSTGRES_PATCH_IMPORT_DRY_RUN_DONE=true
+POSTGRES_PATCH_STATE_IMPORTED=true
+POSTGRES_PATCH_BACKUP_VERIFIED=true
+POSTGRES_PATCH_ROLLBACK_PLAN_APPROVED=true
+POSTGRES_PATCH_SMOKE_APPROVED=true
+POSTGRES_PATCH_SCOPED_READ_VERIFIED=true
+POSTGRES_PATCH_AUDIT_MIRROR_VERIFIED=true
+```
+
+ก่อนเปิดขายจริงควรเก็บ evidence จากคำสั่งนี้ร่วมกับ importer dry-run, backup id, patch smoke row counts, scoped read verification และ audit integrity verification
+
+## Postgres Patch Smoke Harness
+
+ระบบมี CLI สำหรับ preview หรือ execute canary patch smoke ใน staging โดยค่า default เป็น dry-run และจะไม่เขียนข้อมูล:
+
+```bash
+npm run postgres:patch-smoke -- --format text
+```
+
+ถ้าจะ execute จริงใน staging ต้องมี `--confirm` และ readiness guard ต้องไม่ blocked:
+
+```bash
+APP_STATE_REPOSITORY=postgres DATABASE_URL=postgres://user:password@host:5432/database DATABASE_SSL_MODE=require NODE_ENV=staging POSTGRES_PATCH_VALIDATION_READY=true POSTGRES_PATCH_SMOKE_BACKUP_EVIDENCE=snapshot-id npm run postgres:patch-smoke -- --confirm --format json --strict
+```
+
+harness นี้สร้าง canary patch ที่ครอบคลุม:
+
+- `upsert organizations`
+- `upsert users`
+- `append sessions`
+- `delete sessions`
+- `append auditEvents` พร้อม audit hash ที่ chain ต่อจาก event ล่าสุดเมื่อ execute จริง
+
+output จะมี evidence เช่น before/after collection counts, patch summary, backup evidence id, canary ids และ rollback reminder โดย sanitize `DATABASE_URL` เสมอ
+
+guard สำคัญ:
+
+- ต้องเป็น `APP_STATE_REPOSITORY=postgres`
+- ต้องมี `DATABASE_URL`
+- แนะนำ `DATABASE_SSL_MODE=require`
+- ถ้า `NODE_ENV=production` จะ blocked เว้นแต่ใช้ `--allow-production` อย่างตั้งใจ
+- canary ids ต้องมีคำว่า `staging` หรือ `canary`
+- execute จริงต้องมี `POSTGRES_PATCH_VALIDATION_READY=true` และ `POSTGRES_PATCH_SMOKE_BACKUP_EVIDENCE`
+
 ## Production Deployment Checklist
 
 ระบบมี deployment checklist generator สำหรับตรวจความพร้อมก่อนเปิดบริการแบบ subscription จริง โดยอ่านค่า environment variables แล้วรายงานสถานะ `ready`, `needs_review` หรือ `blocked`:
@@ -567,7 +677,7 @@ npm run deployment:check -- --format json --strict
 - `PAYMENT_WEBHOOK_SECRET` สำหรับ signed local-gateway compatibility
 - external audit provider, URL, secret และ required mode
 - Postgres backup strategy และ retention
-- preflight command ที่ควรรันก่อน deploy เช่น `npm run ci:quality`, Postgres backup runbook และ importer dry-run
+- preflight command ที่ควรรันก่อน deploy เช่น `npm run ci:quality`, Postgres backup runbook, importer dry-run, Postgres patch validation runbook และ Postgres patch smoke dry-run
 
 output จะ sanitize `DATABASE_URL` และ key/secret ทุกตัวก่อนแสดงผลเสมอ คำสั่งนี้เป็น dry-run validation tool เท่านั้น ไม่ deploy, migrate, backup, restore หรือเรียก provider ภายนอกจริง
 
@@ -682,6 +792,14 @@ npm run test:tenant-access
 - ผู้ใช้ที่ไม่ได้รับสิทธิ์ไม่สามารถ process payment session ของคนอื่น
 - tenant metadata ไม่มี record gap และ audit integrity ยังเป็น `verified`
 
+ตรวจ scoped read guard อัตโนมัติ:
+
+```bash
+npm run test:scoped-read
+```
+
+ชุดนี้จะสร้างข้อมูลจำลองใน temporary directory และตรวจว่า customer/advisor read APIs ไม่ดึง user, workspace, portfolio, billing, payment, approval หรือ audit records ข้าม workspace รวมถึงตรวจ direct tenant filter ของ `tenantScopeService`
+
 ตรวจ subscription/payment lifecycle อัตโนมัติ:
 
 ```bash
@@ -729,13 +847,25 @@ npm run test:state-repository
 
 ชุดนี้ตรวจว่า local file adapter อ่าน/เขียน state ผ่าน repository boundary ได้และไม่แตะข้อมูล demo จริง
 
+ตรวจ state patch write foundation:
+
+```bash
+npm run test:state-patch
+```
+
+ชุดนี้ตรวจว่า logical patch แบบ upsert/append/delete ทำงานตาม primary key ของ schema, preserve records อื่น, append audit event ได้, block duplicate append, reject patch ที่ไม่มี primary key, กันการลบ append-only audit events โดยไม่ตั้งใจ และยืนยันว่า account registration, login last-seen update, portfolio snapshot upsert, investor profile, payment session creation, approval request creation, auth session create/logout/expired cleanup และ standalone audit event utility ที่ย้ายไปใช้ patch ยังบันทึกข้อมูล/audit ครบ
+
+ชุด subscription/payment และ approval regressions ยังตรวจ flow patch write ที่ซับซ้อนขึ้น เช่น payment success/failure webhook, rejected webhook, already-paid webhook ที่ต้องไม่ออก invoice ซ้ำ และ approval approve/reject decision ที่ต้องรักษา audit integrity
+
+ชุด tenant access/scoped read regressions ยังตรวจ workspace/team patch writes เช่น role update, member move, advisor assignment และ organization create/update ว่ายังรักษา permission, tenant scope และ audit integrity ได้ครบ
+
 ตรวจ Postgres repository adapter:
 
 ```bash
 npm run test:postgres-repository
 ```
 
-ชุดนี้ใช้ fake Postgres client เพื่อตรวจ bootstrap SQL, whole-state write transaction, read/write JSONB rows, non-append collection rewrite, append-only audit table behavior, missing primary key guard และ query-level tenant scoped read โดยไม่ต้องต่อฐานข้อมูลจริง
+ชุดนี้ใช้ fake Postgres client เพื่อตรวจ bootstrap SQL, whole-state write transaction, read/write JSONB rows, non-append collection rewrite, append-only audit table behavior, missing primary key guard, query-level tenant scoped read และ collection-level patch writes เช่น table-level upsert, append และ delete by `record_id` โดยไม่ต้องต่อฐานข้อมูลจริง
 
 ตรวจ Postgres importer:
 
@@ -792,6 +922,32 @@ npm run test:postgres-backup-runbook
 ```
 
 ชุดนี้ตรวจว่า runbook ไม่เปิดเผย password จาก `DATABASE_URL`, strategy ทำงานถูกต้อง, retention warning ถูกสร้าง และมี command template สำหรับ `pg_dump` / `pg_restore`
+
+ตรวจ Postgres patch write validation runbook:
+
+```bash
+npm run test:postgres-patch-validation
+```
+
+ชุดนี้ตรวจว่า runbook/CLI ไม่เปิดเผย password จาก `DATABASE_URL`, แยกสถานะ `ready`, `needs_review`, `blocked` ได้ถูกต้อง, มี patch smoke matrix สำหรับ upsert/append/delete, มี verification query/rollback plan และ strict mode fail เมื่อ readiness ยัง blocked โดยไม่ต่อฐานข้อมูลจริง
+
+ตรวจ Postgres patch smoke harness:
+
+```bash
+npm run test:postgres-patch-smoke
+```
+
+ชุดนี้ตรวจว่า smoke harness ค่า default เป็น dry-run, blocked เมื่อ guard ไม่ครบ, execute path ทำงานผ่าน injected fake writer โดยไม่ต่อฐานข้อมูลจริง, สร้าง evidence before/after counts, append audit event ที่มี hash chain, strict CLI behavior และไม่เปิดเผย password จาก `DATABASE_URL`
+
+ตรวจ Launch Evidence Center:
+
+```bash
+npm run test:frontend-auth
+npm run test:launch-evidence
+npm run test:web-smoke
+```
+
+ชุด frontend authenticated smoke ตรวจว่า owner เรียก `/api/admin/launch-evidence` ได้, customer ถูกปฏิเสธ และ output mask `DATABASE_URL` ส่วน `test:launch-evidence` ตรวจสถานะ pending/blocked/ready, importer dry-run marker, JSON/text sign-off export, download headers, CSS command wrapping, responsive grid fallback และ owner/customer API guard โดยตรง ก่อนที่ web smoke จะตรวจ marker `Launch Evidence Center` / `data-launch-evidence-center` / export action ใน frontend bundle
 
 ตรวจ production deployment checklist:
 
@@ -853,7 +1009,7 @@ npm run compare:python
 npm run test-regression
 ```
 
-คำสั่งนี้จะรัน syntax check, tenant access regression, subscription lifecycle regression, storage readiness regression, state repository regression, Postgres repository regression, Postgres importer regression, audit trail regression, approval workflow regression, package entitlement regression, payment provider regression, external audit provider regression, backup/restore regression, observability regression, operational alert delivery regression, Postgres backup runbook regression, deployment checklist regression, frontend viewport regression, authenticated frontend smoke regression, web smoke regression และเปรียบเทียบ output กับ Python เดิมต่อเนื่องกัน
+คำสั่งนี้จะรัน syntax check, tenant access regression, scoped read regression, subscription lifecycle regression, storage readiness regression, state repository regression, state patch regression, Postgres repository regression, Postgres importer regression, audit trail regression, approval workflow regression, package entitlement regression, payment provider regression, external audit provider regression, backup/restore regression, observability regression, operational alert delivery regression, Postgres backup runbook regression, Postgres patch validation regression, Postgres patch smoke regression, deployment checklist regression, frontend viewport regression, authenticated frontend smoke regression, web smoke regression และเปรียบเทียบ output กับ Python เดิมต่อเนื่องกัน
 
 ตรวจ quality gate แบบเดียวกับ CI:
 

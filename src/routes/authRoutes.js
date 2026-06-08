@@ -37,6 +37,11 @@ import {
   updateOrganization,
   updateUserRole,
 } from "../services/authService.js";
+import {
+  buildLaunchEvidenceCenter,
+  buildLaunchEvidenceSignoffPack,
+  renderLaunchEvidenceSignoffText,
+} from "../services/launchEvidenceService.js";
 import { operationalReadinessReport } from "../services/observabilityService.js";
 
 const router = express.Router();
@@ -515,6 +520,82 @@ router.get("/admin/metrics", async (req, res) => {
       ok: true,
       metrics: await businessMetrics(),
     });
+  } catch (error) {
+    sendAuthError(res, error, 403);
+  }
+});
+
+router.get("/admin/launch-evidence", async (req, res) => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    res.status(401).json({
+      ok: false,
+      message: "Please sign in to view launch evidence.",
+    });
+    return;
+  }
+
+  if (!["owner", "admin"].includes(user.role)) {
+    res.status(403).json({
+      ok: false,
+      message: "Launch evidence is available to owner and admin accounts only.",
+    });
+    return;
+  }
+
+  try {
+    requirePlanEntitlement(user, "business.metrics");
+    res.json({
+      ok: true,
+      evidence: buildLaunchEvidenceCenter(),
+    });
+  } catch (error) {
+    sendAuthError(res, error, 403);
+  }
+});
+
+router.get("/admin/launch-evidence/export", async (req, res) => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    res.status(401).json({
+      ok: false,
+      message: "Please sign in to export launch evidence.",
+    });
+    return;
+  }
+
+  if (!["owner", "admin"].includes(user.role)) {
+    res.status(403).json({
+      ok: false,
+      message: "Launch evidence export is available to owner and admin accounts only.",
+    });
+    return;
+  }
+
+  try {
+    requirePlanEntitlement(user, "business.metrics");
+    const format = String(req.query.format || "json").trim().toLowerCase();
+    const pack = buildLaunchEvidenceSignoffPack();
+    const dateStamp = String(pack.generatedAt || new Date().toISOString()).slice(0, 10);
+
+    if (format === "text" || format === "txt") {
+      res.type("text/plain");
+      res.setHeader("Content-Disposition", `attachment; filename="stockflix-launch-evidence-${dateStamp}.txt"`);
+      res.send(renderLaunchEvidenceSignoffText(pack));
+      return;
+    }
+
+    if (format !== "json") {
+      res.status(400).json({
+        ok: false,
+        message: "Unsupported launch evidence export format.",
+      });
+      return;
+    }
+
+    res.type("application/json");
+    res.setHeader("Content-Disposition", `attachment; filename="stockflix-launch-evidence-${dateStamp}.json"`);
+    res.send(JSON.stringify(pack, null, 2));
   } catch (error) {
     sendAuthError(res, error, 403);
   }

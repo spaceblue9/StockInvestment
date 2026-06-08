@@ -429,6 +429,116 @@ td select {
   margin: 0;
 }
 
+.launch-evidence-panel {
+  border-color: rgba(229, 9, 20, 0.32);
+}
+
+.launch-evidence-header-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.download-link {
+  background: rgba(229, 9, 20, 0.16);
+  border: 1px solid rgba(229, 9, 20, 0.5);
+  border-radius: 6px;
+  color: #fff;
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+  padding: 10px 12px;
+  text-decoration: none;
+}
+
+.download-link:hover {
+  background: rgba(229, 9, 20, 0.28);
+}
+
+.launch-evidence-export-message {
+  border-left: 3px solid var(--green);
+  margin: 0 0 14px;
+  padding-left: 10px;
+}
+
+.compact-title {
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.launch-evidence-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  margin-bottom: 16px;
+}
+
+.launch-evidence-card {
+  background: #101010;
+  border: 1px solid var(--line);
+  border-left: 3px solid #777;
+  border-radius: 8px;
+  min-height: 176px;
+  padding: 14px;
+}
+
+.launch-evidence-card.ready {
+  border-left-color: var(--green);
+}
+
+.launch-evidence-card.pending {
+  border-left-color: #f5b642;
+}
+
+.launch-evidence-card.blocked {
+  border-left-color: var(--red);
+}
+
+.launch-evidence-card span {
+  color: var(--muted);
+  display: block;
+  font-size: 11px;
+  font-weight: 900;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.launch-evidence-card strong {
+  color: #fff;
+  display: block;
+  font-size: 15px;
+  line-height: 1.35;
+  margin-bottom: 8px;
+}
+
+.launch-evidence-card p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0 0 10px;
+}
+
+.launch-evidence-card code,
+.command-list code {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: #fff;
+  display: block;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  padding: 8px;
+}
+
+.command-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
 .locked-card {
   background: linear-gradient(135deg, rgba(229, 9, 20, 0.22), rgba(16, 16, 16, 0.94));
   border: 1px solid rgba(229, 9, 20, 0.5);
@@ -649,6 +759,7 @@ a {
   .metric-grid,
   .guidance-grid,
   .ops-alert-grid,
+  .launch-evidence-grid,
   .visual-grid,
   .visual-grid.two-columns,
   .filter-bar,

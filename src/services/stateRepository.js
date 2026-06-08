@@ -4,11 +4,13 @@ import { auditTrailInfo, mirrorAuditTrail } from "./auditTrailRepository.js";
 import { DATA_DIR, ensureDataDirs } from "./pathService.js";
 import {
   assertPostgresRepositoryConfigured,
+  patchPostgresAppState,
   postgresRepositoryInfo,
   readPostgresAppState,
   readScopedPostgresAppState,
   writePostgresAppState,
 } from "./postgresStateRepository.js";
+import { applyStatePatch, statePatchCapabilities } from "./statePatchService.js";
 
 const STATE_FILE = path.join(DATA_DIR, "app-state.json");
 const SUPPORTED_REPOSITORIES = ["local_file", "postgres"];
@@ -55,6 +57,25 @@ export async function writeAppState(state) {
   await fs.writeFile(STATE_FILE, `${JSON.stringify(state, null, 2)}\n`, "utf8");
 }
 
+export async function patchAppState(patch, options = {}) {
+  const currentState = await readAppState({ normalize: options.normalize });
+  const result = applyStatePatch(currentState, patch, options);
+
+  if (assertSupportedRepository() === "postgres") {
+    ensureDataDirs();
+    await mirrorAuditTrail(result.state?.auditEvents || []);
+    await patchPostgresAppState(patch, {
+      ...options,
+      currentState,
+      nextState: result.state,
+    });
+    return result;
+  }
+
+  await writeAppState(result.state);
+  return result;
+}
+
 export function stateRepositoryInfo() {
   const adapter = assertSupportedRepository();
   const auditTrail = auditTrailInfo();
@@ -79,6 +100,11 @@ export function stateRepositoryInfo() {
     supportedAdapters: SUPPORTED_REPOSITORIES,
     migrationTarget: adapter === "postgres" ? "postgres_state_repository" : "production_database_repository",
     scopedReads: adapter === "postgres" ? "query_level_sql_where" : "service_level_filtering_only",
+    patchWrites: {
+      available: true,
+      mode: adapter === "postgres" ? "collection_level_postgres_transaction" : "logical_patch_then_local_file_write",
+      capabilities: statePatchCapabilities(),
+    },
   };
 }
 

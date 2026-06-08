@@ -7,8 +7,9 @@ import {
   paymentGatewayAutoCompletesCheckout,
   paymentGatewayInfo,
 } from "./paymentGatewayService.js";
-import { readAppState, stateRepositoryInfo, writeAppState } from "./stateRepository.js";
+import { patchAppState, readAppState, readScopedAppState, stateRepositoryInfo, writeAppState } from "./stateRepository.js";
 import { buildStorageReadinessReport, stateSchemaManifest } from "./stateSchemaService.js";
+import { buildTenantScopeForUser, filterStateByTenantScope, tenantScopeSummary } from "./tenantScopeService.js";
 
 const SESSION_COOKIE = "sid";
 const SESSION_DAYS = 30;
@@ -157,7 +158,18 @@ export async function createUser({ name, email, password }) {
   };
 
   state.users.push(user);
-  appendAuditEvent(state, {
+  await patchStateWithAudit(state, [
+    {
+      type: "upsert",
+      collection: "organizations",
+      record: organization,
+    },
+    {
+      type: "append",
+      collection: "users",
+      record: user,
+    },
+  ], {
     actorUserId: user.id,
     action: "auth.register",
     targetUserId: user.id,
@@ -168,7 +180,6 @@ export async function createUser({ name, email, password }) {
       status: user.subscription.status,
     },
   });
-  await writeState(state);
   const session = await createSession(user.id);
 
   return {
@@ -187,7 +198,13 @@ export async function loginUser({ email, password }) {
   }
 
   user.lastLoginAt = new Date().toISOString();
-  appendAuditEvent(state, {
+  await patchStateWithAudit(state, [
+    {
+      type: "upsert",
+      collection: "users",
+      record: user,
+    },
+  ], {
     actorUserId: user.id,
     action: "auth.login",
     targetUserId: user.id,
@@ -195,7 +212,6 @@ export async function loginUser({ email, password }) {
       role: normalizeRole(user.role),
     },
   });
-  await writeState(state);
   const session = await createSession(user.id);
 
   return {
@@ -211,15 +227,22 @@ export async function logoutSession(sessionId) {
 
   const state = await readState();
   const session = state.sessions.find((candidate) => candidate.id === sessionId);
-  if (session) {
-    appendAuditEvent(state, {
-      actorUserId: session.userId,
-      action: "auth.logout",
-      targetUserId: session.userId,
-    });
+  if (!session) {
+    return;
   }
+
   state.sessions = state.sessions.filter((session) => session.id !== sessionId);
-  await writeState(state);
+  await patchStateWithAudit(state, [
+    {
+      type: "delete",
+      collection: "sessions",
+      key: sessionId,
+    },
+  ], {
+    actorUserId: session.userId,
+    action: "auth.logout",
+    targetUserId: session.userId,
+  });
 }
 
 export async function getUserFromRequest(req) {
@@ -230,9 +253,21 @@ export async function getUserFromRequest(req) {
 
   const state = await readState();
   const session = state.sessions.find((candidate) => candidate.id === sessionId);
-  if (!session || new Date(session.expiresAt) <= new Date()) {
+  if (!session) {
+    return null;
+  }
+
+  if (new Date(session.expiresAt) <= new Date()) {
     state.sessions = state.sessions.filter((candidate) => candidate.id !== sessionId);
-    await writeState(state);
+    await patchState({
+      operations: [
+        {
+          type: "delete",
+          collection: "sessions",
+          key: sessionId,
+        },
+      ],
+    });
     return null;
   }
 
@@ -272,7 +307,13 @@ export async function saveCustomerPortfolioSnapshot(userId, snapshot) {
     state.portfolioSnapshots.push(nextSnapshot);
   }
 
-  appendAuditEvent(state, {
+  await patchStateWithAudit(state, [
+    {
+      type: "upsert",
+      collection: "portfolioSnapshots",
+      record: nextSnapshot,
+    },
+  ], {
     actorUserId: userId,
     action: "analysis.snapshot_saved",
     targetUserId: userId,
@@ -284,7 +325,6 @@ export async function saveCustomerPortfolioSnapshot(userId, snapshot) {
       recommendationCount: (snapshot.recommendations || []).length,
     },
   });
-  await writeState(state);
   return nextSnapshot;
 }
 
@@ -293,11 +333,7 @@ export async function getCustomerPortfolioSnapshot(userId) {
     return null;
   }
 
-  const state = await readState();
-  const user = state.users.find((candidate) => candidate.id === userId);
-  if (!user) {
-    throw new Error("User not found.");
-  }
+  const { state, viewer: user } = await readScopedStateForViewer(userId, "portfolio_snapshot_read");
   requirePlanEntitlement(user, "portfolio.snapshot");
 
   return state.portfolioSnapshots.find((snapshot) => snapshot.userId === userId) || null;
@@ -320,15 +356,13 @@ export async function saveInvestorProfile(userId, profile) {
     horizonYears: clampNumber(profile.horizonYears, 1, 50),
     updatedAt: new Date().toISOString(),
   };
-  const existing = state.investorProfiles.find((item) => item.userId === userId);
-
-  if (existing) {
-    Object.assign(existing, nextProfile);
-  } else {
-    state.investorProfiles.push(nextProfile);
-  }
-
-  appendAuditEvent(state, {
+  await patchStateWithAudit(state, [
+    {
+      type: "upsert",
+      collection: "investorProfiles",
+      record: nextProfile,
+    },
+  ], {
     actorUserId: userId,
     action: "profile.update",
     targetUserId: userId,
@@ -339,7 +373,6 @@ export async function saveInvestorProfile(userId, profile) {
       horizonYears: nextProfile.horizonYears,
     },
   });
-  await writeState(state);
   return nextProfile;
 }
 
@@ -348,7 +381,7 @@ export async function getInvestorProfile(userId) {
     return null;
   }
 
-  const state = await readState();
+  const { state } = await readScopedStateForViewer(userId, "investor_profile_read");
   return state.investorProfiles.find((profile) => profile.userId === userId) || null;
 }
 
@@ -423,8 +456,13 @@ export async function createPaymentSession(userId, planId) {
   });
   Object.assign(paymentSession, providerSession);
 
-  state.paymentSessions.push(paymentSession);
-  appendAuditEvent(state, {
+  await patchStateWithAudit(state, [
+    {
+      type: "append",
+      collection: "paymentSessions",
+      record: paymentSession,
+    },
+  ], {
     actorUserId: user.id,
     action: "payment.session_created",
     targetUserId: user.id,
@@ -438,7 +476,6 @@ export async function createPaymentSession(userId, planId) {
       externalPaymentId: paymentSession.externalPaymentId,
     },
   });
-  await writeState(state);
 
   return {
     user: publicUser(user),
@@ -471,24 +508,24 @@ export async function processSignedPaymentWebhook(input = {}, options = {}) {
   const verification = verifyPaymentWebhookSignature(input, options);
 
   if (!verification.ok) {
-    const rejectedEvent = recordRejectedPaymentWebhook(state, input, verification);
-    await writeState(state);
+    const rejected = recordRejectedPaymentWebhook(state, input, verification);
+    await patchRejectedPaymentWebhook(state, rejected);
     const error = new Error(verification.message);
-    error.webhookEvent = publicPaymentWebhookEvent(rejectedEvent);
+    error.webhookEvent = publicPaymentWebhookEvent(rejected.webhookEvent);
     throw error;
   }
 
   if (!state.paymentSessions.some((session) => session.id === input.sessionId)) {
-    const rejectedEvent = recordRejectedPaymentWebhook(state, input, {
+    const rejected = recordRejectedPaymentWebhook(state, input, {
       ...verification,
       ok: false,
       status: "invalid_session",
       message: "Payment session not found.",
       signatureVerified: true,
     });
-    await writeState(state);
+    await patchRejectedPaymentWebhook(state, rejected);
     const error = new Error("Payment session not found.");
-    error.webhookEvent = publicPaymentWebhookEvent(rejectedEvent);
+    error.webhookEvent = publicPaymentWebhookEvent(rejected.webhookEvent);
     throw error;
   }
 
@@ -504,18 +541,18 @@ export async function processProviderPaymentWebhook(provider, options = {}) {
   const parsed = parseProviderPaymentWebhook(provider, options);
 
   if (!parsed.verification.ok) {
-    const rejectedEvent = recordRejectedPaymentWebhook(state, parsed.input, parsed.verification, {
+    const rejected = recordRejectedPaymentWebhook(state, parsed.input, parsed.verification, {
       provider: parsed.provider,
       source: parsed.source,
     });
-    await writeState(state);
+    await patchRejectedPaymentWebhook(state, rejected);
     const error = new Error(parsed.verification.message);
-    error.webhookEvent = publicPaymentWebhookEvent(rejectedEvent);
+    error.webhookEvent = publicPaymentWebhookEvent(rejected.webhookEvent);
     throw error;
   }
 
   if (!state.paymentSessions.some((session) => session.id === parsed.input.sessionId)) {
-    const rejectedEvent = recordRejectedPaymentWebhook(state, parsed.input, {
+    const rejected = recordRejectedPaymentWebhook(state, parsed.input, {
       ...parsed.verification,
       ok: false,
       status: "invalid_session",
@@ -525,9 +562,9 @@ export async function processProviderPaymentWebhook(provider, options = {}) {
       provider: parsed.provider,
       source: parsed.source,
     });
-    await writeState(state);
+    await patchRejectedPaymentWebhook(state, rejected);
     const error = new Error("Payment session not found.");
-    error.webhookEvent = publicPaymentWebhookEvent(rejectedEvent);
+    error.webhookEvent = publicPaymentWebhookEvent(rejected.webhookEvent);
     throw error;
   }
 
@@ -610,10 +647,14 @@ async function processPaymentWebhookInState(state, input = {}, options = {}) {
   let billingEvent = paymentSession.billingEventId
     ? state.billingEvents.find((event) => event.id === paymentSession.billingEventId) || null
     : null;
+  let createdBillingEvent = null;
+  const auditEventInputs = [];
 
   if (eventType === "payment.succeeded") {
     if (paymentSession.status !== "paid") {
       billingEvent = applyPaidSubscriptionFromSession(state, targetUser, paymentSession, plan, now);
+      createdBillingEvent = billingEvent;
+      auditEventInputs.push(billingCheckoutAuditInput(targetUser, paymentSession, plan, billingEvent));
       webhookEvent.message = "Payment succeeded and subscription activated.";
     } else {
       webhookEvent.message = "Payment session was already paid.";
@@ -632,7 +673,7 @@ async function processPaymentWebhookInState(state, input = {}, options = {}) {
   paymentSession.webhookEventIds ||= [];
   paymentSession.webhookEventIds.push(webhookEvent.id);
   state.paymentWebhookEvents.push(webhookEvent);
-  appendAuditEvent(state, {
+  auditEventInputs.push({
     actorUserId: actor?.id || "",
     action: eventType === "payment.succeeded" ? "payment.webhook_succeeded" : "payment.webhook_failed",
     targetUserId: targetUser.id,
@@ -650,7 +691,12 @@ async function processPaymentWebhookInState(state, input = {}, options = {}) {
       signatureVerified: webhookEvent.signatureVerified,
     },
   });
-  await writeState(state);
+  await patchStateWithAudit(state, paymentWebhookPatchOperations({
+    billingEvent: createdBillingEvent,
+    paymentSession,
+    targetUser,
+    webhookEvent,
+  }), auditEventInputs);
 
   return {
     user: publicUser(targetUser),
@@ -662,11 +708,7 @@ async function processPaymentWebhookInState(state, input = {}, options = {}) {
 }
 
 export async function getPaymentSessions(viewerUserId, options = {}) {
-  const state = await readState();
-  const viewer = state.users.find((user) => user.id === viewerUserId);
-  if (!viewer) {
-    throw new Error("User not found.");
-  }
+  const { state, viewer } = await readScopedStateForViewer(viewerUserId, "payment_sessions_read");
 
   const visibleUserIds = usersVisibleToUser(state, viewer);
   const visibleOrganizationIds = organizationsVisibleToUser(state, viewer);
@@ -679,11 +721,7 @@ export async function getPaymentSessions(viewerUserId, options = {}) {
 }
 
 export async function listApprovalRequests(viewerUserId, options = {}) {
-  const state = await readState();
-  const viewer = state.users.find((user) => user.id === viewerUserId);
-  if (!viewer) {
-    throw new Error("User not found.");
-  }
+  const { state, viewer } = await readScopedStateForViewer(viewerUserId, "approval_requests_read");
 
   const viewerRole = normalizeRole(viewer.role);
   requirePlanEntitlement(
@@ -746,15 +784,19 @@ export async function createApprovalRequest(actorUserId, input = {}) {
     updatedAt: now,
   };
 
-  state.approvalRequests.push(approvalRequest);
-  appendAuditEvent(state, {
+  await patchStateWithAudit(state, [
+    {
+      type: "append",
+      collection: "approvalRequests",
+      record: approvalRequest,
+    },
+  ], {
     actorUserId: actor.id,
     action: "approval.request_created",
     targetUserId: customer.id,
     organizationId: approvalRequest.organizationId,
     details: approvalAuditDetails(approvalRequest),
   });
-  await writeState(state);
   return publicApprovalRequest(approvalRequest, state);
 }
 
@@ -791,23 +833,24 @@ export async function decideApprovalRequest(actorUserId, approvalId, input = {})
   approvalRequest.decidedAt = now;
   approvalRequest.updatedAt = now;
 
-  appendAuditEvent(state, {
+  await patchStateWithAudit(state, [
+    {
+      type: "upsert",
+      collection: "approvalRequests",
+      record: approvalRequest,
+    },
+  ], {
     actorUserId: actor.id,
     action: decision === "approved" ? "approval.request_approved" : "approval.request_rejected",
     targetUserId: approvalRequest.requestedByUserId || actor.id,
     organizationId: approvalRequest.organizationId,
     details: approvalAuditDetails(approvalRequest),
   });
-  await writeState(state);
   return publicApprovalRequest(approvalRequest, state);
 }
 
 export async function tenantAccessSummary(viewerUserId) {
-  const state = await readState();
-  const viewer = state.users.find((user) => user.id === viewerUserId);
-  if (!viewer) {
-    throw new Error("User not found.");
-  }
+  const { state, viewer, tenantScope } = await readScopedStateForViewer(viewerUserId, "tenant_access_summary");
 
   const visibleUserIds = usersVisibleToUser(state, viewer);
   const visibleOrganizationIds = organizationsVisibleToUser(state, viewer);
@@ -847,8 +890,9 @@ export async function tenantAccessSummary(viewerUserId) {
     visibleUsers: buildWorkspaceUsers(visibleUsers, state).slice(0, 50),
     isolation: {
       status: tenantMetadata.totalMissingOrganizationId === 0 ? "ready" : "needs_attention",
-      store: "local_file",
+      store: stateRepositoryInfo().adapter,
       productionDatabaseRequired: true,
+      scopedRead: tenantScopeSummary(tenantScope),
       missingOrganizationId: tenantMetadata,
     },
   };
@@ -859,7 +903,7 @@ export async function getBillingHistory(userId) {
     return [];
   }
 
-  const state = await readState();
+  const { state } = await readScopedStateForViewer(userId, "billing_history_read");
   return state.billingEvents
     .filter((event) => event.userId === userId)
     .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt))
@@ -867,11 +911,7 @@ export async function getBillingHistory(userId) {
 }
 
 export async function getAuditEvents(viewerUserId, options = {}) {
-  const state = await readState();
-  const viewer = state.users.find((user) => user.id === viewerUserId);
-  if (!viewer) {
-    throw new Error("User not found.");
-  }
+  const { state, viewer } = await readScopedStateForViewer(viewerUserId, "audit_events_read");
 
   const viewerRole = normalizeRole(viewer.role);
   requirePlanEntitlement(viewer, "audit.timeline");
@@ -951,17 +991,12 @@ export async function recordAuditEvent(event) {
   }
 
   const state = await readState();
-  const auditEvent = appendAuditEvent(state, event);
-  await writeState(state);
+  const auditEvent = await patchStateWithAudit(state, [], event);
   return publicAuditEvent(auditEvent);
 }
 
 export async function listOrganizations(viewerUserId) {
-  const state = await readState();
-  const viewer = state.users.find((user) => user.id === viewerUserId);
-  if (!viewer) {
-    throw new Error("User not found.");
-  }
+  const { state, viewer } = await readScopedStateForViewer(viewerUserId, "organizations_read");
 
   if (normalizeRole(viewer.role) === "advisor") {
     requirePlanEntitlement(viewer, "client.workspace");
@@ -988,7 +1023,13 @@ export async function createOrganization(actorUserId, input = {}) {
   };
 
   state.organizations.push(organization);
-  appendAuditEvent(state, {
+  await patchStateWithAudit(state, [
+    {
+      type: "append",
+      collection: "organizations",
+      record: organization,
+    },
+  ], {
     actorUserId: actor.id,
     action: "organization.create",
     targetUserId: organization.ownerUserId || actor.id,
@@ -998,7 +1039,6 @@ export async function createOrganization(actorUserId, input = {}) {
       organizationType: organization.type,
     },
   });
-  await writeState(state);
   return publicOrganization(organization, state);
 }
 
@@ -1020,7 +1060,13 @@ export async function updateOrganization(actorUserId, organizationId, input = {}
     : normalizeOrganizationType(input.type || organization.type);
   organization.updatedAt = new Date().toISOString();
 
-  appendAuditEvent(state, {
+  await patchStateWithAudit(state, [
+    {
+      type: "upsert",
+      collection: "organizations",
+      record: organization,
+    },
+  ], {
     actorUserId: actor.id,
     action: "organization.update",
     targetUserId: organization.ownerUserId || actor.id,
@@ -1032,7 +1078,6 @@ export async function updateOrganization(actorUserId, organizationId, input = {}
       nextType: organization.type,
     },
   });
-  await writeState(state);
   return publicOrganization(organization, state);
 }
 
@@ -1052,7 +1097,18 @@ export async function moveUserToOrganization(actorUserId, targetUserId, organiza
   target.organizationId = organization.id;
   organization.updatedAt = new Date().toISOString();
 
-  appendAuditEvent(state, {
+  await patchStateWithAudit(state, [
+    {
+      type: "upsert",
+      collection: "users",
+      record: target,
+    },
+    {
+      type: "upsert",
+      collection: "organizations",
+      record: organization,
+    },
+  ], {
     actorUserId: actor.id,
     action: "organization.member_move",
     targetUserId: target.id,
@@ -1062,16 +1118,11 @@ export async function moveUserToOrganization(actorUserId, targetUserId, organiza
       organizationId: organization.id,
     },
   });
-  await writeState(state);
   return buildWorkspaceUsers([target], state)[0];
 }
 
 export async function listWorkspaceUsers(viewerUserId) {
-  const state = await readState();
-  const viewer = state.users.find((user) => user.id === viewerUserId);
-  if (!viewer) {
-    throw new Error("User not found.");
-  }
+  const { state, viewer } = await readScopedStateForViewer(viewerUserId, "workspace_users_read");
 
   const viewerRole = normalizeRole(viewer.role);
   if (viewerRole === "advisor") {
@@ -1114,12 +1165,29 @@ export async function updateUserRole(actorUserId, targetUserId, nextRole) {
   }
 
   const previousRole = normalizeRole(target.role);
+  const removedAssignments = role !== "advisor"
+    ? state.advisorAssignments.filter((assignment) => assignment.advisorId === target.id)
+    : [];
   target.role = role;
   if (role !== "advisor") {
     state.advisorAssignments = state.advisorAssignments.filter((assignment) => assignment.advisorId !== target.id);
   }
 
-  appendAuditEvent(state, {
+  await patchStateWithAudit(state, [
+    {
+      type: "upsert",
+      collection: "users",
+      record: target,
+    },
+    ...removedAssignments.map((assignment) => ({
+      type: "delete",
+      collection: "advisorAssignments",
+      key: {
+        customerId: assignment.customerId,
+        advisorId: assignment.advisorId,
+      },
+    })),
+  ], {
     actorUserId: actor.id,
     action: "team.role_update",
     targetUserId: target.id,
@@ -1128,7 +1196,6 @@ export async function updateUserRole(actorUserId, targetUserId, nextRole) {
       nextRole: role,
     },
   });
-  await writeState(state);
   return buildWorkspaceUsers([target], state)[0];
 }
 
@@ -1153,8 +1220,16 @@ export async function assignAdvisor(actorUserId, customerId, advisorId) {
     : null;
 
   if (!advisorId) {
+    const removedAssignments = state.advisorAssignments.filter((assignment) => assignment.customerId === customer.id);
     state.advisorAssignments = state.advisorAssignments.filter((assignment) => assignment.customerId !== customer.id);
-    appendAuditEvent(state, {
+    await patchStateWithAudit(state, removedAssignments.map((assignment) => ({
+      type: "delete",
+      collection: "advisorAssignments",
+      key: {
+        customerId: assignment.customerId,
+        advisorId: assignment.advisorId,
+      },
+    })), {
       actorUserId: actor.id,
       action: "team.advisor_unassigned",
       targetUserId: customer.id,
@@ -1162,7 +1237,6 @@ export async function assignAdvisor(actorUserId, customerId, advisorId) {
         previousAdvisorEmail: previousAdvisor?.email || "",
       },
     });
-    await writeState(state);
     return buildWorkspaceUsers([customer], state)[0];
   }
 
@@ -1172,6 +1246,12 @@ export async function assignAdvisor(actorUserId, customerId, advisorId) {
 
   const now = new Date().toISOString();
   const existing = state.advisorAssignments.find((assignment) => assignment.customerId === customer.id);
+  const previousAssignmentKey = existing
+    ? {
+      customerId: existing.customerId,
+      advisorId: existing.advisorId,
+    }
+    : null;
   const assignment = {
     customerId: customer.id,
     advisorId: advisor.id,
@@ -1185,7 +1265,21 @@ export async function assignAdvisor(actorUserId, customerId, advisorId) {
     state.advisorAssignments.push(assignment);
   }
 
-  appendAuditEvent(state, {
+  const assignmentOperations = [];
+  if (previousAssignmentKey && previousAssignmentKey.advisorId !== assignment.advisorId) {
+    assignmentOperations.push({
+      type: "delete",
+      collection: "advisorAssignments",
+      key: previousAssignmentKey,
+    });
+  }
+  assignmentOperations.push({
+    type: existing && previousAssignmentKey?.advisorId === assignment.advisorId ? "upsert" : "append",
+    collection: "advisorAssignments",
+    record: assignment,
+  });
+
+  await patchStateWithAudit(state, assignmentOperations, {
     actorUserId: actor.id,
     action: existing ? "team.advisor_reassigned" : "team.advisor_assigned",
     targetUserId: customer.id,
@@ -1194,7 +1288,6 @@ export async function assignAdvisor(actorUserId, customerId, advisorId) {
       previousAdvisorEmail: previousAdvisor?.email || "",
     },
   });
-  await writeState(state);
   return buildWorkspaceUsers([customer], state)[0];
 }
 
@@ -1578,18 +1671,33 @@ function normalizeSubscription(subscription = {}, fallbackDate = new Date().toIS
 
 async function createSession(userId) {
   const state = await readState();
-  const expiresAt = new Date();
+  const now = new Date();
+  const expiresAt = new Date(now);
   expiresAt.setDate(expiresAt.getDate() + SESSION_DAYS);
   const session = {
     id: crypto.randomBytes(32).toString("hex"),
     userId,
-    createdAt: new Date().toISOString(),
+    createdAt: now.toISOString(),
     expiresAt: expiresAt.toISOString(),
   };
+  const expiredSessions = state.sessions.filter((candidate) => new Date(candidate.expiresAt) <= now);
 
-  state.sessions = state.sessions.filter((candidate) => new Date(candidate.expiresAt) > new Date());
+  state.sessions = state.sessions.filter((candidate) => new Date(candidate.expiresAt) > now);
   state.sessions.push(session);
-  await writeState(state);
+  await patchState({
+    operations: [
+      ...expiredSessions.map((expiredSession) => ({
+        type: "delete",
+        collection: "sessions",
+        key: expiredSession.id,
+      })),
+      {
+        type: "append",
+        collection: "sessions",
+        record: session,
+      },
+    ],
+  });
   return session;
 }
 
@@ -1597,8 +1705,73 @@ async function readState() {
   return readAppState({ normalize: normalizeState });
 }
 
+async function readScopedState(tenantScope) {
+  const scopedState = await readScopedAppState(tenantScope, { normalize: normalizeState });
+  return filterStateByTenantScope(scopedState, tenantScope);
+}
+
+async function readScopedStateForViewer(viewerUserId, reason = "service_read") {
+  const baseState = await readState();
+  const baseViewer = baseState.users.find((user) => user.id === viewerUserId);
+  if (!baseViewer) {
+    throw new Error("User not found.");
+  }
+
+  const tenantScope = buildTenantScopeForUser(baseState, baseViewer, reason);
+  const scopedState = tenantScope.mode === "platform"
+    ? baseState
+    : await readScopedState(tenantScope);
+  const scopedViewer = scopedState.users.find((user) => user.id === viewerUserId) || baseViewer;
+
+  return {
+    state: scopedState,
+    viewer: scopedViewer,
+    tenantScope,
+  };
+}
+
 async function writeState(state) {
   await writeAppState(state);
+}
+
+async function patchState(patch) {
+  return patchAppState(patch, { normalize: normalizeState });
+}
+
+async function patchStateWithAudit(state, operations, auditEventInput) {
+  const auditEventInputs = Array.isArray(auditEventInput)
+    ? auditEventInput.filter(Boolean)
+    : [auditEventInput].filter(Boolean);
+  const auditCountBefore = (state.auditEvents || []).length;
+  const auditEvents = auditEventInputs.map((input) => appendAuditEvent(state, input));
+
+  if (auditCountBefore + auditEvents.length > MAX_AUDIT_EVENTS) {
+    await writeState(state);
+    return auditEvents.at(-1) || null;
+  }
+
+  await patchState({
+    operations: [
+      ...operations,
+      ...auditEvents.map((auditEvent) => ({
+        type: "append",
+        collection: "auditEvents",
+        record: auditEvent,
+      })),
+    ],
+  });
+
+  return auditEvents.at(-1) || null;
+}
+
+async function patchRejectedPaymentWebhook(state, rejected) {
+  return patchStateWithAudit(state, [
+    {
+      type: "append",
+      collection: "paymentWebhookEvents",
+      record: rejected.webhookEvent,
+    },
+  ], rejected.auditEventInput);
 }
 
 function publicUser(user) {
@@ -2000,25 +2173,27 @@ function recordRejectedPaymentWebhook(state, input = {}, verification = {}, opti
   };
 
   state.paymentWebhookEvents.push(webhookEvent);
-  appendAuditEvent(state, {
-    actorUserId: "",
-    action: "payment.webhook_rejected",
-    targetUserId: targetUser?.id || "",
-    organizationId,
-    details: {
-      paymentSessionId: webhookEvent.sessionId,
-      providerEventId,
-      eventType,
-      source: webhookEvent.source,
-      provider: webhookEvent.provider,
-      externalPaymentId: webhookEvent.externalPaymentId,
-      verificationStatus: webhookEvent.verificationStatus,
-      signatureVerified: webhookEvent.signatureVerified,
-      reason: webhookEvent.message,
-    },
-  });
 
-  return webhookEvent;
+  return {
+    webhookEvent,
+    auditEventInput: {
+      actorUserId: "",
+      action: "payment.webhook_rejected",
+      targetUserId: targetUser?.id || "",
+      organizationId,
+      details: {
+        paymentSessionId: webhookEvent.sessionId,
+        providerEventId,
+        eventType,
+        source: webhookEvent.source,
+        provider: webhookEvent.provider,
+        externalPaymentId: webhookEvent.externalPaymentId,
+        verificationStatus: webhookEvent.verificationStatus,
+        signatureVerified: webhookEvent.signatureVerified,
+        reason: webhookEvent.message,
+      },
+    },
+  };
 }
 
 function organizationIdForUser(state, userId) {
@@ -2238,7 +2413,12 @@ function applyPaidSubscriptionFromSession(state, user, paymentSession, plan, now
   paymentSession.completedAt = now.toISOString();
   paymentSession.failureReason = "";
   paymentSession.billingEventId = billingEvent.id;
-  appendAuditEvent(state, {
+
+  return billingEvent;
+}
+
+function billingCheckoutAuditInput(user, paymentSession, plan, billingEvent) {
+  return {
     actorUserId: user.id,
     action: "billing.checkout",
     targetUserId: user.id,
@@ -2250,9 +2430,39 @@ function applyPaidSubscriptionFromSession(state, user, paymentSession, plan, now
       amountThb: plan.priceThb,
       status: billingEvent.status,
     },
-  });
+  };
+}
 
-  return billingEvent;
+function paymentWebhookPatchOperations({ billingEvent, paymentSession, targetUser, webhookEvent }) {
+  const operations = [
+    {
+      type: "upsert",
+      collection: "paymentSessions",
+      record: paymentSession,
+    },
+    {
+      type: "append",
+      collection: "paymentWebhookEvents",
+      record: webhookEvent,
+    },
+  ];
+
+  if (billingEvent) {
+    operations.push(
+      {
+        type: "append",
+        collection: "billingEvents",
+        record: billingEvent,
+      },
+      {
+        type: "upsert",
+        collection: "users",
+        record: targetUser,
+      },
+    );
+  }
+
+  return operations;
 }
 
 function canAccessPaymentSession(state, actor, paymentSession) {

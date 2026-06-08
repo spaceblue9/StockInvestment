@@ -44,6 +44,8 @@ assertEqual(readyChecklist.sanitizedEnvironment.PAYMENT_WEBHOOK_SECRET, "****", 
 assert(readyChecklist.preflightCommands.some((command) => command.includes("npm run ci:quality")), "Checklist should include CI quality gate.");
 assert(readyChecklist.preflightCommands.some((command) => command.includes("postgres:backup-runbook")), "Checklist should include Postgres backup runbook.");
 assert(readyChecklist.preflightCommands.some((command) => command.includes("import:postgres")), "Checklist should include importer dry-run.");
+assert(readyChecklist.preflightCommands.some((command) => command.includes("postgres:patch-validation")), "Checklist should include Postgres patch validation runbook.");
+assert(readyChecklist.preflightCommands.some((command) => command.includes("postgres:patch-smoke")), "Checklist should include Postgres patch smoke harness.");
 
 const readyJson = JSON.stringify(readyChecklist);
 const readyText = renderProductionDeploymentChecklistText(readyChecklist);

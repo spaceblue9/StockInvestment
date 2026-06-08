@@ -69,6 +69,17 @@ try {
   assertEqual(duplicateSuccess.duplicate, true, "Duplicate provider event should be reconciled.");
   assertEqual((await getBillingHistory(customer.id)).length, 1, "Duplicate webhook should not create another invoice.");
 
+  const alreadyPaidPayload = {
+    sessionId: signedSession.paymentSession.id,
+    eventType: "payment.succeeded",
+    providerEventId: "evt_lifecycle_paid_again",
+  };
+  const alreadyPaidSignature = createPaymentWebhookSignature(alreadyPaidPayload);
+  const alreadyPaidWebhook = await processSignedPaymentWebhook(alreadyPaidPayload, alreadyPaidSignature);
+  assertEqual(alreadyPaidWebhook.duplicate, false, "New provider event on a paid session should be recorded.");
+  assertEqual(alreadyPaidWebhook.paymentSession.status, "paid", "Already-paid success should keep session paid.");
+  assertEqual((await getBillingHistory(customer.id)).length, 1, "Already-paid success should not create another invoice.");
+
   const invalidSession = await createPaymentSession(customer.id, "starter");
   const invalidPayload = {
     sessionId: invalidSession.paymentSession.id,
@@ -138,7 +149,7 @@ try {
   assertEqual(metrics.paidUsers, 1, "Metrics should count one paid customer.");
   assertEqual(metrics.failedPaymentSessions, 1, "Metrics should count one failed payment session.");
   assertEqual(metrics.pendingPaymentSessions, 3, "Metrics should count pending sessions after rejected webhook attempts.");
-  assertEqual(metrics.verifiedWebhookEvents, 2, "Metrics should count signed webhooks with valid signatures, including invalid-session rejects.");
+  assertEqual(metrics.verifiedWebhookEvents, 3, "Metrics should count signed webhooks with valid signatures, including already-paid and invalid-session events.");
   assertEqual(metrics.rejectedWebhookEvents, 4, "Metrics should count four rejected webhook events.");
   assertEqual(metrics.revenueCollected, proPlan.priceThb, "Metrics revenue should equal one Pro payment.");
   assertEqual(metrics.auditIntegrity.status, "verified", "Audit integrity in metrics should be verified.");

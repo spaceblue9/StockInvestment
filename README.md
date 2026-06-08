@@ -81,6 +81,7 @@ Web App รุ่นนี้มีระบบสมาชิกแบบ proto
 * แสดง visual dashboard สำหรับ Portfolio, Screener, Sector และ Business view โดยไม่ต้องติดตั้ง chart library เพิ่ม
 * หน้า Screener รองรับ sector/trend filter และคลิก Sector count bar เพื่อ drilldown ตารางหุ้นได้
 * มี automated tenant access regression test สำหรับตรวจ owner/admin/advisor/customer scope, payment session access, billing, audit timeline และ tenant metadata
+* มี automated scoped read regression test สำหรับตรวจว่า customer/advisor workspace APIs ไม่ดึง user, portfolio, billing, payment, approval และ audit records ข้าม workspace
 * มี automated subscription lifecycle regression test สำหรับตรวจ trial, failed payment, signed webhook success, duplicate reconciliation และ rejected webhook
 * มี automated package entitlement regression test สำหรับตรวจสิทธิ์ Starter/Pro/Advisor และ upgrade gate
 * มี automated payment provider regression test สำหรับตรวจ Stripe Checkout session, provider webhook success/failure, duplicate reconciliation และ invalid signature
@@ -90,11 +91,17 @@ Web App รุ่นนี้มีระบบสมาชิกแบบ proto
 * มี operational readiness API และ Business dashboard alert cards สำหรับดู production risk ของ storage, audit, payment, dependency gate และ repository
 * มี operational alert delivery webhook แบบ opt-in สำหรับส่ง readiness alerts ไปยัง Slack/email/APM/uptime bridge พร้อม HMAC signature, dry-run และ required mode
 * มี state repository layer เพื่อแยก persistence ออกจาก business service และเตรียมเปลี่ยน adapter ในอนาคต
+* มี state patch write foundation สำหรับ upsert/append/delete records ผ่าน repository boundary พร้อม append-only guard สำหรับ audit events และเริ่มใช้กับ account, portfolio snapshot, investor profile, payment, approval, workspace, team/admin และ auth session write flows สำคัญแล้ว
+* Postgres adapter เริ่มรองรับ collection-level patch writes โดย map `upsert`, `append`, `delete` เป็น table-level transaction สำหรับเส้นทาง `patchAppState()`
 * รองรับ Postgres state adapter แบบ opt-in ผ่าน `APP_STATE_REPOSITORY=postgres` และ `DATABASE_URL` สำหรับ production database path
 * Postgres adapter มี scoped read helper ที่บังคับ tenant filter ใน SQL query ก่อนดึง JSONB record ออกจากฐานข้อมูล
+* Customer/workspace read APIs สำคัญเริ่มใช้ service-level scoped read wrapper เพื่อให้ local file mode มี filter guard และ Postgres path ต่อกับ query-level scoped reads ได้ง่ายขึ้น
 * มี one-time importer จาก `data/app-state.json` เข้า Postgres พร้อม dry-run/readiness guard
 * มี backup/restore drill สำหรับ `data/app-state.json`, audit mirror และ external audit receipts พร้อม manifest/checksum/dry-run/confirm guard
 * มี Postgres backup runbook generator สำหรับ managed snapshot / `pg_dump` / restore drill โดย sanitize `DATABASE_URL`
+* มี Postgres patch write staging validation runbook แบบ dry-run สำหรับเตรียมตรวจ collection-level patch writes กับ database จริงใน staging โดย sanitize `DATABASE_URL`
+* มี Postgres patch smoke harness แบบ dry-run-first สำหรับ staging canary write พร้อม `--confirm` guard, evidence output และ secret masking
+* Business dashboard มี Launch Evidence Center สำหรับ owner/admin เพื่อสรุป checklist, command, evidence และ export sign-off pack ก่อนเปิดขายจริงโดยไม่รันคำสั่งจากหน้าเว็บ
 * มี production deployment checklist แบบ dry-run สำหรับตรวจ env, Postgres, Stripe, signed webhook, external audit, backup และ CI gate โดยไม่แสดง secret
 * มี append-only audit trail mirror แบบ local NDJSON เพื่อเตรียมต่อยอดเป็น external immutable audit storage
 * รองรับ external audit provider แบบ HTTP webhook ที่เปิดใช้ด้วย env พร้อม HMAC signature และ receipt readiness
@@ -109,9 +116,11 @@ Web App รุ่นนี้มีระบบสมาชิกแบบ proto
 
 ```bash
 npm run test:tenant-access
+npm run test:scoped-read
 npm run test:subscription-lifecycle
 npm run test:storage-readiness
 npm run test:state-repository
+npm run test:state-patch
 npm run test:postgres-repository
 npm run test:postgres-importer
 npm run test:audit-trail
@@ -123,9 +132,12 @@ npm run test:backup-restore
 npm run test:observability
 npm run test:ops-alerts
 npm run test:postgres-backup-runbook
+npm run test:postgres-patch-validation
+npm run test:postgres-patch-smoke
 npm run test:deployment-checklist
 npm run test:frontend-viewport
 npm run test:frontend-auth
+npm run test:launch-evidence
 npm run test:web-smoke
 npm run test:dependency-risk
 npm run test-regression
@@ -155,6 +167,18 @@ npm run restore:state -- --backup-dir data/backups/<backup-folder> --dry-run
 npm run postgres:backup-runbook -- --strategy both --retention-days 30 --format text
 ```
 
+ตัวอย่างสร้าง Postgres patch write validation runbook สำหรับ staging โดยไม่ต่อ database จริง:
+
+```bash
+npm run postgres:patch-validation -- --format text
+```
+
+ตัวอย่าง preview Postgres patch smoke harness แบบ dry-run ก่อนเขียน staging database:
+
+```bash
+npm run postgres:patch-smoke -- --format text
+```
+
 ตัวอย่างตรวจ production deployment checklist แบบ dry-run โดยไม่ deploy จริง:
 
 ```bash
@@ -167,7 +191,7 @@ npm run deployment:check -- --format text
 npm run ops:alerts -- --dry-run --format text
 ```
 
-สำหรับการขายจริง ระบบ SaaS ส่วน login, workspace, approval, billing, payment และ audit ยังเป็น local file-backed prototype ใน `data/app-state.json` เป็นค่า default แม้ critical records จะถูก tag ด้วย `organizationId`, มี package entitlement gate, backup/restore drill, Postgres backup runbook, deployment checklist, operational readiness alerts, operational alert delivery webhook, Stripe Checkout provider แบบ opt-in, signed webhook verification, audit log hash chain, tenant/subscription/entitlement/backup/postgres-backup/deployment/ops-alert/observability/payment-provider/approval/external-audit/web-smoke/postgres-repository regression tests, storage readiness report, repository layer, Postgres adapter แบบ opt-in, Postgres scoped read helper, append-only audit mirror และ external audit webhook provider แบบ opt-in แล้ว ก่อนเปิดบริการจริงควรทดสอบกับฐานข้อมูลจริง, ใช้ scoped read ทุก production flow, ตั้งค่า production Stripe price/webhook secret จริง, run deployment checklist แบบ strict ใน staging, ตั้งค่า operational alert webhook ไปยังระบบ monitor จริง และเชื่อม immutable audit provider จริง
+สำหรับการขายจริง ระบบ SaaS ส่วน login, workspace, approval, billing, payment และ audit ยังเป็น local file-backed prototype ใน `data/app-state.json` เป็นค่า default แม้ critical records จะถูก tag ด้วย `organizationId`, มี package entitlement gate, backup/restore drill, Postgres backup runbook, Postgres patch validation runbook, Postgres patch smoke harness, Launch Evidence Center, deployment checklist, operational readiness alerts, operational alert delivery webhook, Stripe Checkout provider แบบ opt-in, signed webhook verification, audit log hash chain, tenant/scoped-read/subscription/entitlement/backup/postgres-backup/postgres-patch-validation/postgres-patch-smoke/deployment/ops-alert/observability/payment-provider/approval/external-audit/launch-evidence/web-smoke/postgres-repository/state-patch regression tests, storage readiness report, repository layer, state patch write foundation, adopted patch write flows for account/portfolio/profile/payment/approval/workspace/team/auth sessions, Postgres adapter แบบ opt-in, Postgres scoped read helper, Postgres collection-level patch write prototype, append-only audit mirror และ external audit webhook provider แบบ opt-in แล้ว ก่อนเปิดบริการจริงควรทดสอบกับฐานข้อมูลจริง, ใช้ scoped read ทุก production flow, ตรวจ Postgres patch writes กับ database จริงใน staging, ตั้งค่า production Stripe price/webhook secret จริง, run deployment checklist แบบ strict ใน staging, ตั้งค่า operational alert webhook ไปยังระบบ monitor จริง และเชื่อม immutable audit provider จริง
 
 ### ทางเลือกที่ 2: ใช้งานระบบ Python เดิม
 

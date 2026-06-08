@@ -16,6 +16,7 @@ try {
     auditIntegritySummary,
     businessMetrics,
     checkoutSubscription,
+    createOrganization,
     createPaymentSession,
     createUser,
     getAuditEvents,
@@ -29,6 +30,7 @@ try {
     saveCustomerPortfolioSnapshot,
     saveInvestorProfile,
     tenantAccessSummary,
+    updateOrganization,
     updateUserRole,
   } = auth;
 
@@ -40,6 +42,16 @@ try {
 
   const advisorUser = await updateUserRole(owner.id, advisor.id, "advisor");
   const adminUser = await updateUserRole(owner.id, admin.id, "admin");
+  const researchWorkspace = await createOrganization(owner.id, {
+    name: "Research Desk",
+    type: "client",
+  });
+  const updatedResearchWorkspace = await updateOrganization(owner.id, researchWorkspace.id, {
+    name: "Research Desk Prime",
+    type: "advisor",
+  });
+  assertEqual(updatedResearchWorkspace.name, "Research Desk Prime", "Owner should update workspace name.");
+  assertEqual(updatedResearchWorkspace.type, "advisor", "Owner should update workspace type.");
   await moveUserToOrganization(owner.id, advisor.id, owner.organizationId);
   await moveUserToOrganization(owner.id, admin.id, owner.organizationId);
   await checkoutSubscription(advisor.id, "advisor");
@@ -112,6 +124,10 @@ try {
   assertExactUsers((await listWorkspaceUsers(customerB.id)).map((user) => user.id), [customerB.id], "Customer workspace users should include only self.");
 
   const advisorOrganizations = await listOrganizations(advisor.id);
+  assert(
+    (await listOrganizations(owner.id)).some((organization) => organization.id === researchWorkspace.id && organization.name === "Research Desk Prime"),
+    "Owner organizations should include patched workspace create/update.",
+  );
   assert(
     advisorOrganizations.some((organization) => organization.id === advisorUser.organizationId || organization.id === owner.organizationId),
     "Advisor should see own workspace.",

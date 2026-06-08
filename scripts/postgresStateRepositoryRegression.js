@@ -3,6 +3,7 @@ import {
   postgresPlatformTenantScope,
   postgresRepositoryInfo,
   postgresRestrictedTenantScope,
+  patchStateToPostgresClient,
   readScopedStateFromPostgresClient,
   readStateFromPostgresClient,
   writeStateToPostgresClient,
@@ -35,7 +36,12 @@ class FakePostgresClient {
     }
 
     if (/^DELETE FROM/u.test(statement)) {
-      this.tables[tableNameFrom(statement)] = new Map();
+      const tableName = tableNameFrom(statement);
+      if (statement.includes("WHERE record_id = $1")) {
+        this.tables[tableName]?.delete(String(params[0]));
+      } else {
+        this.tables[tableName] = new Map();
+      }
       return { rows: [] };
     }
 
@@ -43,6 +49,9 @@ class FakePostgresClient {
       const tableName = tableNameFrom(statement);
       if (!this.tables[tableName]) {
         this.tables[tableName] = new Map();
+      }
+      if (this.tables[tableName].has(String(params[0])) && !statement.includes("ON CONFLICT")) {
+        throw new Error(`duplicate key value violates unique constraint ${tableName}_pkey`);
       }
       this.tables[tableName].set(String(params[0]), {
         record_id: String(params[0]),
@@ -149,6 +158,80 @@ assertEqual(secondRead.users.length, 1, "Non-append collections should match lat
 assertEqual(secondRead.users[0].id, customer.id, "Whole-state write should remove non-append records not present anymore.");
 assertEqual(secondRead.auditEvents.length, 2, "Append-only audit events should not be deleted by a later write.");
 assertIncludes(secondRead.auditEvents.map((event) => event.id), [eventOne.id, eventTwo.id], "Append-only table should retain old and new audit events.");
+
+const patchClient = new FakePostgresClient();
+const seedSession = {
+  id: "session_seed",
+  userId: owner.id,
+  createdAt: "2026-06-04T06:35:00.000Z",
+  expiresAt: "2026-06-05T06:35:00.000Z",
+};
+await writeStateToPostgresClient(patchClient, {
+  organizations: [organization],
+  users: [owner],
+  sessions: [seedSession],
+  auditEvents: [eventOne],
+});
+const patchQueryStart = patchClient.queries.length;
+const patchResult = await patchStateToPostgresClient(patchClient, {
+  operations: [
+    {
+      type: "upsert",
+      collection: "users",
+      record: {
+        ...owner,
+        lastLoginAt: "2026-06-04T07:00:00.000Z",
+      },
+    },
+    {
+      type: "append",
+      collection: "sessions",
+      record: {
+        id: "session_patch",
+        userId: owner.id,
+        createdAt: "2026-06-04T07:01:00.000Z",
+        expiresAt: "2026-06-05T07:01:00.000Z",
+      },
+    },
+    {
+      type: "delete",
+      collection: "sessions",
+      key: seedSession.id,
+    },
+    {
+      type: "append",
+      collection: "auditEvents",
+      record: eventTwo,
+    },
+  ],
+});
+const patchQueries = patchClient.queries.slice(patchQueryStart);
+const patchedRead = await readStateFromPostgresClient(patchClient);
+
+assertEqual(patchResult.summary.upserted, 1, "Postgres patch should report one upsert.");
+assertEqual(patchResult.summary.appended, 2, "Postgres patch should report two appends.");
+assertEqual(patchResult.summary.deleted, 1, "Postgres patch should report one delete.");
+assertEqual(patchedRead.users[0].lastLoginAt, "2026-06-04T07:00:00.000Z", "Postgres patch should upsert the user record.");
+assertIncludes(patchedRead.sessions.map((session) => session.id), ["session_patch"], "Postgres patch should append the new session.");
+assert(!patchedRead.sessions.some((session) => session.id === seedSession.id), "Postgres patch should delete only the targeted session.");
+assertEqual(patchedRead.auditEvents.length, 2, "Postgres patch should append an audit event.");
+assert(patchQueries.some((query) => query.startsWith('INSERT INTO "users"') && query.includes("ON CONFLICT")), "Postgres patch should use table-level upsert for users.");
+assert(patchQueries.some((query) => query === 'DELETE FROM "user_sessions" WHERE record_id = $1'), "Postgres patch should delete sessions by record id.");
+assert(!patchQueries.some((query) => query === 'DELETE FROM "users"'), "Postgres patch should not clear the users table.");
+assert(!patchQueries.some((query) => query === 'DELETE FROM "user_sessions"'), "Postgres patch should not clear the sessions table.");
+
+await expectReject(
+  () => patchStateToPostgresClient(patchClient, {
+    operations: [{ type: "append", collection: "auditEvents", record: eventTwo }],
+  }),
+  "Postgres patch should reject duplicate appends before writing.",
+);
+await expectReject(
+  () => patchStateToPostgresClient(patchClient, {
+    operations: [{ type: "upsert", collection: "auditEvents", record: eventTwo }],
+  }),
+  "Postgres patch should reject append-only upserts.",
+);
 
 const scopedClient = new FakePostgresClient();
 const advisorOrganization = {
@@ -272,6 +355,7 @@ await expectReject(
 const info = postgresRepositoryInfo();
 assertEqual(info.adapter, "postgres", "Repository info should identify the postgres adapter.");
 assertEqual(info.productionReady, false, "Postgres adapter should not be production ready without DATABASE_URL.");
+assertEqual(info.patchWriteMode, "collection_level_transaction", "Repository info should expose Postgres collection-level patch write mode.");
 assertIncludes(info.bootstrapTables, ["users", "audit_events"], "Repository info should list bootstrap tables.");
 
 process.env.DATABASE_URL = "postgres://stockflix@example.test:5432/stockflix";
@@ -286,6 +370,12 @@ console.log(JSON.stringify({
   tables: Object.keys(client.tables).sort(),
   usersAfterRewrite: secondRead.users.length,
   auditEventsAfterRewrite: secondRead.auditEvents.length,
+  patchWrite: {
+    upserted: patchResult.summary.upserted,
+    appended: patchResult.summary.appended,
+    deleted: patchResult.summary.deleted,
+    sessionCount: patchedRead.sessions.length,
+  },
   scopedRead: {
     users: scopedRead.users.length,
     organizations: scopedRead.organizations.length,
