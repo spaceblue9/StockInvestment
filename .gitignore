@@ -29,3 +29,5 @@ data/audit-external-receipts.ndjson
 !data/uploads/.gitkeep
 !data/outputs/.gitkeep
 .npm-cache/
+portfolio_eak.xlsx
+portfolio_aom.xlsx
