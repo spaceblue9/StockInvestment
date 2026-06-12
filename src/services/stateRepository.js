@@ -10,15 +10,24 @@ import {
   readScopedPostgresAppState,
   writePostgresAppState,
 } from "./postgresStateRepository.js";
+import {
+  readScopedSQLiteAppState,
+  readSQLiteAppState,
+  sqliteRepositoryInfo,
+  writeSQLiteAppState,
+} from "./sqliteStateRepository.js";
 import { applyStatePatch, statePatchCapabilities } from "./statePatchService.js";
 
 const STATE_FILE = path.join(DATA_DIR, "app-state.json");
-const SUPPORTED_REPOSITORIES = ["local_file", "postgres"];
+const SUPPORTED_REPOSITORIES = ["local_file", "sqlite", "postgres"];
 
 export async function readAppState(options = {}) {
   const adapter = assertSupportedRepository();
   if (adapter === "postgres") {
     return readPostgresAppState(options);
+  }
+  if (adapter === "sqlite") {
+    return readSQLiteAppState(options);
   }
 
   ensureDataDirs();
@@ -36,6 +45,9 @@ export async function readScopedAppState(tenantScope, options = {}) {
   if (adapter === "postgres") {
     return readScopedPostgresAppState(tenantScope, options);
   }
+  if (adapter === "sqlite") {
+    return readScopedSQLiteAppState(tenantScope, options);
+  }
 
   return readAppState(options);
 }
@@ -51,6 +63,10 @@ export async function writeAppState(state) {
 
   if (adapter === "postgres") {
     await writePostgresAppState(state);
+    return;
+  }
+  if (adapter === "sqlite") {
+    await writeSQLiteAppState(state);
     return;
   }
 
@@ -81,6 +97,8 @@ export function stateRepositoryInfo() {
   const auditTrail = auditTrailInfo();
   const adapterInfo = adapter === "postgres"
     ? postgresRepositoryInfo()
+    : adapter === "sqlite"
+      ? sqliteRepositoryInfo()
     : {
       adapter,
       engine: adapter,
@@ -98,11 +116,19 @@ export function stateRepositoryInfo() {
       externalProvider: auditTrail.externalProvider,
     },
     supportedAdapters: SUPPORTED_REPOSITORIES,
-    migrationTarget: adapter === "postgres" ? "postgres_state_repository" : "production_database_repository",
+    migrationTarget: adapter === "postgres"
+      ? "postgres_state_repository"
+      : adapter === "sqlite"
+        ? "sqlite_trial_repository"
+        : "production_database_repository",
     scopedReads: adapter === "postgres" ? "query_level_sql_where" : "service_level_filtering_only",
     patchWrites: {
       available: true,
-      mode: adapter === "postgres" ? "collection_level_postgres_transaction" : "logical_patch_then_local_file_write",
+      mode: adapter === "postgres"
+        ? "collection_level_postgres_transaction"
+        : adapter === "sqlite"
+          ? "logical_patch_then_sqlite_write"
+          : "logical_patch_then_local_file_write",
       capabilities: statePatchCapabilities(),
     },
   };

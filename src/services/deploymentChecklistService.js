@@ -11,6 +11,33 @@ const REQUIRED_STRIPE_ENV = [
 ];
 const SECRET_PATTERN = /SECRET|PASSWORD|TOKEN|KEY|DATABASE_URL/u;
 const DEFAULT_PAYMENT_WEBHOOK_SECRET = "stockflix-local-webhook-secret";
+const ADVISOR_CATEGORY_ORDER = ["environment", "database", "payment", "audit", "backup", "quality"];
+const ADVISOR_CATEGORY_LABELS = {
+  environment: "Hosting environment",
+  database: "Production database",
+  payment: "Payment gateway",
+  audit: "Audit retention",
+  backup: "Backup and restore",
+  quality: "Quality gate",
+};
+const CHECK_CATEGORY = {
+  node_env: "environment",
+  port: "environment",
+  state_repository: "database",
+  database_url: "database",
+  database_ssl_mode: "database",
+  payment_gateway_provider: "payment",
+  stripe_configuration: "payment",
+  local_gateway_webhook_secret: "payment",
+  external_audit_provider: "audit",
+  external_audit_required: "audit",
+  external_audit_config: "audit",
+  postgres_backup_strategy: "backup",
+  postgres_backup_retention: "backup",
+  ci_quality: "quality",
+  ops_readiness: "quality",
+  python_parity: "quality",
+};
 
 export function buildProductionDeploymentChecklist(options = {}) {
   const env = options.env || process.env;
@@ -89,6 +116,33 @@ export function renderProductionDeploymentChecklistText(checklist) {
   ];
 
   return `${lines.join("\n")}\n`;
+}
+
+export function buildProductionEnvironmentAdvisor(options = {}) {
+  const checklist = options.checklist || buildProductionDeploymentChecklist(options);
+  const blockers = checklist.checks.filter((check) => check.severity === "blocker").map(advisorCheck);
+  const warnings = checklist.checks.filter((check) => check.severity === "warning").map(advisorCheck);
+  const nextCheck = blockers[0] || warnings[0] || null;
+
+  return {
+    version: "stockflix-production-environment-advisor-v1",
+    generatedAt: checklist.generatedAt,
+    status: checklist.status,
+    productionReady: checklist.status === "ready",
+    healthLabel: productionHealthLabel(checklist.status),
+    plainLanguageSummary: productionPlainLanguageSummary(checklist.status, checklist.summary),
+    nextAction: nextCheck
+      ? `${nextCheck.severity === "blocker" ? "Fix blocker" : "Review warning"}: ${nextCheck.message}`
+      : "Production environment is ready. Keep CI, backup, monitoring, and rollback evidence attached to the release.",
+    summary: checklist.summary,
+    blockers,
+    warnings,
+    groups: buildAdvisorGroups(checklist.checks),
+    commands: ["npm run deployment:check -- --format text --strict", ...checklist.preflightCommands],
+    releaseChecklist: checklist.releaseChecklist,
+    rollbackChecklist: checklist.rollbackChecklist,
+    sanitizedEnvironment: checklist.sanitizedEnvironment,
+  };
 }
 
 function environmentChecks(env) {
@@ -251,6 +305,59 @@ function sanitizedEnvironment(env) {
 
 function check(id, severity, message) {
   return { id, severity, message };
+}
+
+function buildAdvisorGroups(checks) {
+  const grouped = new Map(ADVISOR_CATEGORY_ORDER.map((category) => [category, []]));
+  for (const checkItem of checks) {
+    const category = CHECK_CATEGORY[checkItem.id] || "quality";
+    if (!grouped.has(category)) {
+      grouped.set(category, []);
+    }
+    grouped.get(category).push(checkItem);
+  }
+
+  return Array.from(grouped.entries())
+    .filter(([, groupChecks]) => groupChecks.length)
+    .map(([category, groupChecks]) => {
+      const blockerCount = groupChecks.filter((item) => item.severity === "blocker").length;
+      const warningCount = groupChecks.filter((item) => item.severity === "warning").length;
+      return {
+        id: category,
+        label: ADVISOR_CATEGORY_LABELS[category] || category,
+        status: blockerCount > 0 ? "blocked" : warningCount > 0 ? "needs_review" : "ready",
+        blockerCount,
+        warningCount,
+        okCount: groupChecks.filter((item) => item.severity === "ok").length,
+        checks: groupChecks.map(advisorCheck),
+      };
+    });
+}
+
+function advisorCheck(checkItem) {
+  return {
+    id: checkItem.id,
+    severity: checkItem.severity,
+    message: checkItem.message,
+  };
+}
+
+function productionHealthLabel(status) {
+  return {
+    ready: "Ready for production",
+    needs_review: "Needs review",
+    blocked: "Blocked for production",
+  }[status] || "Needs review";
+}
+
+function productionPlainLanguageSummary(status, summary = {}) {
+  if (status === "ready") {
+    return "Core production environment checks are ready for paid subscription traffic.";
+  }
+  if (status === "needs_review") {
+    return `Production can move forward only after reviewing ${summary.warnings || 0} warning(s).`;
+  }
+  return `Production launch is blocked by ${summary.blockers || 0} blocker(s). Fix these before charging real customers.`;
 }
 
 function normalizePaymentProvider(provider) {

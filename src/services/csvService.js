@@ -9,6 +9,10 @@ export function toCsv(rows) {
       return "";
     }
 
+    if (typeof value === "number" && Number.isNaN(value)) {
+      return "";
+    }
+
     const text = String(value);
     if (/[",\r\n]/.test(text)) {
       return `"${text.replaceAll('"', '""')}"`;

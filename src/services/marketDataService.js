@@ -1,22 +1,33 @@
 import fs from "fs/promises";
 import { toCsv } from "./csvService.js";
+import { buildLiveMarketCoverageReport, writeLiveMarketCoverageReport } from "./marketCoverageService.js";
 import { enrichWithReferenceData, loadReferenceMarketData } from "./referenceDataService.js";
 
 export async function fetchThaiMarketData(symbols, options = {}) {
   const {
+    coverageReportFile,
     outputFile,
     logger = () => {},
+    onCoverageReport,
   } = options;
 
   const rows = [];
   const referenceBySymbol = await loadReferenceMarketData();
 
   for (const symbol of symbols) {
+    const normalizedSymbol = String(symbol).trim().toUpperCase();
+    const referenceRow = referenceBySymbol.get(normalizedSymbol);
     try {
       const row = await fetchThaiMarketDataForSymbol(symbol, {
-        referenceRow: referenceBySymbol.get(String(symbol).trim().toUpperCase()),
+        referenceRow,
       });
       if (!row || !row.Price) {
+        if (referenceRow) {
+          rows.push(referenceFallbackRow(normalizedSymbol, referenceRow));
+          logger(`[~] ${symbol}: Using reference fallback because live price was unavailable`);
+          continue;
+        }
+
         logger(`[-] ${symbol}: No price data, skipping`);
         continue;
       }
@@ -24,12 +35,35 @@ export async function fetchThaiMarketData(symbols, options = {}) {
       rows.push(row);
       logger(`[+] ${symbol}: Success`);
     } catch (error) {
+      if (referenceRow) {
+        rows.push(referenceFallbackRow(normalizedSymbol, referenceRow));
+        logger(`[~] ${symbol}: Using reference fallback after live fetch failed (${error.message})`);
+        continue;
+      }
+
       logger(`[-] ${symbol}: Failed (${error.message})`);
     }
   }
 
-  if (outputFile) {
+  if (outputFile && rows.length > 0) {
     await fs.writeFile(outputFile, toCsv(rows), "utf8");
+  }
+
+  if (coverageReportFile || onCoverageReport) {
+    const coverageReport = buildLiveMarketCoverageReport(rows, {
+      referenceBySymbol,
+      referenceFile: "data/reference/market-reference-master.json -> recommended_stocks.csv",
+      targetFile: outputFile || null,
+      publicTargetFile: outputFile ? "raw_CSV.csv" : null,
+    });
+
+    if (coverageReportFile) {
+      await writeLiveMarketCoverageReport(coverageReport, coverageReportFile);
+    }
+
+    if (onCoverageReport) {
+      onCoverageReport(coverageReport);
+    }
   }
 
   return rows;
@@ -68,6 +102,13 @@ export async function fetchThaiMarketDataForSymbol(symbol, options = {}) {
     Volume: currentVolume,
     Avg_Vol_10D: avgVol10d,
   }, referenceRow);
+}
+
+function referenceFallbackRow(symbol, referenceRow) {
+  return {
+    ...referenceRow,
+    Symbol: symbol,
+  };
 }
 
 export function calculateRsi(prices, window = 14) {

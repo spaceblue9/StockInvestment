@@ -33,6 +33,7 @@ Web App รองรับความสามารถหลักเหล่
 - มี storage readiness report สำหรับเตรียมย้ายจาก local file ไป production database
 - มี state repository layer สำหรับแยกการอ่าน/เขียน state ออกจาก business service
 - มี state patch write foundation สำหรับ upsert/append/delete records ผ่าน repository boundary พร้อม append-only guard สำหรับ audit events และเริ่มใช้กับ account, portfolio snapshot, investor profile, payment, approval, workspace, team/admin และ auth session write flows สำคัญแล้ว
+- มี SQLite state adapter แบบ opt-in ผ่าน `APP_STATE_REPOSITORY=sqlite` และ `SQLITE_DATABASE_PATH` สำหรับทดลองระบบ/demo โดยไม่ต้องติดตั้ง database server
 - มี Postgres state adapter แบบ opt-in ผ่าน `APP_STATE_REPOSITORY=postgres` และ `DATABASE_URL`
 - Postgres adapter เริ่มรองรับ collection-level patch writes โดย map `upsert`, `append`, `delete` เป็น table-level transaction สำหรับ `patchAppState()`
 - มี Postgres scoped read helper สำหรับบังคับ tenant filter ใน SQL query ก่อนดึง JSONB record
@@ -41,15 +42,21 @@ Web App รองรับความสามารถหลักเหล่
 - มี backup/restore drill สำหรับ local state, audit mirror และ external audit receipts พร้อม checksum และ confirm guard
 - มี Postgres patch write staging validation runbook แบบ dry-run สำหรับตรวจ readiness, secret masking, patch smoke plan, scoped read verification และ rollback plan ก่อนใช้ database จริง
 - มี Postgres patch smoke harness แบบ dry-run-first สำหรับ staging canary writes พร้อม `--confirm` guard, evidence output และ secret masking
-- มี Launch Evidence Center ใน Business dashboard สำหรับ owner/admin เพื่อรวม command/evidence ก่อนเปิดขายจริง โดย frontend ไม่รันคำสั่งและ API ไม่เปิดเผย secret
+- มี Launch Evidence Center ใน Business dashboard สำหรับ owner/admin เพื่อรวม command/evidence ก่อนเปิดขายจริง โดย frontend ไม่รันคำสั่งและ API ไม่เปิดเผย secret รวมถึง reference master freshness/migration readiness ก่อน go-live
+- มี Reference Master Review ใน Business dashboard สำหรับ owner/admin เพื่อรีวิวหุ้นที่ `reviewStatus = needs_review`, แก้ `Sector`, `PE`, `ROE`, `Yield`, `D/E`, ดู freshness/stale data และบันทึก audit action `reference_master.review`
+- มี reference master database adapter foundation สำหรับ Postgres table plan, record-level upsert, migration dry-run และ freshness report โดย regression ใช้ fake client ไม่ต้องต่อ database จริง
+- มี reference master staging migration guard สำหรับ dry-run-first, `--confirm` execution, staging/backup/plan-reviewed guards, evidence output และ secret masking ก่อนเขียน database จริง
 - มี production deployment checklist แบบ dry-run สำหรับตรวจ env, Postgres, Stripe, webhook, external audit, backup และ CI gate โดย mask secret เสมอ
 - มี append-only audit trail mirror แบบ local NDJSON สำหรับเตรียมต่อยอดเป็น external immutable audit storage
 - เก็บ investor onboarding profile ของลูกค้า
 - บันทึก portfolio snapshot ของลูกค้า
+- มีปุ่ม Download portfolio/watchlist template ให้ผู้ใช้โหลดไฟล์ไปกรอกเองก่อน upload โดย watchlist template มีคำอธิบายแบบ `#` ที่ระบบข้ามให้
 - Upload watchlist เป็นไฟล์ `.txt`
 - Upload portfolio เป็นไฟล์ `.xlsx` หรือ `.xls`
 - ดึงข้อมูลราคาหุ้นไทยด้วย ticker `.BK`
-- สร้าง `siamchart_raw.csv`
+- ถ้า live market fetch ล้มแต่มี symbol ใน reference data ระบบจะใช้ reference fallback เพื่อให้ Portfolio ยังมีข้อมูลแทนการกลายเป็นหน้าว่าง
+- ถ้า fetch market rows ไม่ได้เลย ระบบจะหยุด run, ไม่เขียนทับ raw/recommended output เดิมด้วยไฟล์ว่าง และไม่ save snapshot เปล่าทับพอร์ตล่าสุด
+- สร้าง raw market CSV ภายในเป็น `siamchart_raw.csv` เพื่อ compatibility กับ regression เดิม แต่ปุ่มดาวน์โหลดหน้าเว็บใช้ชื่อไฟล์ `raw_CSV.csv`
 - วิเคราะห์หุ้นและสร้าง `recommended_stocks.csv`
 - วิเคราะห์พอร์ตและสร้าง Excel report
 - แสดง Portfolio, Stock Screener, Sector Analysis และ Strategy Simulation บนหน้าเว็บ
@@ -90,12 +97,17 @@ npm run dev
 
 1. เปิดหน้า Web App
 2. สมัครสมาชิกหรือเข้าสู่ระบบ
-3. เลือกไฟล์ watchlist ถ้ามี
-4. เลือกไฟล์ portfolio ถ้ามี
-5. กด `Analyze my portfolio`
-6. รอระบบดึงข้อมูลและวิเคราะห์
-7. ดาวน์โหลดไฟล์ผลลัพธ์จาก link ที่แสดงบนหน้าเว็บ
-8. เลือก view ที่ต้องการดู:
+3. ถ้ายังไม่มีไฟล์ ให้กด `Download blank portfolio template` หรือ `Download watchlist guide template`
+4. กรอกไฟล์ template:
+   - Portfolio Excel ต้องมีคอลัมน์ `Symbol`, `Quantity`, `Avg_Price`
+   - Watchlist text ให้ใส่ ticker หุ้นไทยทีละบรรทัด เช่น `PTT` โดยไม่ต้องใส่ `.BK`
+   - ใน watchlist template บรรทัดที่ขึ้นต้นด้วย `#` เป็นคำอธิบาย ระบบจะข้ามบรรทัดเหล่านี้ตอนวิเคราะห์
+5. เลือกไฟล์ watchlist ถ้ามี
+6. เลือกไฟล์ portfolio ถ้ามี
+7. กด `Analyze my portfolio`
+8. รอ panel สถานะ `Analyzing your portfolio` ทำงานจนเสร็จ ระหว่างนี้ปุ่มจะเปลี่ยนเป็น `Analyzing...` และถูก disable เพื่อกันกดซ้ำ
+9. ดาวน์โหลดไฟล์ผลลัพธ์จาก link ที่แสดงบนหน้าเว็บ
+10. เลือก view ที่ต้องการดู:
    - `My Portfolio`
    - `Guide`
    - `Approvals`
@@ -104,16 +116,40 @@ npm run dev
    - `Strategy Simulation`
    - `Business` เฉพาะ owner account
 
+หมายเหตุ: การวิเคราะห์อาจใช้เวลาหลายวินาทีถึงหลายนาที เพราะระบบต้องดึงข้อมูลหุ้น, คำนวณคะแนน, สร้างรายงานพอร์ต และเตรียมไฟล์ดาวน์โหลด หากเห็น progress panel แสดงอยู่ แปลว่าระบบยังทำงาน ไม่ใช่ error
+
 ## Visual Dashboard
 
 Web App มี visual dashboard ในตัวโดยไม่ต้องติดตั้ง chart library เพิ่ม:
 
 - `My Portfolio`: sector exposure, action mix และ score distribution
-- `Stock Screener`: quality vs reward scatter, top ideas, sector/trend filter และ sector count ที่คลิกเพื่อ drilldown ตารางได้
+- `Stock Screener`: quality vs reward scatter, top ideas, sector/trend filter, beginner tooltip สำหรับอธิบายค่า filter และ sector count ที่คลิกเพื่อ drilldown ตารางได้
 - `Sector Analysis`: sector leaders, benchmark และ timing vs quality scatter
 - `Business`: customer funnel และ plan distribution สำหรับ owner account
 
 กราฟเหล่านี้ช่วยให้ผู้ใช้มือใหม่เห็นภาพรวมก่อนอ่านตารางรายละเอียด และยังคงข้อมูลตารางเดิมไว้สำหรับตรวจสอบเชิงลึก
+
+### Recommended actions controls
+
+ในหน้า `My Portfolio` ตาราง `Recommended actions` สามารถปรับมุมมองได้โดยไม่เปลี่ยนสูตรวิเคราะห์:
+
+- ค้นหา Symbol เพื่อดูหุ้นรายตัวเร็วขึ้น
+- กรองตาม Action เช่น `Urgent`, `Exit/Sell`, `Reduce`, `Buy/Accumulate`, `Wait` หรือ `Hold`
+- กรองตาม Sector, Trend และ Min Score
+- เลือก `Order by` เพื่อเรียงตาม Score, Market Value, Gain/Loss %, RRR, Price, Symbol หรือ Action Group
+- เปิด `Choose fields to display` เพื่อเพิ่ม/ลดคอลัมน์ที่แสดง เช่น เพิ่ม Market Value, P/E, ROE, D/E, RSI หรือซ่อน field ที่ยังไม่ต้องใช้
+
+ค่าเริ่มต้นของตารางจะเรียงตาม Score จากมากไปน้อย เพื่อให้มือใหม่เห็นหุ้นที่ระบบให้คะแนนสูงก่อน แต่สามารถเปลี่ยนเป็นมุมมองตามมูลค่าพอร์ตหรือกำไรขาดทุนได้ทันที
+
+### Screener tooltip สำหรับมือใหม่
+
+หน้า `Stock Screener` มีปุ่ม `?` ข้าง filter หลักเพื่ออธิบายภาษาง่าย:
+
+- `Min Score`: คะแนนรวมคุณภาพ/ความคุ้มค่า/จังหวะราคา มือใหม่ลอง 60+ และคัดเข้มที่ 70+
+- `Min RRR`: reward เทียบกับ risk มือใหม่ลอง 1.5+ และคัดเข้มที่ 2.0+
+- `Max D/E`: หนี้เทียบทุน มือใหม่ลองไม่เกิน 1.0 และระวังมากขึ้นที่ไม่เกิน 0.7 โดยต้องเทียบกับ sector เดียวกัน
+- `Sector`: กลุ่มธุรกิจ ควรเริ่มจากกลุ่มที่เข้าใจและไม่กระจุกทั้งพอร์ต
+- `Trend`: จังหวะราคา ใช้เป็นข้อมูลประกอบ ไม่ใช่การรับประกันว่าราคาจะขึ้นต่อ
 
 ## Guide สำหรับผู้เริ่มต้น
 
@@ -171,7 +207,10 @@ Web App มี visual dashboard ในตัวโดยไม่ต้องต
 - advisor assignments
 - activity events
 - team/client workspace
+- Production Environment Advisor สำหรับดู production env readiness, blocker/warning, env group, next action และ preflight command แบบไม่แสดง secret
+- Portfolio Data Health สำหรับตรวจ saved portfolio snapshot ที่ healthy/repairable/skipped และ command recovery แบบ dry-run-first
 - Launch Evidence Center สำหรับ go-live evidence เช่น CI quality, Postgres backup/import, patch validation, patch smoke, deployment checklist, ops alerts และ audit evidence
+- Reference Master Review สำหรับดูจำนวน reference rows, rows ที่ต้อง review, rows ที่ stale, queue หุ้นที่ข้อมูลพื้นฐานยังขาด และปุ่มบันทึกค่าที่ owner/admin ยืนยันแล้ว
 
 ## Launch Evidence Center
 
@@ -185,6 +224,8 @@ Web App มี visual dashboard ในตัวโดยไม่ต้องต
 - production deployment checklist
 - operational alert delivery
 - audit integrity / audit trail evidence
+- reference master freshness review
+- reference master migration readiness
 
 API ที่ใช้:
 
@@ -200,7 +241,41 @@ GET /api/admin/launch-evidence/export?format=text
 - output sanitize `DATABASE_URL` และ key/secret ทุกตัว
 - customer/advisor ไม่มีสิทธิ์เรียก API นี้
 - ใช้ env marker เช่น `LAUNCH_EVIDENCE_CI_QUALITY_DONE=true`, `POSTGRES_PATCH_VALIDATION_READY=true`, `LAUNCH_EVIDENCE_PATCH_SMOKE_DONE=true` เพื่อบันทึกว่า evidence แต่ละข้อพร้อมแล้วใน staging/deploy environment
+- Reference Master evidence ใช้ marker สำคัญคือ `REFERENCE_MASTER_FRESHNESS_REVIEWED=true`, `REFERENCE_MASTER_FRESHNESS_REPORT_EVIDENCE=<report-id>`, `REFERENCE_MASTER_MIGRATION_DRY_RUN_REVIEWED=true`, `REFERENCE_MASTER_MIGRATION_STAGING_READY=true`, `REFERENCE_MASTER_MIGRATION_BACKUP_EVIDENCE=<backup-id>` และ `REFERENCE_MASTER_MIGRATION_SIGNED_OFF=true`
+- ถ้า `REFERENCE_MASTER_MIGRATION_SIGNED_OFF=true` แต่ marker บังคับอย่าง backup evidence หรือ staging readiness ยังขาด ระบบจะแสดง `blocked` เพื่อกัน owner/admin อนุมัติ go-live จากหลักฐานไม่ครบ
 - owner/admin สามารถกด `Copy sign-off pack` เพื่อ copy text pack หรือ `Download JSON` เพื่อเก็บ evidence pack ที่มี generated/exported time, status summary, evidence items, preflight commands, sanitized environment และ guardrails
+- ทุก export ที่สำเร็จจะบันทึก audit action `launch_evidence.export` พร้อม format, launch status, evidence summary และ sanitized environment เพื่อให้ดูย้อนหลังใน Recent activity ได้
+
+## Portfolio Data Health
+
+หน้า `Business` ของ owner/admin มี Portfolio Data Health เพื่อช่วย support กรณีลูกค้าเห็นหน้า Portfolio ว่างหรือมี `No Data`:
+
+- แสดงจำนวน saved portfolio snapshots ทั้งหมด, healthy, zero market, repairable, skipped และ empty
+- แสดงสถานะอ่านง่าย เช่น `Healthy`, `Needs recovery` หรือ `Needs reference`
+- แสดง customer name, email, workspace, plan และ subscription status เพื่อให้ทีม support ตามเรื่องได้โดยไม่ต้องไล่หา user id เอง
+- ค้นหาด้วยชื่อ/email/workspace/plan, filter ตาม status และเรียงตาม generated date/status/customer/workspace/market value ได้จากหน้าเว็บ
+- แสดง command ที่ควรรันจาก terminal แบบ dry-run ก่อนเสมอ
+- มีปุ่ม `Download health CSV` เพื่อ export health report ไปเก็บเป็นหลักฐาน support/recovery review
+- ไม่เขียนข้อมูลจริงจากหน้าเว็บ เพราะการกู้ snapshot เป็น operation ที่ควรตรวจผล dry-run ก่อนใช้ `--confirm`
+
+API สำหรับ owner/admin:
+
+```text
+GET /api/admin/portfolio-health
+GET /api/admin/portfolio-health/export
+```
+
+customer/advisor ไม่มีสิทธิ์เรียก API นี้ และ response เป็น read-only summary เท่านั้น การ export CSV จะบันทึก audit action `portfolio_health.export` เฉพาะ metadata เช่นจำนวน snapshot/status ไม่บันทึกรายละเอียดลูกค้าลง audit details หากพบ `repairableSnapshots > 0` ให้รัน dry-run ก่อน:
+
+```bash
+npm run portfolio:recover-zero-market -- --format text
+```
+
+หลังตรวจผลแล้วจึงใช้ `--confirm`:
+
+```bash
+npm run portfolio:recover-zero-market -- --confirm --format text
+```
 
 ## Role และ Advisor Workspace
 
@@ -376,10 +451,19 @@ data/outputs/
 
 ไฟล์สำคัญ:
 
-- `siamchart_raw.csv`: ข้อมูลตลาดดิบ
+- `siamchart_raw.csv`: ข้อมูลตลาดดิบภายในระบบสำหรับ compatibility/regression; หากดาวน์โหลดจากหน้าเว็บจะได้ชื่อไฟล์ `raw_CSV.csv`
 - `recommended_stocks.csv`: ผลวิเคราะห์หุ้นและคะแนน
+- `live_market_coverage_report.json`: รายงานตรวจว่า live output หลัง fallback ยังขาด `Sector`, `PE`, `ROE`, `Yield`, `D/E` ตรงไหน โดย `source.targetFile` ใช้ชื่อ public `raw_CSV.csv` และ source metadata ใช้ชื่อไฟล์กลางแทน internal compatibility filename/absolute path
 - `{portfolio_name}_analysis_report.xlsx`: รายงานพอร์ต
 - `t10_comparison_report.json`: ผลเทียบกับ Python เดิมจากสคริปต์ validation
+
+Reference master สำหรับข้อมูลพื้นฐานจะอยู่ที่:
+
+```text
+data/reference/market-reference-master.json
+```
+
+ไฟล์นี้ถูก ignore จาก Git และใช้เป็น file-backed master ระหว่างเตรียม production database โดย runtime จะใช้ master ก่อน แล้ว fallback ไป `recommended_stocks.csv` เดิมหากยังไม่มี master หรือ master ยังขาดบาง field
 
 ข้อมูลสมาชิกและ portfolio snapshot จะถูกเก็บไว้ใน:
 
@@ -407,7 +491,15 @@ GET /api/storage/readiness
 - missing `organizationId` ใน tenant-scoped records
 - dangling references ระหว่าง user, workspace, billing, payment และ audit records
 
-Business dashboard แสดง `DB Readiness`, `DB Blockers` และ `Schema Version`
+Business dashboard แสดง `DB Readiness`, `DB Blockers`, `DB Store`, `DB Mode`, `Schema Version` และ Database Mode Advisor
+
+Database Mode Advisor ช่วยแปลค่าเทคนิคให้ owner/admin เข้าใจง่าย:
+
+- `Local file`: เหมาะกับ development/demo ในเครื่องเดียว ยังไม่ควรใช้กับลูกค้าจ่ายเงิน
+- `SQLite trial database`: เหมาะกับ trial/demo/UAT ที่อยากมี database ไฟล์เดียวโดยไม่ติดตั้ง server
+- `Postgres production database`: เป้าหมายสำหรับ production subscription, multi-tenant, backup และ monitoring
+
+Advisor จะแสดง current adapter, production readiness, write mode, scoped read mode, warning/blocker และ command ถัดไป เช่น `APP_STATE_REPOSITORY=sqlite ...`, `npm run sqlite:promote -- --dry-run`, `npm run postgres:backup-runbook -- --strict` หรือ `npm run deployment:check -- --strict` โดยไม่แสดง secret
 
 รายละเอียด schema และ migration path อยู่ที่ `docs/DATABASE_MIGRATION_FOUNDATION.md`
 
@@ -468,7 +560,42 @@ hmac_sha256(secret, "<timestamp>.<json-payload>")
 
 foundation นี้เป็น generic signed webhook จึงสามารถต่อเข้ากับ Slack/email/APM/uptime monitor ผ่าน bridge หรือ automation service ภายนอกได้ โดยยังไม่ผูกกับ provider เฉพาะเจ้าใน source code
 
-ระบบอ่าน/เขียน state ผ่าน `src/services/stateRepository.js` แล้ว โดย adapter ปัจจุบันคือ `local_file` เพื่อคง behavior เดิม และมี Postgres adapter แบบ opt-in สำหรับ production database path
+ระบบอ่าน/เขียน state ผ่าน `src/services/stateRepository.js` แล้ว โดย adapter default คือ `local_file` เพื่อคง behavior เดิม มี SQLite adapter แบบ opt-in สำหรับทดลองระบบ/demo และมี Postgres adapter แบบ opt-in สำหรับ production database path
+
+สำหรับทดลองระบบแบบมีฐานข้อมูลไฟล์เดียวโดยไม่ต้องติดตั้ง server:
+
+```bash
+APP_STATE_REPOSITORY=sqlite
+SQLITE_DATABASE_PATH=data/stockflix.sqlite
+```
+
+SQLite adapter ใช้ Node.js built-in `node:sqlite` ใน Node 22+ ซึ่งยังเป็น experimental module เหมาะกับ local trial, demo, pilot เล็ก หรือ UAT ที่ผู้ใช้ไม่เยอะ ไฟล์ `.sqlite` ถูก ignore จาก Git แล้วและไม่ควร commit ข้อมูลลูกค้าเข้า repository
+
+ถ้าทดลองด้วย SQLite แล้วต้องการย้ายข้อมูลไป Postgres ก่อนขึ้น production ให้ใช้ promotion command แบบ dry-run ก่อน:
+
+```bash
+npm run sqlite:promote -- --sqlite data/stockflix.sqlite --dry-run --format text
+```
+
+คำสั่งนี้จะอ่าน state จาก SQLite, ตรวจ storage readiness, สรุปจำนวน record ต่อ collection, mask `DATABASE_URL` และยังไม่เขียน Postgres จนกว่าจะใส่ `--confirm`
+
+ก่อนย้ายจริงต้องมีหลักฐานและ env เหล่านี้:
+
+```bash
+APP_STATE_REPOSITORY=postgres
+DATABASE_URL=postgres://user:password@host:5432/database
+SQLITE_TO_POSTGRES_PG_DRIVER_READY=true
+SQLITE_TO_POSTGRES_BACKUP_EVIDENCE=<snapshot-or-pgdump-id>
+SQLITE_TO_POSTGRES_PROMOTION_REVIEWED=true
+```
+
+เมื่อ review dry-run แล้วจึงรัน:
+
+```bash
+npm run sqlite:promote -- --sqlite data/stockflix.sqlite --confirm --format text
+```
+
+ข้อควรจำ: ให้ทดสอบคำสั่ง confirm ใน staging ก่อน production เสมอ และต้องมี snapshot/pg_dump ของ target Postgres ก่อนเขียนจริง
 
 ระบบมี Postgres state adapter แบบ opt-in สำหรับ production database path แล้ว โดยค่า default ยังเป็น local file:
 
@@ -681,6 +808,15 @@ npm run deployment:check -- --format json --strict
 
 output จะ sanitize `DATABASE_URL` และ key/secret ทุกตัวก่อนแสดงผลเสมอ คำสั่งนี้เป็น dry-run validation tool เท่านั้น ไม่ deploy, migrate, backup, restore หรือเรียก provider ภายนอกจริง
 
+หน้า `Business` ยังมี Production Environment Advisor ที่ reuse checklist เดียวกันเพื่อแปลผลให้ owner/admin อ่านง่ายขึ้น:
+
+- แสดงสถานะ `Ready`, `Needs review` หรือ `Blocked`
+- สรุปจำนวน blocker, warning และ checks ทั้งหมด
+- แสดง next action ที่ควรแก้ก่อน เช่น ตั้ง `APP_STATE_REPOSITORY=postgres`, ตั้ง `DATABASE_URL`, ตั้ง Stripe env หรือปรับ backup strategy
+- จัดกลุ่ม readiness เป็น Hosting environment, Production database, Payment gateway, Audit retention, Backup and restore และ Quality gate
+- แสดง preflight commands เช่น `npm run ci:quality`, `npm run deployment:check -- --strict`, Postgres backup/import/patch validation/patch smoke และ ops alert dry-run
+- ไม่รันคำสั่งจาก browser และไม่แสดง raw secret เพราะข้อมูลมาจาก sanitized server-side checklist
+
 ## Subscription Prototype
 
 ระบบมี plan ตัวอย่าง:
@@ -845,7 +981,13 @@ npm run test:storage-readiness
 npm run test:state-repository
 ```
 
-ชุดนี้ตรวจว่า local file adapter อ่าน/เขียน state ผ่าน repository boundary ได้และไม่แตะข้อมูล demo จริง
+ชุดนี้ตรวจว่า local file adapter อ่าน/เขียน state ผ่าน repository boundary ได้, SQLite adapter เลือกผ่าน env แล้ว read/write/patch ได้จริง, Postgres adapter ยัง selectable/fail-fast ตามเดิม และไม่แตะข้อมูล demo จริง
+
+```bash
+npm run test:sqlite-promotion
+```
+
+ชุดนี้ตรวจ SQLite -> Postgres promotion dry-run, guardrail เมื่อไม่มี backup evidence, secret masking และ confirm path ผ่าน fake Postgres client โดยไม่แตะฐานข้อมูลจริง
 
 ตรวจ state patch write foundation:
 
@@ -943,11 +1085,27 @@ npm run test:postgres-patch-smoke
 
 ```bash
 npm run test:frontend-auth
+npm run test:analysis-portfolio-flow
+npm run test:portfolio-recovery
 npm run test:launch-evidence
 npm run test:web-smoke
 ```
 
-ชุด frontend authenticated smoke ตรวจว่า owner เรียก `/api/admin/launch-evidence` ได้, customer ถูกปฏิเสธ และ output mask `DATABASE_URL` ส่วน `test:launch-evidence` ตรวจสถานะ pending/blocked/ready, importer dry-run marker, JSON/text sign-off export, download headers, CSS command wrapping, responsive grid fallback และ owner/customer API guard โดยตรง ก่อนที่ web smoke จะตรวจ marker `Launch Evidence Center` / `data-launch-evidence-center` / export action ใน frontend bundle
+ชุด frontend authenticated smoke ตรวจว่า owner เรียก `/api/admin/launch-evidence` ได้, customer ถูกปฏิเสธ และ output mask `DATABASE_URL` ส่วน `test:analysis-portfolio-flow` ตรวจ upload portfolio/run analysis, reference fallback และ zero-row market fetch protection ส่วน `test:portfolio-recovery` ตรวจเครื่องมือกู้ snapshot ที่ market value เป็น 0 แบบ dry-run/confirm ใน temp state ส่วน `test:launch-evidence` ตรวจสถานะ pending/blocked/ready, importer dry-run marker, JSON/text sign-off export, download headers, export audit events, audit detail secret masking, CSS command wrapping, responsive grid fallback และ owner/customer API guard โดยตรง ก่อนที่ web smoke จะตรวจ marker `Launch Evidence Center` / `data-launch-evidence-center` / export action ใน frontend bundle
+
+ถ้าเคยมี snapshot ที่เกิดจากรอบ live market fetch ได้ 0 rows และหน้า Portfolio แสดง `No Data` สามารถตรวจแบบ dry-run ก่อน:
+
+```bash
+npm run portfolio:recover-zero-market -- --format text
+```
+
+ถ้า dry-run รายงานว่ามี snapshot ที่ซ่อมได้ และตรวจผลแล้วถูกต้อง ค่อยสั่งเขียนจริง:
+
+```bash
+npm run portfolio:recover-zero-market -- --confirm --format text
+```
+
+คำสั่งนี้จะสร้าง safety backup ของ `data/app-state.json` ก่อนเขียน และใช้ reference fallback จาก reference master/`recommended_stocks.csv` เพื่อ rehydrate portfolio rows
 
 ตรวจ production deployment checklist:
 
@@ -1003,13 +1161,128 @@ npm run test:approval-workflow
 npm run compare:python
 ```
 
+ชุดนี้ใช้ `siamchart_raw.csv` และ `recommended_stocks.csv` เป็น reference input/output แล้วให้ Node วิเคราะห์ซ้ำจาก raw input เดียวกัน โดยจะ fail หาก row count, required columns, formula outputs, sector aggregate outputs หรือ portfolio report outputs ต่างจาก contract เดิม
+
+### ตรวจ coverage ของ live market data
+
+```bash
+npm run market:coverage
+```
+
+คำสั่งนี้อ่าน raw market CSV ภายในจากการ run Web App ล่าสุด แล้วสร้าง `data/outputs/live_market_coverage_report.json` โดยไม่เขียนทับ `recommended_stocks.csv` หรือไฟล์ reference หลัก รายงานที่ export ให้ผู้ใช้จะใช้ชื่อ target แบบกลาง เช่น `raw_CSV.csv` แทนการแสดง path ภายใน
+
+รายงานนี้ช่วยตอบคำถามว่า live data จาก Node/Web App ยังต่างจาก Python เดิมตรงไหน โดยเฉพาะ field ที่ Yahoo chart endpoint ไม่ให้มาโดยตรง:
+
+- `Sector`
+- `PE`
+- `ROE`
+- `Yield`
+- `D/E`
+
+ค่าที่นับเป็น missing คือ `Unknown`, ค่าว่าง, `-`, `NaN` หรือเลข `0` หลังผ่าน fallback แล้ว รายงานจะมีจำนวน symbol ที่ยังไม่มี reference fallback, จำนวน field ที่ขาด, sample symbol ที่ได้รับผลกระทบ และคำแนะนำสำหรับ production เช่น ทำ reference master ใน database, เพิ่ม data source สำหรับ fundamental หรือทำ scheduled enrichment
+
+Regression สำหรับ logic นี้คือ:
+
+```bash
+npm run test:market-coverage
+```
+
+### สร้าง reference master สำหรับข้อมูลพื้นฐาน
+
+```bash
+npm run reference:import -- --dry-run
+npm run reference:import
+npm run reference:freshness -- --dry-run
+npm run reference:migrate -- --dry-run
+```
+
+คำสั่งนี้อ่าน `recommended_stocks.csv` แล้วสร้าง `data/reference/market-reference-master.json` พร้อม metadata ต่อ symbol ได้แก่ source, source row, lastUpdated, freshness status, review status และ missing fields โดยไม่เขียนทับ `recommended_stocks.csv`
+
+ถ้ามี master เดิมอยู่แล้ว คำสั่ง import จะไม่ overwrite อัตโนมัติ ให้ใช้ `--force` เฉพาะเมื่อยืนยันแล้วว่าต้องการสร้างใหม่:
+
+```bash
+npm run reference:import -- --force
+```
+
+Regression สำหรับ logic นี้คือ:
+
+```bash
+npm run test:reference-master
+npm run test:reference-master-admin
+npm run test:reference-master-database
+npm run test:reference-master-migration
+```
+
+Reference Master Review ใช้งานจากหน้า `Business` ของ owner/admin หลังจากมีไฟล์ `data/reference/market-reference-master.json` แล้ว โดยระบบจะแสดง queue ของ symbol ที่ต้องรีวิวและช่องแก้ค่าพื้นฐานสำคัญ:
+
+- `Sector`
+- `PE`
+- `ROE`
+- `Yield`
+- `D/E`
+
+API ที่ใช้:
+
+```text
+GET /api/admin/reference-master?limit=25
+POST /api/admin/reference-master/:symbol
+```
+
+เมื่อ owner/admin บันทึก symbol แล้ว ระบบจะอัปเดต metadata เป็น `source = owner_admin_review`, ตั้ง `reviewStatus` ตาม field ที่ยังขาด, ตั้ง `freshnessStatus = fresh`, เก็บผู้รีวิว/เวลารีวิว และบันทึก audit action `reference_master.review` เพื่อให้ตรวจย้อนหลังใน activity timeline ได้ ส่วน customer/advisor จะถูกปฏิเสธจาก API นี้
+
+Database adapter foundation สำหรับ production path เพิ่มไว้ใน `src/services/referenceMasterRepository.js` แล้ว โดยมี:
+
+- Postgres table plan ชื่อ `reference_master_records`
+- bootstrap SQL สำหรับ table และ indexes
+- record-level upsert/read helper ที่ทดสอบด้วย fake client
+- migration dry-run plan เพื่อบอกจำนวน rows ที่จะ upsert และ guardrails ก่อน import
+- freshness report สำหรับดู stale rows, needs review rows, missing fields และ recommendations
+
+คำสั่ง `npm run reference:freshness -- --dry-run` จะอ่าน `data/reference/market-reference-master.json` แล้วแสดง report พร้อม migration plan โดยไม่เขียนไฟล์ ถ้าไม่ใส่ `--dry-run` จะเขียน report ไปที่ `data/reference/reference-master-freshness-report.json` ซึ่งอยู่ในโฟลเดอร์ที่ Git ignore
+
+คำสั่ง staging migration guard คือ:
+
+```bash
+npm run reference:migrate -- --dry-run --repository-adapter postgres --database-url <staging-database-url> --ssl-mode require --node-env staging --staging-ready --backup-evidence <backup-id> --migration-plan-reviewed --format text --strict
+```
+
+ค่า default คือ dry-run และไม่เขียน database หากต้อง execute ใน staging ต้องเพิ่ม `--confirm` หลังตรวจ output แล้วเท่านั้น:
+
+```bash
+npm run reference:migrate -- --confirm --repository-adapter postgres --database-url <staging-database-url> --ssl-mode require --node-env staging --staging-ready --backup-evidence <backup-id> --migration-plan-reviewed
+```
+
+guard สำคัญของคำสั่งนี้:
+
+- ต้องตั้ง `REFERENCE_MASTER_REPOSITORY=postgres` หรือส่ง `--repository-adapter postgres`
+- ต้องมี `DATABASE_URL` ที่ถูกต้อง และ output จะ mask password เสมอ
+- ควรใช้ `DATABASE_SSL_MODE=require` หรือ `--ssl-mode require`
+- ถ้าเป็น `NODE_ENV=production` จะ block จนกว่าจะส่ง `--allow-production`
+- ถ้าจะ execute ต้องมี staging marker, backup evidence และ migration plan reviewed marker
+- evidence จะบอก source rows, planned upserts, before/after counts, needs review rows, stale rows และ verification checklist
+
+หลัง owner/admin รีวิวผล `reference:freshness` และ `reference:migrate -- --dry-run` แล้ว ให้ส่งหลักฐานเข้า Launch Evidence Center ด้วย env markers เหล่านี้:
+
+```bash
+REFERENCE_MASTER_FRESHNESS_REVIEWED=true
+REFERENCE_MASTER_FRESHNESS_REPORT_EVIDENCE=<freshness-report-id>
+REFERENCE_MASTER_MIGRATION_DRY_RUN_REVIEWED=true
+REFERENCE_MASTER_MIGRATION_STAGING_READY=true
+REFERENCE_MASTER_MIGRATION_BACKUP_EVIDENCE=<backup-or-restore-drill-id>
+REFERENCE_MASTER_MIGRATION_SIGNED_OFF=true
+```
+
+หน้า Business จะแสดงส่วน `Reference master launch evidence` เพื่อสรุป freshness/migration command, marker ที่ยังขาด และสถานะ readiness โดย frontend แสดงข้อมูลอย่างเดียว ไม่ execute คำสั่งจาก browser
+
+แนวทาง production ต่อจาก foundation นี้คือเชื่อม adapter เข้ากับ database จริงใน staging, ตั้ง scheduled refresh จาก source ที่เชื่อถือได้ และเพิ่ม source enrichment เพิ่มเติม
+
 ตรวจ regression สำคัญทั้งหมด:
 
 ```bash
 npm run test-regression
 ```
 
-คำสั่งนี้จะรัน syntax check, tenant access regression, scoped read regression, subscription lifecycle regression, storage readiness regression, state repository regression, state patch regression, Postgres repository regression, Postgres importer regression, audit trail regression, approval workflow regression, package entitlement regression, payment provider regression, external audit provider regression, backup/restore regression, observability regression, operational alert delivery regression, Postgres backup runbook regression, Postgres patch validation regression, Postgres patch smoke regression, deployment checklist regression, frontend viewport regression, authenticated frontend smoke regression, web smoke regression และเปรียบเทียบ output กับ Python เดิมต่อเนื่องกัน
+คำสั่งนี้จะรัน syntax check, tenant access regression, scoped read regression, subscription lifecycle regression, storage readiness regression, state repository regression, state patch regression, Postgres repository regression, Postgres importer regression, audit trail regression, approval workflow regression, package entitlement regression, payment provider regression, external audit provider regression, backup/restore regression, observability regression, operational alert delivery regression, Postgres backup runbook regression, Postgres patch validation regression, Postgres patch smoke regression, deployment checklist regression, frontend viewport regression, authenticated frontend smoke regression, launch evidence regression, market coverage regression, reference master regression, reference master admin regression, reference master database regression, reference master migration regression, web smoke regression และเปรียบเทียบ output กับ Python เดิมต่อเนื่องกัน
 
 ตรวจ quality gate แบบเดียวกับ CI:
 
@@ -1023,17 +1296,18 @@ GitHub Actions workflow อยู่ที่ `.github/workflows/quality-gate.ym
 
 ผล validation ล่าสุด:
 
-- raw rows ตรงกัน 108 rows
-- recommended rows ตรงกัน 108 rows
+- raw rows ตรงกัน 851 rows
+- recommended rows ตรงกัน 851 rows
 - raw missing columns: none
 - recommended missing columns: none
 - formula numeric mismatches: 0
 - formula text mismatches: 0
+- sector mismatches: 0
 - portfolio report sample mismatches: 0
 
 ## ข้อจำกัดสำคัญ
 
-ระบบ Node.js รุ่นนี้ใช้ Yahoo chart endpoint ซึ่งให้ข้อมูลราคา, 52-week range, volume และข้อมูลย้อนหลังสำหรับ RSI ได้ และจะใช้ `recommended_stocks.csv` เดิมเป็น reference fallback สำหรับข้อมูลพื้นฐานและ Sector ถ้ามี symbol นั้นอยู่ในไฟล์อ้างอิง
+ระบบ Node.js รุ่นนี้ใช้ Yahoo chart endpoint ซึ่งให้ข้อมูลราคา, 52-week range, volume และข้อมูลย้อนหลังสำหรับ RSI ได้ และจะใช้ `data/reference/market-reference-master.json` เป็น reference master ก่อน แล้ว fallback ไป `recommended_stocks.csv` เดิมสำหรับข้อมูลพื้นฐานและ Sector ถ้ามี symbol นั้นอยู่ในไฟล์อ้างอิง
 
 ข้อมูลพื้นฐานที่ใช้ fallback ได้แก่:
 
@@ -1044,9 +1318,9 @@ GitHub Actions workflow อยู่ที่ `.github/workflows/quality-gate.ym
 - D/E
 - Sector
 
-ถ้าไม่มี symbol ในไฟล์อ้างอิง ข้อมูลเหล่านี้จะเป็นค่า fallback เช่น `0` หรือ `Unknown` ดังนั้น live output จาก Node.js อาจต่างจาก Python เดิมที่ใช้ `yfinance` ซึ่งดึง fundamental fields ได้มากกว่า
+ถ้าไม่มี symbol ในไฟล์อ้างอิง ข้อมูลเหล่านี้จะเป็นค่า fallback เช่น `0` หรือ `Unknown` ดังนั้น live output จาก Node.js อาจต่างจาก Python เดิมที่ใช้ `yfinance` ซึ่งดึง fundamental fields ได้มากกว่า ให้ใช้ `live_market_coverage_report.json` เพื่อดูจำนวน field ที่ยังขาดหลัง fallback
 
-ถ้าใช้ `siamchart_raw.csv` เดิมเป็น input ร่วมกัน สูตร JavaScript เทียบกับ Python แล้วตรงกัน 0 mismatch ตามผล T10
+ถ้าใช้ `siamchart_raw.csv` เดิมเป็น input ร่วมกัน สูตร JavaScript เทียบกับ Python แล้วตรงกัน 0 mismatch ตามผล T63 ล่าสุด และ sector aggregate comparison ก็เป็น 0 mismatch เช่นกัน
 
 ## คำเตือนการลงทุน
 

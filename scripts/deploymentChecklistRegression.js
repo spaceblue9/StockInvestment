@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
+  buildProductionEnvironmentAdvisor,
   buildProductionDeploymentChecklist,
   renderProductionDeploymentChecklistText,
 } from "../src/services/deploymentChecklistService.js";
@@ -47,7 +48,14 @@ assert(readyChecklist.preflightCommands.some((command) => command.includes("impo
 assert(readyChecklist.preflightCommands.some((command) => command.includes("postgres:patch-validation")), "Checklist should include Postgres patch validation runbook.");
 assert(readyChecklist.preflightCommands.some((command) => command.includes("postgres:patch-smoke")), "Checklist should include Postgres patch smoke harness.");
 
+const readyAdvisor = buildProductionEnvironmentAdvisor({ checklist: readyChecklist });
+assertEqual(readyAdvisor.status, "ready", "Ready production advisor should be ready.");
+assertEqual(readyAdvisor.productionReady, true, "Ready production advisor should mark productionReady.");
+assert(readyAdvisor.groups.some((group) => group.id === "database" && group.status === "ready"), "Advisor should group database checks.");
+assert(readyAdvisor.commands.some((command) => command.includes("deployment:check")), "Advisor should expose preflight commands.");
+
 const readyJson = JSON.stringify(readyChecklist);
+const readyAdvisorJson = JSON.stringify(readyAdvisor);
 const readyText = renderProductionDeploymentChecklistText(readyChecklist);
 
 for (const secret of [
@@ -58,6 +66,7 @@ for (const secret of [
   "external-audit-prod-secret",
 ]) {
   assert(!readyJson.includes(secret), `Checklist JSON must not expose secret: ${secret}`);
+  assert(!readyAdvisorJson.includes(secret), `Advisor JSON must not expose secret: ${secret}`);
   assert(!readyText.includes(secret), `Checklist text must not expose secret: ${secret}`);
 }
 
@@ -88,6 +97,13 @@ assertHasCheck(blockedChecklist, "node_env", "warning");
 assertHasCheck(blockedChecklist, "local_gateway_webhook_secret", "warning");
 assertHasCheck(blockedChecklist, "postgres_backup_retention", "warning");
 
+const blockedAdvisor = buildProductionEnvironmentAdvisor({ checklist: blockedChecklist });
+assertEqual(blockedAdvisor.status, "blocked", "Blocked production advisor should be blocked.");
+assertEqual(blockedAdvisor.productionReady, false, "Blocked production advisor should not mark productionReady.");
+assert(blockedAdvisor.blockers.length >= 4, "Blocked advisor should expose blocker summaries.");
+assert(blockedAdvisor.groups.some((group) => group.id === "database" && group.status === "blocked"), "Advisor should mark database group blocked.");
+assert(blockedAdvisor.nextAction.includes("Fix blocker"), "Blocked advisor should explain the next blocker action.");
+
 const blockedText = renderProductionDeploymentChecklistText(blockedChecklist);
 assert(blockedText.includes("blocked"), "Blocked text should include blocked status.");
 assert(!blockedText.includes("stockflix-local-webhook-secret"), "Blocked text must mask default local secret.");
@@ -117,6 +133,7 @@ console.log(JSON.stringify({
   blockedStatus: blockedChecklist.status,
   readyChecks: readyChecklist.summary.totalChecks,
   blockedBlockers: blockedChecklist.summary.blockers,
+  advisorGroups: readyAdvisor.groups.length,
 }, null, 2));
 
 function assertHasCheck(checklist, id, severity) {

@@ -11,6 +11,11 @@ const authMessage = document.querySelector("#authMessage");
 const nameField = document.querySelector("#nameField");
 const logoutButton = document.querySelector("#logoutButton");
 const analysisForm = document.querySelector("#analysisForm");
+const analysisSubmitButton = document.querySelector("#analysisSubmitButton");
+const analysisStatusPanel = document.querySelector("#analysisStatusPanel");
+const analysisStatusTitle = document.querySelector("#analysisStatusTitle");
+const analysisStatusText = document.querySelector("#analysisStatusText");
+const analysisStepItems = [...document.querySelectorAll("[data-analysis-step]")];
 const runMessage = document.querySelector("#runMessage");
 const viewOutput = document.querySelector("#viewOutput");
 const customerSnapshot = document.querySelector("#customerSnapshot");
@@ -38,8 +43,48 @@ const state = {
   operationalReadiness: null,
   launchEvidence: null,
   launchEvidenceExportMessage: "",
+  referenceMaster: null,
+  portfolioDataHealth: null,
+  portfolioHealthFilters: {
+    query: "",
+    status: "all",
+    orderBy: "generatedAt",
+    direction: "desc",
+  },
+  analysisRunning: false,
   entitlementErrors: {},
 };
+
+const recommendedActionFields = [
+  { key: "Symbol", label: "Symbol", default: true, required: true },
+  { key: "Sector", label: "Sector", default: false },
+  { key: "Price", label: "Price", default: true },
+  { key: "Market_Value", label: "Market Value", default: false },
+  { key: "Cost_Value", label: "Cost Value", default: false },
+  { key: "Gain_Loss_Value", label: "Gain/Loss Value", default: false },
+  { key: "Gain_Loss_Pct", label: "Gain/Loss %", default: true },
+  { key: "Total_Score", label: "Score", default: true },
+  { key: "Advice", label: "Advice", default: true },
+  { key: "Target_Action", label: "Target Action", default: true },
+  { key: "RRR", label: "RRR", default: true },
+  { key: "Trend_Status", label: "Trend", default: true },
+  { key: "PE", label: "P/E", default: false },
+  { key: "ROE", label: "ROE", default: false },
+  { key: "DE", label: "D/E", default: false },
+  { key: "RSI", label: "RSI", default: false },
+  { key: "Volume_Ratio", label: "Volume Ratio", default: false },
+  { key: "Upside_Pct", label: "Upside %", default: false },
+];
+
+const recommendedActionSortFields = [
+  { key: "Total_Score", label: "Score" },
+  { key: "Market_Value", label: "Market Value" },
+  { key: "Gain_Loss_Pct", label: "Gain/Loss %" },
+  { key: "RRR", label: "RRR" },
+  { key: "Price", label: "Price" },
+  { key: "Symbol", label: "Symbol" },
+  { key: "Action_Group", label: "Action Group" },
+];
 
 authForm.addEventListener("submit", submitAuth);
 authModeButton.addEventListener("click", toggleAuthMode);
@@ -60,6 +105,12 @@ document.addEventListener("click", (event) => {
   const launchEvidenceCopyButton = event.target.closest("[data-launch-evidence-copy]");
   if (launchEvidenceCopyButton) {
     copyLaunchEvidencePack(launchEvidenceCopyButton);
+  }
+
+  const launchEvidenceDownloadButton = event.target.closest("[data-launch-evidence-download]");
+  if (launchEvidenceDownloadButton) {
+    event.preventDefault();
+    downloadLaunchEvidencePack(launchEvidenceDownloadButton);
   }
 });
 
@@ -123,15 +174,19 @@ async function loadBusinessMetrics() {
     state.businessMetrics = null;
     state.operationalReadiness = null;
     state.launchEvidence = null;
-    state.launchEvidenceExportMessage = "";
-    return;
+  state.launchEvidenceExportMessage = "";
+  state.referenceMaster = null;
+  state.portfolioDataHealth = null;
+  state.portfolioHealthFilters = defaultPortfolioHealthFilters();
+  return;
   }
 
   const response = await fetch("/api/admin/metrics");
   const data = await response.json();
   if (data.ok) {
     state.businessMetrics = data.metrics;
-    await Promise.all([loadOperationalReadiness(), loadLaunchEvidence()]);
+    state.portfolioDataHealth = data.metrics?.portfolioDataHealth || null;
+    await Promise.all([loadOperationalReadiness(), loadLaunchEvidence(), loadReferenceMasterReview(), loadPortfolioDataHealth()]);
     return;
   }
 
@@ -139,6 +194,27 @@ async function loadBusinessMetrics() {
   state.operationalReadiness = null;
   state.launchEvidence = null;
   state.launchEvidenceExportMessage = "";
+  state.referenceMaster = null;
+  state.portfolioDataHealth = null;
+}
+
+async function loadPortfolioDataHealth() {
+  if (!canViewBusinessMetrics()) {
+    state.portfolioDataHealth = null;
+    return;
+  }
+
+  const response = await fetch("/api/admin/portfolio-health");
+  const data = await response.json();
+  if (data.ok) {
+    state.portfolioDataHealth = data.portfolioHealth;
+    if (state.businessMetrics) {
+      state.businessMetrics.portfolioDataHealth = data.portfolioHealth;
+    }
+    return;
+  }
+
+  state.portfolioDataHealth = null;
 }
 
 async function loadOperationalReadiness() {
@@ -171,6 +247,22 @@ async function loadLaunchEvidence() {
   }
 
   state.launchEvidence = null;
+}
+
+async function loadReferenceMasterReview() {
+  if (!canViewBusinessMetrics()) {
+    state.referenceMaster = null;
+    return;
+  }
+
+  const response = await fetch("/api/admin/reference-master?limit=12");
+  const data = await response.json();
+  if (data.ok) {
+    state.referenceMaster = data.referenceMaster;
+    return;
+  }
+
+  state.referenceMaster = null;
 }
 
 async function loadBillingHistory() {
@@ -300,6 +392,9 @@ async function logout() {
   state.savedSnapshot = null;
   state.profile = null;
   state.businessMetrics = null;
+  state.referenceMaster = null;
+  state.portfolioDataHealth = null;
+  state.portfolioHealthFilters = defaultPortfolioHealthFilters();
   state.billingEvents = [];
   state.paymentSessions = [];
   state.teamUsers = [];
@@ -438,11 +533,28 @@ async function runAnalysis(event) {
   event.preventDefault();
 
   if (!state.user) {
+    showAnalysisStatus("error", {
+      title: "Sign in required",
+      text: "Create an account or sign in before running portfolio analysis.",
+      activeStep: null,
+    });
     runMessage.textContent = "Please create an account or sign in before running analysis.";
     return;
   }
 
-  runMessage.textContent = "Fetching market data and building your action plan...";
+  if (state.analysisRunning) {
+    return;
+  }
+
+  state.analysisRunning = true;
+  setAnalysisButtonLoading(true);
+  showAnalysisStatus("loading", {
+    title: "Analyzing your portfolio",
+    text: "Please keep this page open. This can take several seconds or a few minutes while the app fetches stock data, calculates scores, and builds your report.",
+    activeStep: "market",
+  });
+  runMessage.textContent = "Analysis is running. Please wait until the report links appear here.";
+  const progressTimers = startAnalysisProgressTimers();
 
   try {
     const formData = new FormData(analysisForm);
@@ -453,6 +565,10 @@ async function runAnalysis(event) {
     const data = await response.json();
 
     if (!data.ok) {
+      showAnalysisStatus("error", {
+        title: "Analysis needs attention",
+        text: data.message || "Analysis failed. Please check your files and try again.",
+      });
       runMessage.textContent = data.message || "Analysis failed.";
       return;
     }
@@ -460,9 +576,21 @@ async function runAnalysis(event) {
     const messages = [
       `Fetched ${data.count} stocks from ${data.symbols.length} symbols.`,
       `Generated ${data.recommendationCount} scored rows.`,
-      `<a href="/api/analysis/raw">Download raw CSV</a>`,
+      `<a href="/api/analysis/raw">Download raw_CSV.csv</a>`,
       `<a href="/api/analysis/recommended">Download recommendations</a>`,
+      `<a href="/api/analysis/coverage">Download live data coverage report</a>`,
     ];
+
+    if (data.marketCoverage) {
+      const coverage = data.marketCoverage;
+      const completePct = Number(coverage.totals?.completeCoveragePct || 0).toFixed(1);
+      const unknownSector = coverage.unknownSectorCount || 0;
+      const missingFundamental = Object.values(coverage.missingFundamentalCounts || {})
+        .reduce((total, count) => total + Number(count || 0), 0);
+      messages.push(
+        `Live data coverage: ${coverage.productionRecommendation?.status || "unknown"} (${completePct}% complete, ${unknownSector} unknown sectors, ${missingFundamental} missing fundamentals).`,
+      );
+    }
 
     if (data.portfolioReport) {
       messages.push(`Generated ${data.portfolioReport.count} portfolio rows.`);
@@ -471,6 +599,11 @@ async function runAnalysis(event) {
 
     messages.push(data.message);
     runMessage.innerHTML = messages.join("<br>");
+    showAnalysisStatus("success", {
+      title: "Analysis complete",
+      text: "Your dashboard and download links are ready. Review the recommendations before making any investment decision.",
+      completed: true,
+    });
     state.recommendations = data.recommendations || [];
     state.portfolioRows = data.portfolioRows || [];
     state.savedSnapshot = data.customerSnapshot || null;
@@ -480,8 +613,99 @@ async function runAnalysis(event) {
     renderSnapshot();
     renderActiveView();
   } catch (error) {
+    showAnalysisStatus("error", {
+      title: "Analysis could not finish",
+      text: `${error.message}. You can check the file format and try again.`,
+    });
     runMessage.textContent = error.message;
+  } finally {
+    clearAnalysisProgressTimers(progressTimers);
+    state.analysisRunning = false;
+    setAnalysisButtonLoading(false);
   }
+}
+
+function setAnalysisButtonLoading(isLoading) {
+  if (!analysisSubmitButton) {
+    return;
+  }
+
+  analysisSubmitButton.disabled = isLoading;
+  analysisSubmitButton.textContent = isLoading ? "Analyzing..." : "Analyze my portfolio";
+}
+
+function showAnalysisStatus(status, options = {}) {
+  if (!analysisStatusPanel) {
+    return;
+  }
+
+  const {
+    activeStep = null,
+    completed = false,
+    text = "",
+    title = "",
+  } = options;
+  analysisStatusPanel.hidden = false;
+  analysisStatusPanel.classList.remove("loading", "success", "error");
+  analysisStatusPanel.classList.add(status);
+  analysisStatusPanel.setAttribute("aria-busy", status === "loading" ? "true" : "false");
+
+  if (analysisStatusTitle) {
+    analysisStatusTitle.textContent = title;
+  }
+
+  if (analysisStatusText) {
+    analysisStatusText.textContent = text;
+  }
+
+  updateAnalysisSteps({ activeStep, completed, status });
+}
+
+function updateAnalysisSteps({ activeStep, completed, status }) {
+  const stepOrder = ["market", "score", "report"];
+  const activeIndex = stepOrder.indexOf(activeStep);
+
+  analysisStepItems.forEach((item) => {
+    const itemIndex = stepOrder.indexOf(item.dataset.analysisStep);
+    item.classList.remove("active", "done");
+
+    if (completed) {
+      item.classList.add("done");
+    } else if (status === "loading" && itemIndex >= 0) {
+      if (itemIndex < activeIndex) {
+        item.classList.add("done");
+      } else if (itemIndex === activeIndex) {
+        item.classList.add("active");
+      }
+    }
+  });
+}
+
+function startAnalysisProgressTimers() {
+  return [
+    setTimeout(() => {
+      if (state.analysisRunning) {
+        showAnalysisStatus("loading", {
+          title: "Scoring stocks",
+          text: "Market data is being normalized and scored against sector benchmarks. Please keep this page open.",
+          activeStep: "score",
+        });
+      }
+    }, 3500),
+    setTimeout(() => {
+      if (state.analysisRunning) {
+        showAnalysisStatus("loading", {
+          title: "Building your report",
+          text: "The app is preparing dashboard data, download files, and portfolio actions.",
+          activeStep: "report",
+        });
+      }
+    }, 9000),
+  ];
+}
+
+function clearAnalysisProgressTimers(timers) {
+  timers.forEach((timer) => clearTimeout(timer));
 }
 
 function renderSnapshot() {
@@ -591,20 +815,192 @@ function renderPortfolioView() {
       ${metric("Urgent Actions", urgentRows.length)}
       ${metric("Avg Score", formatNumber(average(rows, "Total_Score")))}
     </div>
+    ${renderPortfolioDataWarning(rows)}
     ${renderBeginnerGuidance({ gainLossPct, urgentRows, avgScore: average(rows, "Total_Score") })}
     ${renderPortfolioVisuals(rows)}
     <h3>Recommended actions</h3>
-    ${renderTable(rows, [
-      "Symbol",
-      "Price",
-      "Total_Score",
-      "Advice",
-      "Target_Action",
-      "Gain_Loss_Pct",
-      "RRR",
-      "Trend_Status",
-    ])}
+    ${renderRecommendedActionsControls(rows)}
+    <div id="recommendedActionsOutput" data-recommended-actions-output></div>
   `;
+  attachRecommendedActionsControls(rows);
+}
+
+function renderPortfolioDataWarning(rows) {
+  const hasHoldings = rows.length > 0;
+  const rowsWithMarketData = rows.filter((row) => numberValue(row.Market_Value) > 0 || !/No Data/i.test(String(row.Advice || row.Target_Action || "")));
+  if (!hasHoldings || rowsWithMarketData.length > 0) {
+    return "";
+  }
+
+  return `
+    <div class="portfolio-data-warning" data-portfolio-data-warning>
+      <strong>Market data was unavailable in the last run.</strong>
+      <span>Your holdings were read, but prices and scores could not be completed. The app now protects existing outputs from being overwritten by an empty market fetch; rerun analysis when the data connection is available.</span>
+    </div>
+  `;
+}
+
+function renderRecommendedActionsControls(rows) {
+  const sectors = uniqueValues(rows.map((row) => row.Sector || "Unknown"));
+  const trends = uniqueValues(rows.map((row) => row.Trend_Status || "Unknown"));
+  const actionGroups = ["Urgent", "Exit/Sell", "Reduce", "Buy/Accumulate", "Wait", "Hold"];
+
+  return `
+    <section class="table-control-panel" data-recommended-actions-controls>
+      <div class="filter-bar compact-filter-bar">
+        <label>Search Symbol
+          <input id="actionSearch" type="search" placeholder="AOT, PTT..." autocomplete="off" data-recommended-action-input>
+        </label>
+        <label>Action
+          <select id="actionGroupFilter" data-recommended-action-input>
+            <option value="">All actions</option>
+            ${actionGroups.map((group) => option(group, group, "")).join("")}
+          </select>
+        </label>
+        <label>Sector
+          <select id="actionSectorFilter" data-recommended-action-input>
+            <option value="">All sectors</option>
+            ${sectors.map((sector) => option(sector, sector, "")).join("")}
+          </select>
+        </label>
+        <label>Trend
+          <select id="actionTrendFilter" data-recommended-action-input>
+            <option value="">All trends</option>
+            ${trends.map((trend) => option(trend, trend, "")).join("")}
+          </select>
+        </label>
+        <label>Min Score
+          <input id="actionMinScore" type="number" min="0" max="100" value="0" data-recommended-action-input>
+        </label>
+        <label>Order by
+          <select id="actionSortBy" data-recommended-action-input>
+            ${recommendedActionSortFields.map((field) => option(field.key, field.label, "Total_Score")).join("")}
+          </select>
+        </label>
+        <label>Direction
+          <select id="actionSortDirection" data-recommended-action-input>
+            ${option("desc", "High to low", "desc")}
+            ${option("asc", "Low to high", "desc")}
+          </select>
+        </label>
+      </div>
+      <details class="field-picker" data-recommended-field-picker>
+        <summary>Choose fields to display</summary>
+        <div class="field-picker-grid">
+          ${recommendedActionFields.map((field) => `
+            <label class="check-option">
+              <input type="checkbox" data-action-field="${escapeHtml(field.key)}"${field.default ? " checked" : ""}${field.required ? " disabled" : ""}>
+              <span>${escapeHtml(field.label)}</span>
+            </label>
+          `).join("")}
+        </div>
+      </details>
+      <div class="control-actions">
+        <button type="button" class="ghost-button" data-reset-recommended-actions>Reset view</button>
+      </div>
+    </section>
+  `;
+}
+
+function attachRecommendedActionsControls(rows) {
+  const panel = document.querySelector("[data-recommended-actions-controls]");
+  const output = document.querySelector("[data-recommended-actions-output]");
+  if (!panel || !output) {
+    return;
+  }
+
+  const renderActions = () => {
+    const filteredRows = getFilteredRecommendedActions(rows, panel);
+    const selectedColumns = getSelectedRecommendedActionFields(panel);
+    output.innerHTML = renderRecommendedActionsOutput(filteredRows, rows.length, selectedColumns, panel);
+  };
+
+  panel.querySelectorAll("[data-recommended-action-input], [data-action-field]").forEach((control) => {
+    control.addEventListener("input", renderActions);
+    control.addEventListener("change", renderActions);
+  });
+  panel.querySelector("[data-reset-recommended-actions]")?.addEventListener("click", () => {
+    resetRecommendedActionsControls(panel);
+    renderActions();
+  });
+  renderActions();
+}
+
+function getFilteredRecommendedActions(rows, panel) {
+  const search = panel.querySelector("#actionSearch")?.value.trim().toLowerCase() || "";
+  const actionFilter = panel.querySelector("#actionGroupFilter")?.value || "";
+  const sectorFilter = panel.querySelector("#actionSectorFilter")?.value || "";
+  const trendFilter = panel.querySelector("#actionTrendFilter")?.value || "";
+  const minScore = numberValue(panel.querySelector("#actionMinScore")?.value || 0);
+  const sortBy = panel.querySelector("#actionSortBy")?.value || "Total_Score";
+  const direction = panel.querySelector("#actionSortDirection")?.value || "desc";
+
+  return rows
+    .filter((row) => !search || String(row.Symbol || "").toLowerCase().includes(search))
+    .filter((row) => !actionFilter || matchesRecommendedActionFilter(row, actionFilter))
+    .filter((row) => !sectorFilter || (row.Sector || "Unknown") === sectorFilter)
+    .filter((row) => !trendFilter || (row.Trend_Status || "Unknown") === trendFilter)
+    .filter((row) => numberValue(row.Total_Score) >= minScore)
+    .slice()
+    .sort((left, right) => compareRecommendedActionRows(left, right, sortBy, direction));
+}
+
+function matchesRecommendedActionFilter(row, filterValue) {
+  if (filterValue === "Urgent") {
+    return /Exit|Reduce|Sell|Cut/i.test(String(row.Target_Action || row.Advice || ""));
+  }
+
+  return actionGroup(row) === filterValue;
+}
+
+function compareRecommendedActionRows(left, right, sortBy, direction) {
+  const sign = direction === "asc" ? 1 : -1;
+  if (sortBy === "Symbol" || sortBy === "Action_Group") {
+    const leftValue = sortBy === "Action_Group" ? actionGroup(left) : left.Symbol;
+    const rightValue = sortBy === "Action_Group" ? actionGroup(right) : right.Symbol;
+    return sign * String(leftValue || "").localeCompare(String(rightValue || ""));
+  }
+
+  return sign * (numberValue(left[sortBy]) - numberValue(right[sortBy]));
+}
+
+function getSelectedRecommendedActionFields(panel) {
+  const selected = [...panel.querySelectorAll("[data-action-field]:checked")].map((input) => input.dataset.actionField);
+  return selected.length ? selected : ["Symbol", "Target_Action"];
+}
+
+function renderRecommendedActionsOutput(rows, totalRows, selectedColumns, panel) {
+  const sortLabel = recommendedActionSortFields.find((field) => field.key === (panel.querySelector("#actionSortBy")?.value || "Total_Score"))?.label || "Score";
+  const directionLabel = panel.querySelector("#actionSortDirection")?.value === "asc" ? "low to high" : "high to low";
+  const filters = [
+    panel.querySelector("#actionSearch")?.value ? `symbol contains "${panel.querySelector("#actionSearch").value.trim()}"` : "",
+    panel.querySelector("#actionGroupFilter")?.value ? `action ${panel.querySelector("#actionGroupFilter").value}` : "",
+    panel.querySelector("#actionSectorFilter")?.value ? `sector ${panel.querySelector("#actionSectorFilter").value}` : "",
+    panel.querySelector("#actionTrendFilter")?.value ? `trend ${panel.querySelector("#actionTrendFilter").value}` : "",
+    numberValue(panel.querySelector("#actionMinScore")?.value || 0) ? `score >= ${formatNumber(panel.querySelector("#actionMinScore").value)}` : "",
+  ].filter(Boolean);
+
+  return `
+    <div class="table-control-status" data-recommended-actions-status>
+      <strong>${formatNumber(rows.length)} of ${formatNumber(totalRows)} actions shown</strong>
+      <span>Order by ${escapeHtml(sortLabel)} ${escapeHtml(directionLabel)}${filters.length ? ` · ${escapeHtml(filters.join(" · "))}` : ""}</span>
+    </div>
+    ${renderTable(rows, selectedColumns)}
+  `;
+}
+
+function resetRecommendedActionsControls(panel) {
+  panel.querySelector("#actionSearch").value = "";
+  panel.querySelector("#actionGroupFilter").value = "";
+  panel.querySelector("#actionSectorFilter").value = "";
+  panel.querySelector("#actionTrendFilter").value = "";
+  panel.querySelector("#actionMinScore").value = "0";
+  panel.querySelector("#actionSortBy").value = "Total_Score";
+  panel.querySelector("#actionSortDirection").value = "desc";
+  panel.querySelectorAll("[data-action-field]").forEach((input) => {
+    const field = recommendedActionFields.find((item) => item.key === input.dataset.actionField);
+    input.checked = Boolean(field?.default || field?.required);
+  });
 }
 
 function renderBeginnerGuidance({ gainLossPct, urgentRows, avgScore }) {
@@ -823,6 +1219,8 @@ function renderBusinessView() {
       ${metric("Trial Potential", money(metrics.trialMrrPotential || 0))}
       ${metric("ARPU", money(metrics.arpu || 0))}
       ${metric("Saved Portfolios", metrics.savedPortfolios || 0)}
+      ${metric("Portfolio Health", portfolioHealthStatusLabel(metrics.portfolioDataHealth?.status))}
+      ${metric("Recovery Ready", metrics.portfolioDataHealth?.repairableSnapshots || 0)}
       ${metric("Advisor Assignments", metrics.advisorAssignments || 0)}
       ${metric("Activity Events", metrics.auditEvents || state.auditEvents.length)}
       ${metric("Workspaces", metrics.organizations || state.organizations.length)}
@@ -848,11 +1246,16 @@ function renderBusinessView() {
       ${metric("Ops Alerts", readiness?.alerts?.length || 0)}
       ${metric("DB Readiness", metrics.storageReadiness?.status || "ready")}
       ${metric("DB Blockers", metrics.storageReadiness?.blockerCount || 0)}
+      ${metric("DB Store", metrics.databaseModeAdvisor?.label || "-")}
+      ${metric("DB Mode", databaseModeStatusLabel(metrics.databaseModeAdvisor?.status))}
+      ${metric("Production Env", productionEnvironmentStatusLabel(metrics.productionEnvironmentAdvisor?.status))}
+      ${metric("Env Blockers", metrics.productionEnvironmentAdvisor?.summary?.blockers || 0)}
       ${metric("Schema Version", metrics.storageReadiness?.schemaVersion || "-")}
     </div>
     <div class="guidance-grid">
       <div class="guidance-card"><span>Activation</span><strong>${formatNumber(profileCompletionPct)}% completed investor profile</strong></div>
       <div class="guidance-card"><span>Portfolio attach</span><strong>${formatNumber(portfolioAttachPct)}% saved at least one portfolio</strong></div>
+      <div class="guidance-card"><span>Portfolio data health</span><strong>${escapeHtml(metrics.portfolioDataHealth?.plainLanguageSummary || "Portfolio snapshot health is loading")}</strong></div>
       <div class="guidance-card"><span>Live usage</span><strong>${metrics.activeSessions || 0} active sessions</strong></div>
       <div class="guidance-card"><span>Workspace model</span><strong>${metrics.tenantMetadata?.totalMissingOrganizationId ? "Some records still need workspace metadata" : "Tenant metadata is attached to critical records"}</strong></div>
       <div class="guidance-card"><span>Webhook security</span><strong>${metrics.webhookSecurity?.secretConfigured ? "Production secret configured" : "Using local demo secret for signed webhook tests"}</strong></div>
@@ -861,16 +1264,22 @@ function renderBusinessView() {
       <div class="guidance-card"><span>Audit mirror</span><strong>${metrics.auditTrail?.status === "synced" ? "Append-only audit mirror is synced" : "Audit mirror needs review"}</strong></div>
       <div class="guidance-card"><span>External audit</span><strong>${metrics.auditTrail?.external?.enabled ? `Provider ${metrics.auditTrail.external.provider} is ${metrics.auditTrail.external.status}` : "External immutable provider is disabled until configured"}</strong></div>
       <div class="guidance-card"><span>Database migration</span><strong>${metrics.storageReadiness?.status === "ready" ? "Local state is ready for database mapping" : "Storage readiness needs review before migration"}</strong></div>
+      <div class="guidance-card"><span>Database mode</span><strong>${escapeHtml(metrics.databaseModeAdvisor?.recommendedAction || "Check storage adapter before production")}</strong></div>
+      <div class="guidance-card"><span>Production env</span><strong>${escapeHtml(metrics.productionEnvironmentAdvisor?.nextAction || "Run the deployment checklist before production")}</strong></div>
       <div class="guidance-card"><span>Operational readiness</span><strong>${readiness ? `${readiness.status} · ${readiness.summary?.criticalAlerts || 0} critical · ${readiness.summary?.warningAlerts || 0} warning` : "Loading operational checks"}</strong></div>
     </div>
+    ${renderDatabaseModeAdvisor(metrics.databaseModeAdvisor)}
+    ${renderProductionEnvironmentAdvisor(metrics.productionEnvironmentAdvisor)}
+    ${renderPortfolioDataHealth(metrics.portfolioDataHealth)}
     ${renderOperationalReadiness(readiness)}
     ${renderLaunchEvidenceCenter(state.launchEvidence)}
+    ${renderReferenceMasterReview(state.referenceMaster)}
     ${renderBusinessFunnel(metrics, profileCompletionPct, portfolioAttachPct)}
     ${renderTenantScopeSummary()}
     ${renderWorkspaceSummary(metrics.recentOrganizations || state.organizations)}
     ${renderApprovalWorkspace(metrics.recentApprovalRequests || state.approvalRequests)}
     <h3>Recent activity</h3>
-    ${renderActivityTimeline(metrics.recentAuditEvents || state.auditEvents)}
+    ${renderActivityTimeline(state.auditEvents.length ? state.auditEvents : metrics.recentAuditEvents || [])}
     <h3>Users by plan</h3>
     ${renderTable(planRows, ["Plan", "Users", "Share_Pct"])}
     <h3>Users by role</h3>
@@ -888,6 +1297,403 @@ function renderBusinessView() {
   attachTeamActions();
   attachOrganizationActions();
   attachApprovalActions();
+  attachReferenceMasterActions();
+  attachPortfolioHealthControls();
+}
+
+function renderReferenceMasterReview(referenceMaster = state.referenceMaster) {
+  if (!referenceMaster) {
+    return `
+      <section class="chart-panel reference-master-panel" data-reference-master-review="true">
+        <h3>Reference Master Review</h3>
+        <p class="muted">Run <code>npm run reference:import</code> to create the local reference master before reviewing Sector and fundamental data.</p>
+      </section>
+    `;
+  }
+
+  const totals = referenceMaster.totals || {};
+  const freshness = referenceMaster.freshness || {};
+  const rows = referenceMaster.reviewQueue || [];
+
+  return `
+    <section class="chart-panel reference-master-panel" data-reference-master-review="true">
+      <div class="section-title">
+        <div>
+          <h3>Reference Master Review</h3>
+          <p class="muted">Review Sector and fundamental data used before the legacy CSV fallback.</p>
+        </div>
+        <span class="status-pill ${freshness.status === "fresh" ? "ready" : "blocked"}">${escapeHtml(freshness.status || "unknown")}</span>
+      </div>
+      <div class="metric-grid compact-grid">
+        ${metric("Reference Rows", totals.totalRows || 0)}
+        ${metric("Needs Review", totals.needsReviewRows || 0)}
+        ${metric("Reviewed", totals.reviewedRows || 0)}
+        ${metric("Stale Rows", totals.staleRows || 0)}
+        ${metric("Oldest Update", freshness.oldestLastUpdated ? formatDate(freshness.oldestLastUpdated) : "-")}
+        ${metric("Stale After", `${freshness.staleAfterDays || 30}d`)}
+      </div>
+      ${rows.length ? renderReferenceMasterReviewTable(rows) : "<p class=\"muted\">No records need review right now.</p>"}
+    </section>
+  `;
+}
+
+function renderDatabaseModeAdvisor(advisor) {
+  if (!advisor) {
+    return "";
+  }
+
+  const warnings = [...(advisor.blockers || []), ...(advisor.warnings || [])].slice(0, 5);
+  const commands = advisor.commands || [];
+
+  return `
+    <section class="chart-panel database-mode-advisor" data-database-mode-advisor>
+      <div class="section-title compact-title">
+        <div>
+          <span class="eyebrow">Database mode advisor</span>
+          <h3>${escapeHtml(advisor.label || "Database mode")}</h3>
+        </div>
+        <span class="mode-status mode-status-${escapeHtml(advisor.status || "unknown")}">${escapeHtml(databaseModeStatusLabel(advisor.status))}</span>
+      </div>
+      <div class="metric-grid">
+        ${metric("Current Adapter", advisor.adapter || "-")}
+        ${metric("Best For", databaseModeUseLabel(advisor.mode))}
+        ${metric("Production Ready", advisor.productionReady ? "Yes" : "No")}
+        ${metric("Records Ready", state.businessMetrics?.storageReadiness?.status || "-")}
+      </div>
+      <div class="guidance-grid database-guidance-grid">
+        <div class="guidance-card"><span>Current use</span><strong>${escapeHtml(advisor.currentUse || "-")}</strong></div>
+        <div class="guidance-card"><span>Recommended next action</span><strong>${escapeHtml(advisor.recommendedAction || "-")}</strong></div>
+        <div class="guidance-card"><span>Write mode</span><strong>${escapeHtml(advisor.writeMode || "-")}</strong></div>
+        <div class="guidance-card"><span>Scoped reads</span><strong>${escapeHtml(advisor.scopedReads || "-")}</strong></div>
+      </div>
+      ${warnings.length ? `
+        <div class="advisor-warning-list" data-database-mode-warnings>
+          ${warnings.map((item) => `<p>${escapeHtml(item)}</p>`).join("")}
+        </div>
+      ` : ""}
+      <div class="command-list database-command-list" data-database-mode-commands>
+        ${commands.map((command) => `<code>${escapeHtml(command)}</code>`).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function databaseModeStatusLabel(status) {
+  return {
+    production_ready: "Production ready",
+    needs_production_verification: "Needs verification",
+    trial_only: "Trial only",
+    prototype_only: "Prototype only",
+  }[status] || "Needs review";
+}
+
+function databaseModeUseLabel(mode) {
+  return {
+    development_demo: "Development/Demo",
+    trial_demo: "Trial/Demo",
+    production: "Production",
+  }[mode] || "Needs review";
+}
+
+function renderProductionEnvironmentAdvisor(advisor) {
+  if (!advisor) {
+    return "";
+  }
+
+  const groups = advisor.groups || [];
+  const issues = [...(advisor.blockers || []), ...(advisor.warnings || [])].slice(0, 6);
+  const commands = advisor.commands || [];
+
+  return `
+    <section class="chart-panel production-environment-advisor" data-production-environment-advisor>
+      <div class="section-title compact-title">
+        <div>
+          <span class="eyebrow">Production environment advisor</span>
+          <h3>${escapeHtml(advisor.healthLabel || "Production readiness")}</h3>
+          <p class="muted">${escapeHtml(advisor.plainLanguageSummary || "Review environment readiness before production.")}</p>
+        </div>
+        <span class="env-status env-status-${escapeHtml(advisor.status || "needs_review")}">${escapeHtml(productionEnvironmentStatusLabel(advisor.status))}</span>
+      </div>
+      <div class="metric-grid">
+        ${metric("Status", productionEnvironmentStatusLabel(advisor.status))}
+        ${metric("Blockers", advisor.summary?.blockers || 0)}
+        ${metric("Warnings", advisor.summary?.warnings || 0)}
+        ${metric("Checks", advisor.summary?.totalChecks || 0)}
+      </div>
+      <div class="guidance-grid production-guidance-grid">
+        <div class="guidance-card"><span>Next action</span><strong>${escapeHtml(advisor.nextAction || "-")}</strong></div>
+        <div class="guidance-card"><span>Release guard</span><strong>${escapeHtml((advisor.releaseChecklist || [])[0] || "Attach release evidence before go-live.")}</strong></div>
+        <div class="guidance-card"><span>Rollback guard</span><strong>${escapeHtml((advisor.rollbackChecklist || [])[0] || "Keep rollback steps ready before go-live.")}</strong></div>
+        <div class="guidance-card"><span>Secret handling</span><strong>Environment values are summarized server-side and secrets stay masked.</strong></div>
+      </div>
+      <div class="env-group-grid" data-production-env-groups>
+        ${groups.map((group) => `
+          <article class="env-group-card ${escapeHtml(group.status || "needs_review")}">
+            <span>${escapeHtml(productionEnvironmentStatusLabel(group.status))}</span>
+            <strong>${escapeHtml(group.label || group.id)}</strong>
+            <p>${escapeHtml(`${group.okCount || 0} ok · ${group.warningCount || 0} warning · ${group.blockerCount || 0} blocker`)}</p>
+          </article>
+        `).join("")}
+      </div>
+      ${issues.length ? `
+        <div class="advisor-warning-list production-env-warning-list" data-production-env-warnings>
+          ${issues.map((item) => `<p><strong>${escapeHtml(item.severity)}</strong> ${escapeHtml(item.message)}</p>`).join("")}
+        </div>
+      ` : ""}
+      <div class="command-list production-command-list" data-production-env-commands>
+        ${commands.map((command) => `<code>${escapeHtml(command)}</code>`).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function productionEnvironmentStatusLabel(status) {
+  return {
+    ready: "Ready",
+    needs_review: "Needs review",
+    blocked: "Blocked",
+  }[status] || "Needs review";
+}
+
+function renderPortfolioDataHealth(health) {
+  if (!health) {
+    return `
+      <section class="chart-panel portfolio-health-panel" data-portfolio-health-panel>
+        <h3>Portfolio Data Health</h3>
+        <p class="muted">Portfolio snapshot health is loading...</p>
+      </section>
+    `;
+  }
+
+  const commands = health.commands || [];
+  const safeguards = health.safeguards || [];
+  const filters = state.portfolioHealthFilters || defaultPortfolioHealthFilters();
+  const snapshots = health.snapshots || [];
+  const filteredSnapshots = filterPortfolioHealthSnapshots(snapshots, filters);
+  const statusValues = ["all", ...new Set(snapshots.map((snapshot) => snapshot.status).filter(Boolean))];
+  const rows = filteredSnapshots.map((snapshot) => ({
+    Customer: snapshot.customerName || snapshot.shortUserId || snapshot.userId,
+    Email: snapshot.customerEmail || "-",
+    Workspace: snapshot.workspaceName || snapshot.organizationId || "-",
+    Plan: snapshot.subscriptionPlan || "-",
+    Status: portfolioHealthStatusLabel(snapshot.status),
+    Holdings: snapshot.holdings,
+    Market_Value: snapshot.marketValue,
+    "Gain/Loss %": snapshot.gainLossPct,
+    Generated: formatDateTime(snapshot.generatedAt),
+  }));
+
+  return `
+    <section class="chart-panel portfolio-health-panel" data-portfolio-health-panel>
+      <div class="section-title compact-title">
+        <div>
+          <span class="eyebrow">Portfolio support</span>
+          <h3>Portfolio Data Health</h3>
+          <p class="muted">${escapeHtml(health.plainLanguageSummary || "Review saved portfolio snapshots before customer support follow-up.")}</p>
+        </div>
+        <div class="launch-evidence-header-actions">
+          <span class="status-pill ${health.status === "healthy" ? "ready" : "blocked"}">${escapeHtml(portfolioHealthStatusLabel(health.status))}</span>
+          <a class="download-link" href="/api/admin/portfolio-health/export" data-portfolio-health-export>Download health CSV</a>
+        </div>
+      </div>
+      <div class="metric-grid compact-grid">
+        ${metric("Snapshots", health.totalSnapshots || 0)}
+        ${metric("Healthy", health.healthySnapshots || 0)}
+        ${metric("Zero Market", health.zeroMarketSnapshots || 0)}
+        ${metric("Repairable", health.repairableSnapshots || 0)}
+        ${metric("Skipped", health.skippedSnapshots || 0)}
+        ${metric("Empty", health.emptySnapshots || 0)}
+      </div>
+      <div class="table-control-panel portfolio-health-controls" data-portfolio-health-controls>
+        <div class="filter-bar compact-filter-bar">
+          <label>
+            Search customer
+            <input data-portfolio-health-filter="query" value="${escapeHtml(filters.query || "")}" placeholder="Name, email, workspace, plan">
+          </label>
+          <label>
+            Status
+            <select data-portfolio-health-filter="status">
+              ${statusValues.map((status) => option(status, status === "all" ? "All statuses" : portfolioHealthStatusLabel(status), filters.status || "all")).join("")}
+            </select>
+          </label>
+          <label>
+            Order by
+            <select data-portfolio-health-filter="orderBy">
+              ${[
+                ["generatedAt", "Generated date"],
+                ["status", "Status"],
+                ["customerName", "Customer"],
+                ["workspaceName", "Workspace"],
+                ["marketValue", "Market value"],
+              ].map(([value, label]) => option(value, label, filters.orderBy || "generatedAt")).join("")}
+            </select>
+          </label>
+          <label>
+            Direction
+            <select data-portfolio-health-filter="direction">
+              ${option("desc", "High/New first", filters.direction || "desc")}
+              ${option("asc", "Low/Old first", filters.direction || "desc")}
+            </select>
+          </label>
+        </div>
+        <div class="table-control-status">
+          <span>Showing ${formatNumber(filteredSnapshots.length)} of ${formatNumber(snapshots.length)} snapshots</span>
+          <button class="ghost-button" type="button" data-portfolio-health-reset>Reset view</button>
+        </div>
+      </div>
+      <div class="guidance-grid portfolio-health-guidance">
+        <div class="guidance-card"><span>Support status</span><strong>${escapeHtml(health.plainLanguageSummary || "-")}</strong></div>
+        <div class="guidance-card"><span>Safety rule</span><strong>Admin view is read-only. Use dry-run before any confirmed recovery.</strong></div>
+        <div class="guidance-card"><span>Customer impact</span><strong>${health.repairableSnapshots ? "Some customers may see No Data until recovery is confirmed." : "No recovery action is needed right now."}</strong></div>
+        <div class="guidance-card"><span>Generated</span><strong>${formatDateTime(health.generatedAt)}</strong></div>
+      </div>
+      <h3>Recovery commands</h3>
+      <div class="command-list portfolio-health-command-list" data-portfolio-health-commands>
+        ${commands.map((command) => `<code>${escapeHtml(command)}</code>`).join("")}
+      </div>
+      ${safeguards.length ? `
+        <div class="advisor-warning-list portfolio-health-safeguards" data-portfolio-health-safeguards>
+          ${safeguards.map((item) => `<p>${escapeHtml(item)}</p>`).join("")}
+        </div>
+      ` : ""}
+      <h3>Recent snapshots</h3>
+      ${renderTable(rows, ["Customer", "Email", "Workspace", "Plan", "Status", "Holdings", "Market_Value", "Gain/Loss %", "Generated"])}
+    </section>
+  `;
+}
+
+function portfolioHealthStatusLabel(status) {
+  return {
+    healthy: "Healthy",
+    needs_recovery: "Needs recovery",
+    needs_reference: "Needs reference",
+    needs_review: "Needs review",
+    repairable: "Repairable",
+    empty: "Empty",
+  }[status] || "Needs review";
+}
+
+function defaultPortfolioHealthFilters() {
+  return {
+    query: "",
+    status: "all",
+    orderBy: "generatedAt",
+    direction: "desc",
+  };
+}
+
+function filterPortfolioHealthSnapshots(snapshots, filters = state.portfolioHealthFilters) {
+  const query = String(filters.query || "").trim().toLowerCase();
+  const status = filters.status || "all";
+  const orderBy = filters.orderBy || "generatedAt";
+  const direction = filters.direction === "asc" ? "asc" : "desc";
+  const statusRank = {
+    repairable: 5,
+    needs_recovery: 5,
+    needs_reference: 4,
+    needs_review: 3,
+    empty: 2,
+    healthy: 1,
+  };
+
+  return snapshots
+    .filter((snapshot) => status === "all" || snapshot.status === status)
+    .filter((snapshot) => {
+      if (!query) {
+        return true;
+      }
+      const haystack = [
+        snapshot.customerName,
+        snapshot.customerEmail,
+        snapshot.workspaceName,
+        snapshot.subscriptionPlan,
+        snapshot.subscriptionStatus,
+        snapshot.status,
+        snapshot.userId,
+      ].join(" ").toLowerCase();
+      return haystack.includes(query);
+    })
+    .sort((left, right) => {
+      const leftValue = portfolioHealthSortValue(left, orderBy, statusRank);
+      const rightValue = portfolioHealthSortValue(right, orderBy, statusRank);
+      const comparison = typeof leftValue === "number" && typeof rightValue === "number"
+        ? leftValue - rightValue
+        : String(leftValue).localeCompare(String(rightValue));
+      return direction === "asc" ? comparison : -comparison;
+    });
+}
+
+function portfolioHealthSortValue(snapshot, orderBy, statusRank) {
+  if (orderBy === "generatedAt") {
+    return new Date(snapshot.generatedAt || 0).getTime();
+  }
+  if (orderBy === "marketValue") {
+    return numberValue(snapshot.marketValue);
+  }
+  if (orderBy === "status") {
+    return statusRank[snapshot.status] || 0;
+  }
+  return String(snapshot[orderBy] || "").toLowerCase();
+}
+
+function attachPortfolioHealthControls() {
+  const controls = document.querySelector("[data-portfolio-health-controls]");
+  if (!controls) {
+    return;
+  }
+
+  controls.querySelectorAll("[data-portfolio-health-filter]").forEach((field) => {
+    field.addEventListener("change", () => {
+      state.portfolioHealthFilters = {
+        ...defaultPortfolioHealthFilters(),
+        ...state.portfolioHealthFilters,
+        [field.dataset.portfolioHealthFilter]: field.value,
+      };
+      renderBusinessView();
+    });
+  });
+
+  controls.querySelector("[data-portfolio-health-reset]")?.addEventListener("click", () => {
+    state.portfolioHealthFilters = defaultPortfolioHealthFilters();
+    renderBusinessView();
+  });
+}
+
+function renderReferenceMasterReviewTable(rows) {
+  return `
+    <div class="table-wrap">
+      <table class="reference-master-table">
+        <thead>
+          <tr>
+            <th>Symbol</th>
+            <th>Sector</th>
+            <th>PE</th>
+            <th>ROE</th>
+            <th>Yield</th>
+            <th>D/E</th>
+            <th>Missing</th>
+            <th>Note</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((row) => `
+            <tr data-reference-row="${escapeHtml(row.Symbol)}">
+              <td><strong>${escapeHtml(row.Symbol)}</strong></td>
+              <td><input data-reference-field="Sector" value="${escapeHtml(row.Sector || "Unknown")}" aria-label="Sector for ${escapeHtml(row.Symbol)}"></td>
+              <td><input data-reference-field="PE" type="number" step="0.01" value="${escapeHtml(row.PE ?? 0)}" aria-label="PE for ${escapeHtml(row.Symbol)}"></td>
+              <td><input data-reference-field="ROE" type="number" step="0.01" value="${escapeHtml(row.ROE ?? 0)}" aria-label="ROE for ${escapeHtml(row.Symbol)}"></td>
+              <td><input data-reference-field="Yield" type="number" step="0.01" value="${escapeHtml(row.Yield ?? 0)}" aria-label="Yield for ${escapeHtml(row.Symbol)}"></td>
+              <td><input data-reference-field="DE" type="number" step="0.01" value="${escapeHtml(row.DE ?? 0)}" aria-label="D/E for ${escapeHtml(row.Symbol)}"></td>
+              <td>${escapeHtml((row.metadata?.missingFields || []).join(", ") || "-")}</td>
+              <td><input data-reference-field="reviewNote" value="" placeholder="Review note" aria-label="Review note for ${escapeHtml(row.Symbol)}"></td>
+              <td><button class="table-action" type="button" data-reference-save="${escapeHtml(row.Symbol)}">Save review</button></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
 function renderLaunchEvidenceCenter(evidence = state.launchEvidence) {
@@ -919,7 +1725,7 @@ function renderLaunchEvidenceCenter(evidence = state.launchEvidence) {
         <div class="launch-evidence-header-actions">
           <span class="status-pill ${evidence.status === "ready" ? "ready" : ""}">${escapeHtml(evidence.status || "needs_evidence")}</span>
           <button class="ghost-button" type="button" data-launch-evidence-copy="true">Copy sign-off pack</button>
-          <a class="download-link" href="/api/admin/launch-evidence/export?format=json" download>Download JSON</a>
+          <button class="ghost-button download-link" type="button" data-launch-evidence-download="json">Download JSON</button>
         </div>
       </div>
       ${state.launchEvidenceExportMessage ? `<p class="muted launch-evidence-export-message">${escapeHtml(state.launchEvidenceExportMessage)}</p>` : ""}
@@ -929,6 +1735,7 @@ function renderLaunchEvidenceCenter(evidence = state.launchEvidence) {
         ${metric("Blocked Evidence", evidence.summary?.blocked || 0)}
         ${metric("Evidence Items", evidence.summary?.total || items.length)}
       </div>
+      ${renderReferenceMasterLaunchEvidence(evidence.referenceMaster)}
       <div class="launch-evidence-grid">
         ${items.map((item) => `
           <article class="launch-evidence-card ${escapeHtml(item.status || "pending")}">
@@ -952,6 +1759,51 @@ function renderLaunchEvidenceCenter(evidence = state.launchEvidence) {
   `;
 }
 
+function renderReferenceMasterLaunchEvidence(referenceMasterEvidence) {
+  if (!referenceMasterEvidence) {
+    return "";
+  }
+
+  const requiredMarkers = (referenceMasterEvidence.items || [])
+    .flatMap((item) => (item.requiredEvidence || []).map((requirement) => ({
+      item: item.title,
+      ...requirement,
+    })));
+
+  return `
+    <div class="reference-launch-evidence" data-reference-master-launch-evidence="true">
+      <div class="section-title compact-title">
+        <div>
+          <p class="eyebrow">Reference data go-live</p>
+          <h3>Reference master launch evidence</h3>
+          <p class="muted">Shows freshness and migration readiness evidence only. The browser does not execute these commands.</p>
+        </div>
+        <span class="status-pill ${referenceMasterEvidence.status === "ready" ? "ready" : ""}">${escapeHtml(referenceMasterEvidence.status || "needs_evidence")}</span>
+      </div>
+      <div class="guidance-grid">
+        ${(referenceMasterEvidence.items || []).map((item) => `
+          <div class="guidance-card">
+            <span>${escapeHtml(evidenceStatusLabel(item.status))}</span>
+            <strong>${escapeHtml(item.title)}</strong>
+            <code>${escapeHtml(item.command || "-")}</code>
+          </div>
+        `).join("")}
+      </div>
+      ${requiredMarkers.length ? `
+        <div class="evidence-marker-list">
+          ${requiredMarkers.map((marker) => `
+            <div>
+              <span>${escapeHtml(marker.ready ? "Ready" : "Missing")}</span>
+              <strong>${escapeHtml(marker.label)}</strong>
+              <code>${escapeHtml(marker.env)}</code>
+            </div>
+          `).join("")}
+        </div>
+      ` : ""}
+    </div>
+  `;
+}
+
 async function copyLaunchEvidencePack(button) {
   const originalText = button.textContent;
   button.disabled = true;
@@ -966,8 +1818,43 @@ async function copyLaunchEvidencePack(button) {
     const text = await response.text();
     await copyTextToClipboard(text);
     state.launchEvidenceExportMessage = "Sign-off pack copied. It is sanitized and ready for owner/admin review.";
+    await loadAuditEvents();
   } catch (error) {
     state.launchEvidenceExportMessage = `Could not copy sign-off pack: ${error.message}`;
+  } finally {
+    button.disabled = false;
+    button.textContent = originalText;
+    if (state.activeView === "business") {
+      renderBusinessView();
+    }
+  }
+}
+
+async function downloadLaunchEvidencePack(button) {
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "Preparing...";
+
+  try {
+    const response = await fetch("/api/admin/launch-evidence/export?format=json");
+    if (!response.ok) {
+      throw new Error(`Export failed with HTTP ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const fileName = downloadFileName(response.headers.get("content-disposition")) || "stockflix-launch-evidence.json";
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    state.launchEvidenceExportMessage = "Sign-off pack downloaded. The export event is recorded in Recent activity.";
+    await loadAuditEvents();
+  } catch (error) {
+    state.launchEvidenceExportMessage = `Could not download sign-off pack: ${error.message}`;
   } finally {
     button.disabled = false;
     button.textContent = originalText;
@@ -992,6 +1879,11 @@ async function copyTextToClipboard(text) {
   textArea.select();
   document.execCommand("copy");
   document.body.removeChild(textArea);
+}
+
+function downloadFileName(contentDisposition = "") {
+  const match = String(contentDisposition).match(/filename="?([^"]+)"?/i);
+  return match ? match[1] : "";
 }
 
 function renderOperationalReadiness(readiness) {
@@ -1061,6 +1953,69 @@ function renderApprovalsView() {
   attachApprovalActions();
 }
 
+const screenerFilterTips = {
+  minScore: {
+    title: "Min Score",
+    meaning: "คะแนนรวมจากหลายปัจจัย เช่น คุณภาพพื้นฐาน ความคุ้มค่า และจังหวะราคา ยิ่งสูงยิ่งผ่านเกณฑ์มากขึ้น",
+    goodValue: "มือใหม่เริ่มที่ Score 60+ เพื่อเห็นตัวเลือกมากพอ ถ้าต้องการคัดเข้มให้ใช้ Score 70+",
+    caution: "คะแนนสูงไม่ได้แปลว่าซื้อได้ทันที ควรดู RRR, หนี้ และข่าวล่าสุดประกอบ",
+  },
+  minRrr: {
+    title: "Min RRR",
+    meaning: "Reward/Risk Ratio คือสัดส่วนกำไรที่คาดหวังเทียบกับความเสี่ยงขาดทุน",
+    goodValue: "RRR 1.5+ ถือว่าเริ่มน่าสนใจ และ RRR 2.0+ ถือว่าเผื่อความเสี่ยงได้ดีขึ้น",
+    caution: "ถ้าค่านี้ต่ำ แปลว่ากำไรที่หวังอาจไม่คุ้มกับความเสี่ยงที่ต้องรับ",
+  },
+  maxDe: {
+    title: "Max D/E",
+    meaning: "Debt to Equity คือหนี้สินเทียบกับทุนของบริษัท ยิ่งต่ำมักยิ่งรับความเสี่ยงหนี้ได้น้อยลง",
+    goodValue: "D/E <= 1.0 เหมาะเป็นค่าเริ่มต้น และ D/E <= 0.7 เหมาะกับคนที่อยากระวังหนี้มากขึ้น",
+    caution: "ธนาคารและไฟแนนซ์มักมี D/E สูงตามลักษณะธุรกิจ จึงควรเทียบกับหุ้นใน sector เดียวกัน",
+  },
+  sector: {
+    title: "Sector",
+    meaning: "กลุ่มธุรกิจของหุ้น เช่น ธนาคาร พลังงาน ค้าปลีก หรือเทคโนโลยี",
+    goodValue: "มือใหม่ควรเริ่มจาก sector ที่เข้าใจ และไม่ควรกระจุกเงินไว้ใน sector เดียวทั้งหมด",
+    caution: "ถ้าเลือก sector แคบเกินไป อาจพลาดหุ้นดีในกลุ่มอื่น",
+  },
+  trend: {
+    title: "Trend",
+    meaning: "ภาพรวมทิศทางราคาหุ้นจากข้อมูลเทคนิค เช่น กำลังขึ้น ลง หรือแกว่งตัว",
+    goodValue: "ถ้าไม่ถนัดจับจังหวะ ให้เริ่มดูหุ้นที่เป็น Uptrend/Bullish หรือหลีกเลี่ยง Bearish ก่อน",
+    caution: "Trend เป็นข้อมูลจังหวะราคา ไม่ใช่การรับประกันว่าราคาจะขึ้นต่อ",
+  },
+};
+
+function renderScreenerTooltip(tipKey) {
+  const tip = screenerFilterTips[tipKey];
+  const tooltipId = `screener-tip-${tipKey}`;
+
+  return `
+    <span class="screener-help-wrap" data-screener-tooltip="${escapeHtml(tipKey)}">
+      <button class="tooltip-trigger" type="button" aria-label="Explain ${escapeHtml(tip.title)}" aria-describedby="${tooltipId}">?</button>
+      <span id="${tooltipId}" class="tooltip-card" role="tooltip">
+        <strong>${escapeHtml(tip.title)}</strong>
+        <span>คืออะไร: ${escapeHtml(tip.meaning)}</span>
+        <span>ค่าที่น่าเริ่มใช้: ${escapeHtml(tip.goodValue)}</span>
+        <span>ข้อควรระวัง: ${escapeHtml(tip.caution)}</span>
+      </span>
+    </span>
+  `;
+}
+
+function renderScreenerFilterField({ id, label, tipKey, hint, controlHtml }) {
+  return `
+    <div class="filter-field" data-screener-filter-help="${escapeHtml(tipKey)}">
+      <div class="filter-label-row">
+        <label class="filter-label-text" for="${escapeHtml(id)}">${escapeHtml(label)}</label>
+        ${renderScreenerTooltip(tipKey)}
+      </div>
+      ${controlHtml}
+      <small id="${escapeHtml(id)}Hint" class="filter-help-text">${escapeHtml(hint)}</small>
+    </div>
+  `;
+}
+
 function renderScreenerView() {
   if (!state.recommendations.length) {
     viewOutput.innerHTML = `<p class="muted">Run analysis to load stock recommendations.</p>`;
@@ -1070,18 +2025,55 @@ function renderScreenerView() {
   const sectors = uniqueValues(state.recommendations.map((row) => row.Sector || "Unknown"));
   const trends = uniqueValues(state.recommendations.map((row) => row.Trend_Status || "Unknown"));
   viewOutput.innerHTML = `
+    <section class="screener-beginner-guide" data-screener-beginner-guidance>
+      <div>
+        <strong>Beginner filter guide</strong>
+        <span>เริ่มแบบอ่านง่าย: Score 60+, RRR 1.5+, D/E <= 1.0. ถ้าต้องการคัดเข้มขึ้นให้ใช้ Score 70+, RRR 2.0+, D/E <= 0.7.</span>
+      </div>
+      <span>กดเครื่องหมาย ? เพื่อดูความหมายและข้อควรระวังของแต่ละ filter</span>
+    </section>
     <div class="filter-bar">
-      <label>Min Score <input id="minScore" type="number" min="0" max="100" value="0"></label>
-      <label>Min RRR <input id="minRrr" type="number" min="0" step="0.1" value="0"></label>
-      <label>Max D/E <input id="maxDe" type="number" min="0" step="0.1" value="10"></label>
-      <label>Sector <select id="sectorFilter">
-        <option value="">All sectors</option>
-        ${sectors.map((sector) => option(sector, sector, "")).join("")}
-      </select></label>
-      <label>Trend <select id="trendFilter">
-        <option value="">All trends</option>
-        ${trends.map((trend) => option(trend, trend, "")).join("")}
-      </select></label>
+      ${renderScreenerFilterField({
+        id: "minScore",
+        label: "Min Score",
+        tipKey: "minScore",
+        hint: "มือใหม่ลอง 60 ก่อน ถ้าต้องการคัดเข้มใช้ 70 ขึ้นไป",
+        controlHtml: '<input id="minScore" type="number" min="0" max="100" value="0" aria-describedby="screener-tip-minScore minScoreHint">',
+      })}
+      ${renderScreenerFilterField({
+        id: "minRrr",
+        label: "Min RRR",
+        tipKey: "minRrr",
+        hint: "มือใหม่ลอง 1.5 ก่อน ถ้าต้องการเผื่อความเสี่ยงมากขึ้นใช้ 2.0",
+        controlHtml: '<input id="minRrr" type="number" min="0" step="0.1" value="0" aria-describedby="screener-tip-minRrr minRrrHint">',
+      })}
+      ${renderScreenerFilterField({
+        id: "maxDe",
+        label: "Max D/E",
+        tipKey: "maxDe",
+        hint: "มือใหม่ลองไม่เกิน 1.0 ถ้าระวังหนี้มากให้ใช้ 0.7",
+        controlHtml: '<input id="maxDe" type="number" min="0" step="0.1" value="10" aria-describedby="screener-tip-maxDe maxDeHint">',
+      })}
+      ${renderScreenerFilterField({
+        id: "sectorFilter",
+        label: "Sector",
+        tipKey: "sector",
+        hint: "เลือกกลุ่มธุรกิจที่เข้าใจก่อน หรือเลือก All sectors เพื่อดูภาพรวม",
+        controlHtml: `<select id="sectorFilter" aria-describedby="screener-tip-sector sectorFilterHint">
+          <option value="">All sectors</option>
+          ${sectors.map((sector) => option(sector, sector, "")).join("")}
+        </select>`,
+      })}
+      ${renderScreenerFilterField({
+        id: "trendFilter",
+        label: "Trend",
+        tipKey: "trend",
+        hint: "มือใหม่ควรระวังหุ้น Bearish และใช้ trend เป็นข้อมูลประกอบเท่านั้น",
+        controlHtml: `<select id="trendFilter" aria-describedby="screener-tip-trend trendFilterHint">
+          <option value="">All trends</option>
+          ${trends.map((trend) => option(trend, trend, "")).join("")}
+        </select>`,
+      })}
     </div>
     <p id="screenerFilterStatus" class="muted"></p>
     <div id="screenerTable"></div>
@@ -1719,6 +2711,9 @@ function auditActionLabel(action) {
     "approval.request_created": "Approval requested",
     "approval.request_approved": "Approval approved",
     "approval.request_rejected": "Approval rejected",
+    "launch_evidence.export": "Launch evidence exported",
+    "portfolio_health.export": "Portfolio health exported",
+    "reference_master.review": "Reference master reviewed",
   }[action] || action;
 }
 
@@ -1767,6 +2762,18 @@ function summarizeAuditDetails(event) {
 
   if (event.action === "approval.request_created" || event.action === "approval.request_approved" || event.action === "approval.request_rejected") {
     return `${details.title || "Approval"} · ${details.status || "-"} · ${money(details.amountThb || 0)}`;
+  }
+
+  if (event.action === "launch_evidence.export") {
+    return `${details.format || "json"} · ${details.launchStatus || "-"} · ready ${formatNumber(details.ready || 0)} / ${formatNumber(details.total || 0)}`;
+  }
+
+  if (event.action === "portfolio_health.export") {
+    return `${details.format || "csv"} · ${portfolioHealthStatusLabel(details.status)} · ${formatNumber(details.totalSnapshots || 0)} snapshots`;
+  }
+
+  if (event.action === "reference_master.review") {
+    return `${details.symbol || "-"} · ${details.reviewStatus || "-"} · changed ${(details.changedFields || []).join(", ") || "none"}`;
   }
 
   if (event.action === "analysis.run") {
@@ -1821,6 +2828,55 @@ function attachApprovalActions() {
   document.querySelectorAll("[data-approval-decision]").forEach((button) => {
     button.addEventListener("click", () => decideApprovalRequest(button.dataset.approvalDecision, button.dataset.decision));
   });
+}
+
+function attachReferenceMasterActions() {
+  document.querySelectorAll("[data-reference-save]").forEach((button) => {
+    button.addEventListener("click", () => saveReferenceMasterRecord(button));
+  });
+}
+
+async function saveReferenceMasterRecord(button) {
+  const symbol = button.dataset.referenceSave;
+  const row = button.closest("[data-reference-row]");
+  if (!symbol || !row) {
+    return;
+  }
+
+  const payload = {};
+  row.querySelectorAll("[data-reference-field]").forEach((input) => {
+    payload[input.dataset.referenceField] = input.value;
+  });
+
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "Saving...";
+
+  try {
+    const response = await fetch(`/api/admin/reference-master/${encodeURIComponent(symbol)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!data.ok) {
+      throw new Error(data.message || "Reference master update failed.");
+    }
+    state.referenceMaster = data.referenceMaster;
+    await loadAuditEvents();
+    renderBusinessView();
+  } catch (error) {
+    const noteField = row.querySelector("[data-reference-field='reviewNote']");
+    if (noteField) {
+      noteField.value = error.message;
+    }
+    button.disabled = false;
+    button.textContent = "Retry";
+    return;
+  }
+
+  button.disabled = false;
+  button.textContent = originalText;
 }
 
 async function createApprovalRequest(event) {
@@ -2002,7 +3058,7 @@ async function updateUserOrganization(userId) {
 }
 
 async function refreshWorkspaceData(options = {}) {
-  const loaders = [loadBusinessMetrics(), loadTeamUsers(), loadOrganizations(), loadPaymentSessions(), loadAuditEvents(), loadApprovalRequests(), loadTenantScope()];
+  const loaders = [loadBusinessMetrics(), loadReferenceMasterReview(), loadTeamUsers(), loadOrganizations(), loadPaymentSessions(), loadAuditEvents(), loadApprovalRequests(), loadTenantScope()];
   if (options.includeCurrentUser) {
     loaders.push(loadCurrentUser());
   }

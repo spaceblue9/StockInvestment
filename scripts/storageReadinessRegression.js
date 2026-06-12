@@ -60,6 +60,12 @@ try {
   assertEqual(ready.readiness.warningCount, 0, "Ready state should have no warnings.");
   assertEqual(ready.schema.collections.length, ready.readiness.collectionCount, "Schema and readiness collection counts should match.");
   assert(ready.schema.collections.some((collection) => collection.name === "auditEvents" && collection.appendOnly), "Audit events should be marked append-only.");
+  assertEqual(ready.databaseModeAdvisor.adapter, "local_file", "Database advisor should expose the current local adapter.");
+  assertEqual(ready.databaseModeAdvisor.status, "prototype_only", "Local file mode should be marked prototype only.");
+  assert(
+    ready.databaseModeAdvisor.commands.some((command) => command.includes("APP_STATE_REPOSITORY=sqlite")),
+    "Database advisor should suggest SQLite trial configuration from local file mode.",
+  );
 
   await expectReject(
     () => storageReadinessSummary(customer.id),
@@ -108,6 +114,7 @@ try {
       blockerCount: ready.readiness.blockerCount,
       warningCount: ready.readiness.warningCount,
       schemaVersion: ready.readiness.schemaVersion,
+      databaseMode: ready.databaseModeAdvisor.status,
     },
     blocked: {
       status: blocked.readiness.status,

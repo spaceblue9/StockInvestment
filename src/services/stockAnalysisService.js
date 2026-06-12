@@ -156,7 +156,7 @@ function getDeScore(de) {
 }
 
 function getPricePosition(row) {
-  if (!row.High_52W || !row.Low_52W || row.High_52W === row.Low_52W) {
+  if (!Number.isFinite(row.High_52W) || !Number.isFinite(row.Low_52W) || row.High_52W === row.Low_52W) {
     return 50;
   }
 
@@ -258,7 +258,7 @@ function median(values) {
     .sort((left, right) => left - right);
 
   if (!sorted.length) {
-    return 0;
+    return NaN;
   }
 
   const midpoint = Math.floor(sorted.length / 2);
@@ -276,6 +276,10 @@ function clamp(value, min, max) {
 function numberValue(value) {
   if (typeof value === "string") {
     const normalized = value.trim().toLowerCase();
+    if (!normalized || normalized === "-" || normalized === "nan") {
+      return NaN;
+    }
+
     if (normalized === "inf" || normalized === "infinity") {
       return Infinity;
     }
@@ -286,5 +290,5 @@ function numberValue(value) {
   }
 
   const numericValue = Number(value);
-  return Number.isFinite(numericValue) ? numericValue : 0;
+  return Number.isFinite(numericValue) ? numericValue : NaN;
 }

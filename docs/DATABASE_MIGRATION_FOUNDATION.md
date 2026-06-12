@@ -8,6 +8,10 @@ T28 adds a repository layer in `src/services/stateRepository.js`. The app still 
 
 T35 adds an opt-in Postgres state adapter behind the same repository boundary. The default remains `local_file` so local development and existing demo behavior stay unchanged.
 
+T74 adds an opt-in SQLite state adapter for trial/demo use. It stores the same app-state collections in a local `.sqlite` file through the repository boundary, while Postgres remains the recommended production database path.
+
+T75 adds a SQLite trial to Postgres promotion runbook and CLI. It is dry-run by default, reads the SQLite trial state, builds a Postgres import plan, masks secrets, and refuses confirmed writes until backup evidence and review markers are present.
+
 T37 adds a one-time importer from normalized `app-state.json` into the Postgres adapter. It supports dry-run readiness checks before writing to a database.
 
 T39 adds a local backup/restore drill for `app-state.json`, the audit mirror, and external audit receipts. It is a file-backed safety drill before production database cutover.
@@ -68,6 +72,14 @@ The repository layer exposes:
 - `patchAppState(patch, { normalize })`
 - `stateRepositoryInfo()`
 
+Owner/admin storage readiness and Business dashboard now include a Database Mode Advisor built from `stateRepositoryInfo()` and the storage readiness report. It translates the current adapter into plain operational guidance:
+
+- `local_file`: development/demo only
+- `sqlite`: trial/demo database file
+- `postgres`: production target
+
+The advisor also lists the next safe commands, such as SQLite trial setup, `sqlite:promote` dry-run, Postgres backup runbook, patch validation, patch smoke, and deployment checklist.
+
 Current adapter:
 
 ```text
@@ -78,10 +90,20 @@ Supported adapters:
 
 ```text
 APP_STATE_REPOSITORY=local_file
+APP_STATE_REPOSITORY=sqlite
 APP_STATE_REPOSITORY=postgres
 ```
 
 If an unsupported adapter is configured, reads and writes fail fast so deployments do not silently use an unknown persistence layer.
+
+SQLite trial configuration:
+
+```text
+APP_STATE_REPOSITORY=sqlite
+SQLITE_DATABASE_PATH=data/stockflix.sqlite
+```
+
+SQLite uses the Node.js 22+ built-in `node:sqlite` module, which is still experimental. Use it for local trials, demos, and small pilots. Do not treat it as the production target for paid multi-tenant traffic; use Postgres for production.
 
 The local repository also mirrors audit events to:
 
@@ -138,6 +160,12 @@ In local-file mode this still performs:
 
 ```text
 read current state -> apply logical patch -> write app-state.json
+```
+
+In SQLite mode this performs:
+
+```text
+read current state -> apply logical patch -> write stockflix.sqlite
 ```
 
 In Postgres mode this now performs:
@@ -294,6 +322,61 @@ npm run import:postgres -- --input data/app-state.json --allow-blocked
 ```
 
 Use `--allow-blocked` only after reviewing the dry-run output because it can intentionally import duplicate/orphaned records.
+
+## SQLite Trial to Postgres Promotion
+
+Use this path when a pilot, demo, or UAT environment has been running with:
+
+```text
+APP_STATE_REPOSITORY=sqlite
+SQLITE_DATABASE_PATH=data/stockflix.sqlite
+```
+
+Dry-run first:
+
+```bash
+npm run sqlite:promote -- --sqlite data/stockflix.sqlite --dry-run --format text
+```
+
+The dry-run:
+
+- verifies that the SQLite source file exists
+- reads state through the SQLite repository adapter
+- normalizes state with the same import normalization as the app service
+- runs the Postgres import readiness plan
+- reports record counts for every production table
+- masks `DATABASE_URL`
+- does not write to Postgres
+
+Before confirm, configure the target environment:
+
+```text
+APP_STATE_REPOSITORY=postgres
+DATABASE_URL=postgres://user:password@host:5432/database
+DATABASE_SSL_MODE=require
+SQLITE_TO_POSTGRES_PG_DRIVER_READY=true
+SQLITE_TO_POSTGRES_BACKUP_EVIDENCE=<snapshot-or-pgdump-id>
+SQLITE_TO_POSTGRES_PROMOTION_REVIEWED=true
+```
+
+Run confirm only after the dry-run is reviewed and a target Postgres backup exists:
+
+```bash
+npm run sqlite:promote -- --sqlite data/stockflix.sqlite --confirm --format text
+```
+
+Guardrails:
+
+- `--confirm` is required before any Postgres write
+- missing SQLite file blocks promotion
+- missing `DATABASE_URL` blocks promotion
+- missing `APP_STATE_REPOSITORY=postgres` blocks promotion
+- missing pg driver evidence blocks promotion
+- missing backup evidence blocks promotion
+- missing dry-run review marker blocks promotion
+- storage readiness blockers stop confirmed promotion unless `--allow-blocked` is passed intentionally
+
+After a staging promotion, verify owner login, customer login, portfolio snapshots, billing events, audit integrity, tenant-scoped reads, and Business dashboard readiness before repeating the process in production.
 
 ## Backup / Restore Drill
 

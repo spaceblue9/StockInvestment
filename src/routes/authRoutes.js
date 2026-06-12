@@ -27,6 +27,7 @@ import {
   processPaymentWebhook,
   processProviderPaymentWebhook,
   processSignedPaymentWebhook,
+  recordAuditEvent,
   requirePlanEntitlement,
   rolePolicy,
   saveInvestorProfile,
@@ -43,6 +44,14 @@ import {
   renderLaunchEvidenceSignoffText,
 } from "../services/launchEvidenceService.js";
 import { operationalReadinessReport } from "../services/observabilityService.js";
+import {
+  portfolioSnapshotHealthSummary,
+  renderPortfolioSnapshotHealthCsv,
+} from "../services/portfolioSnapshotRecoveryService.js";
+import {
+  referenceMasterReviewSummary,
+  updateReferenceMasterRecord,
+} from "../services/referenceMasterService.js";
 
 const router = express.Router();
 
@@ -525,6 +534,80 @@ router.get("/admin/metrics", async (req, res) => {
   }
 });
 
+router.get("/admin/portfolio-health", async (req, res) => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    res.status(401).json({
+      ok: false,
+      message: "Please sign in to view portfolio data health.",
+    });
+    return;
+  }
+
+  if (!["owner", "admin"].includes(user.role)) {
+    res.status(403).json({
+      ok: false,
+      message: "Portfolio data health is available to owner and admin accounts only.",
+    });
+    return;
+  }
+
+  try {
+    requirePlanEntitlement(user, "business.metrics");
+    res.json({
+      ok: true,
+      portfolioHealth: await portfolioSnapshotHealthSummary(),
+    });
+  } catch (error) {
+    sendAuthError(res, error, 403);
+  }
+});
+
+router.get("/admin/portfolio-health/export", async (req, res) => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    res.status(401).json({
+      ok: false,
+      message: "Please sign in to export portfolio data health.",
+    });
+    return;
+  }
+
+  if (!["owner", "admin"].includes(user.role)) {
+    res.status(403).json({
+      ok: false,
+      message: "Portfolio data health export is available to owner and admin accounts only.",
+    });
+    return;
+  }
+
+  try {
+    requirePlanEntitlement(user, "business.metrics");
+    const portfolioHealth = await portfolioSnapshotHealthSummary();
+    await recordAuditEvent({
+      actorUserId: user.id,
+      action: "portfolio_health.export",
+      targetUserId: user.id,
+      details: {
+        format: "csv",
+        status: portfolioHealth.status,
+        totalSnapshots: portfolioHealth.totalSnapshots,
+        healthySnapshots: portfolioHealth.healthySnapshots,
+        repairableSnapshots: portfolioHealth.repairableSnapshots,
+        skippedSnapshots: portfolioHealth.skippedSnapshots,
+        emptySnapshots: portfolioHealth.emptySnapshots,
+        generatedAt: portfolioHealth.generatedAt,
+      },
+    });
+    const dateStamp = String(portfolioHealth.generatedAt || new Date().toISOString()).slice(0, 10);
+    res.type("text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="stockflix-portfolio-health-${dateStamp}.csv"`);
+    res.send(renderPortfolioSnapshotHealthCsv(portfolioHealth));
+  } catch (error) {
+    sendAuthError(res, error, 403);
+  }
+});
+
 router.get("/admin/launch-evidence", async (req, res) => {
   const user = await getUserFromRequest(req);
   if (!user) {
@@ -579,6 +662,7 @@ router.get("/admin/launch-evidence/export", async (req, res) => {
     const dateStamp = String(pack.generatedAt || new Date().toISOString()).slice(0, 10);
 
     if (format === "text" || format === "txt") {
+      await auditLaunchEvidenceExport(user, "text", pack);
       res.type("text/plain");
       res.setHeader("Content-Disposition", `attachment; filename="stockflix-launch-evidence-${dateStamp}.txt"`);
       res.send(renderLaunchEvidenceSignoffText(pack));
@@ -593,6 +677,7 @@ router.get("/admin/launch-evidence/export", async (req, res) => {
       return;
     }
 
+    await auditLaunchEvidenceExport(user, "json", pack);
     res.type("application/json");
     res.setHeader("Content-Disposition", `attachment; filename="stockflix-launch-evidence-${dateStamp}.json"`);
     res.send(JSON.stringify(pack, null, 2));
@@ -600,6 +685,27 @@ router.get("/admin/launch-evidence/export", async (req, res) => {
     sendAuthError(res, error, 403);
   }
 });
+
+async function auditLaunchEvidenceExport(user, format, pack) {
+  await recordAuditEvent({
+    actorUserId: user.id,
+    action: "launch_evidence.export",
+    targetUserId: user.id,
+    details: {
+      format,
+      version: pack.version,
+      launchStatus: pack.launchStatus,
+      generatedAt: pack.generatedAt,
+      exportedAt: pack.exportedAt,
+      ready: pack.summary?.ready || 0,
+      pending: pack.summary?.pending || 0,
+      blocked: pack.summary?.blocked || 0,
+      total: pack.summary?.total || 0,
+      evidenceItemCount: (pack.evidenceItems || []).length,
+      sanitizedEnvironment: pack.sanitizedEnvironment || {},
+    },
+  });
+}
 
 router.get("/ops/readiness", async (req, res) => {
   const user = await getUserFromRequest(req);
@@ -629,6 +735,88 @@ router.get("/ops/readiness", async (req, res) => {
     sendAuthError(res, error, 403);
   }
 });
+
+router.get("/admin/reference-master", async (req, res) => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    res.status(401).json({
+      ok: false,
+      message: "Please sign in to view reference master review.",
+    });
+    return;
+  }
+
+  if (!["owner", "admin"].includes(user.role)) {
+    res.status(403).json({
+      ok: false,
+      message: "Reference master review is available to owner and admin accounts only.",
+    });
+    return;
+  }
+
+  try {
+    requirePlanEntitlement(user, "business.metrics");
+    const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 25));
+    res.json({
+      ok: true,
+      referenceMaster: await referenceMasterReviewSummary({ limit }),
+    });
+  } catch (error) {
+    sendAuthError(res, error, 403);
+  }
+});
+
+router.post("/admin/reference-master/:symbol", async (req, res) => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    res.status(401).json({
+      ok: false,
+      message: "Please sign in to review reference master records.",
+    });
+    return;
+  }
+
+  if (!["owner", "admin"].includes(user.role)) {
+    res.status(403).json({
+      ok: false,
+      message: "Reference master review is available to owner and admin accounts only.",
+    });
+    return;
+  }
+
+  try {
+    requirePlanEntitlement(user, "business.metrics");
+    const result = await updateReferenceMasterRecord(req.params.symbol, req.body || {}, {
+      reviewerId: user.id,
+      reviewerName: user.email,
+    });
+    await recordAuditEvent({
+      actorUserId: user.id,
+      action: "reference_master.review",
+      targetUserId: user.id,
+      details: {
+        symbol: result.record.Symbol,
+        reviewStatus: result.record.metadata?.reviewStatus,
+        missingFieldsBefore: result.previousRecord.metadata?.missingFields || [],
+        missingFieldsAfter: result.record.metadata?.missingFields || [],
+        freshnessStatus: result.record.metadata?.freshnessStatus,
+        changedFields: changedReferenceFields(result.previousRecord, result.record),
+      },
+    });
+    res.json({
+      ok: true,
+      record: result.record,
+      referenceMaster: result.summary,
+    });
+  } catch (error) {
+    sendAuthError(res, error, 400);
+  }
+});
+
+function changedReferenceFields(previousRecord, nextRecord) {
+  return ["Sector", "PE", "ROE", "Yield", "DE", "PBV", "High_52W", "Low_52W"]
+    .filter((field) => String(previousRecord[field] ?? "") !== String(nextRecord[field] ?? ""));
+}
 
 router.get("/admin/users", async (req, res) => {
   const user = await getUserFromRequest(req);

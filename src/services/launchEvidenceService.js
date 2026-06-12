@@ -67,6 +67,41 @@ const launchItems = [
     evidence: "Attach audit integrity, audit mirror, and external audit receipt status.",
     category: "audit",
   },
+  {
+    id: "reference_master_freshness",
+    title: "Reference master freshness review",
+    command: "npm run reference:freshness -- --dry-run --limit 25",
+    markerEnv: "REFERENCE_MASTER_FRESHNESS_REVIEWED",
+    evidence: "Attach freshness report status, needs-review rows, stale rows, and owner/admin review notes.",
+    category: "reference-data",
+    secondaryEnv: "REFERENCE_MASTER_FRESHNESS_REPORT_EVIDENCE",
+  },
+  {
+    id: "reference_master_migration_readiness",
+    title: "Reference master migration readiness",
+    command: "npm run reference:migrate -- --dry-run --repository-adapter postgres --ssl-mode require --node-env staging --staging-ready --backup-evidence <backup-id> --migration-plan-reviewed --format text --strict",
+    markerEnv: "REFERENCE_MASTER_MIGRATION_SIGNED_OFF",
+    evidence: "Attach reviewed dry-run output, staging database readiness, backup/restore evidence, and migration sign-off.",
+    category: "reference-data",
+    requiredEnv: [
+      {
+        key: "REFERENCE_MASTER_MIGRATION_DRY_RUN_REVIEWED",
+        aliases: ["REFERENCE_MASTER_MIGRATION_PLAN_REVIEWED"],
+        label: "Dry-run output reviewed",
+        kind: "truthy",
+      },
+      {
+        key: "REFERENCE_MASTER_MIGRATION_STAGING_READY",
+        label: "Staging database selected",
+        kind: "truthy",
+      },
+      {
+        key: "REFERENCE_MASTER_MIGRATION_BACKUP_EVIDENCE",
+        label: "Backup/restore evidence id",
+        kind: "text",
+      },
+    ],
+  },
 ];
 
 export function buildLaunchEvidenceCenter(options = {}) {
@@ -74,6 +109,7 @@ export function buildLaunchEvidenceCenter(options = {}) {
   const generatedAt = options.generatedAt || new Date().toISOString();
   const items = launchItems.map((item) => launchEvidenceItem(item, env));
   const summary = summarize(items);
+  const referenceMaster = referenceMasterEvidenceSummary(items, env);
   const status = summary.blocked > 0
     ? "blocked"
     : summary.pending > 0
@@ -86,6 +122,7 @@ export function buildLaunchEvidenceCenter(options = {}) {
     generatedAt,
     summary,
     items,
+    referenceMaster,
     preflightCommands: launchItems.map((item) => item.command),
     sanitizedEnvironment: sanitizedEnvironment(env, [
       "APP_STATE_REPOSITORY",
@@ -97,6 +134,13 @@ export function buildLaunchEvidenceCenter(options = {}) {
       "POSTGRES_PATCH_IMPORT_DRY_RUN_DONE",
       "POSTGRES_PATCH_VALIDATION_READY",
       "POSTGRES_PATCH_SMOKE_BACKUP_EVIDENCE",
+      "REFERENCE_MASTER_FRESHNESS_REVIEWED",
+      "REFERENCE_MASTER_FRESHNESS_REPORT_EVIDENCE",
+      "REFERENCE_MASTER_MIGRATION_DRY_RUN_REVIEWED",
+      "REFERENCE_MASTER_MIGRATION_PLAN_REVIEWED",
+      "REFERENCE_MASTER_MIGRATION_STAGING_READY",
+      "REFERENCE_MASTER_MIGRATION_BACKUP_EVIDENCE",
+      "REFERENCE_MASTER_MIGRATION_SIGNED_OFF",
       "LAUNCH_EVIDENCE_CI_QUALITY_DONE",
       "LAUNCH_EVIDENCE_POSTGRES_BACKUP_DONE",
       "LAUNCH_EVIDENCE_PATCH_SMOKE_DONE",
@@ -133,10 +177,12 @@ export function buildLaunchEvidenceSignoffPack(options = {}) {
       markerEnv: item.markerEnv,
       secondaryEnv: item.secondaryEnv,
       secondaryEvidence: item.secondaryEvidence,
+      requiredEvidence: item.requiredEvidence,
       evidenceRequired: item.evidence,
       preflightCommand: item.command,
     })),
     preflightCommands: evidence.preflightCommands,
+    referenceMaster: evidence.referenceMaster,
     sanitizedEnvironment: evidence.sanitizedEnvironment,
     guardrails: evidence.guardrails,
     signoffChecklist: [
@@ -145,6 +191,7 @@ export function buildLaunchEvidenceSignoffPack(options = {}) {
       "Attach staging dry-run or production-like evidence for importer, patch validation, and patch smoke.",
       "Attach operational alert dry-run payload and monitor destination confirmation.",
       "Attach audit integrity, audit trail mirror, and external audit receipt status.",
+      "Attach reference master freshness report, reviewed migration dry-run, backup/restore evidence, and owner/admin sign-off.",
       "Confirm this pack contains no raw secrets before sharing outside the owner/admin team.",
     ],
     securityNotes: [
@@ -179,8 +226,14 @@ export function renderLaunchEvidenceSignoffText(pack = buildLaunchEvidenceSignof
       `   Secondary marker: ${item.secondaryEnv || "-"}`,
       `   Secondary evidence: ${item.secondaryEvidence || "-"}`,
       `   Required evidence: ${item.evidenceRequired || "-"}`,
+      `   Required markers: ${renderRequiredEvidence(item.requiredEvidence)}`,
       `   Preflight command: ${item.preflightCommand || "-"}`,
     ]),
+    "",
+    "Reference Master Evidence",
+    `- Status: ${pack.referenceMaster?.status || "-"}`,
+    ...((pack.referenceMaster?.items || []).map((item) => `- ${item.title}: ${item.status} (${item.markerEnv})`)),
+    ...((pack.referenceMaster?.commands || []).map((command) => `- Command: ${command}`)),
     "",
     "Preflight Commands",
     ...(pack.preflightCommands || []).map((command) => `- ${command}`),
@@ -204,7 +257,9 @@ export function renderLaunchEvidenceSignoffText(pack = buildLaunchEvidenceSignof
 function launchEvidenceItem(item, env) {
   const done = truthy(env[item.markerEnv]);
   const secondary = item.secondaryEnv ? stringValue(env[item.secondaryEnv]) : "";
-  const blocked = item.secondaryEnv && done && !secondary;
+  const requiredEvidence = (item.requiredEnv || []).map((requirement) => requiredEvidenceStatus(requirement, env));
+  const missingRequiredEvidence = requiredEvidence.filter((requirement) => !requirement.ready);
+  const blocked = done && ((item.secondaryEnv && !secondary) || missingRequiredEvidence.length > 0);
   const status = blocked ? "blocked" : done ? "ready" : "pending";
 
   return {
@@ -217,6 +272,43 @@ function launchEvidenceItem(item, env) {
     markerEnv: item.markerEnv,
     secondaryEnv: item.secondaryEnv || "",
     secondaryEvidence: secondary ? maskIfSensitive(item.secondaryEnv, secondary) : "",
+    requiredEvidence,
+  };
+}
+
+function referenceMasterEvidenceSummary(items, env) {
+  const referenceItems = items.filter((item) => item.category === "reference-data");
+  const summary = summarize(referenceItems);
+  const status = summary.blocked > 0
+    ? "blocked"
+    : summary.pending > 0
+      ? "needs_evidence"
+      : "ready";
+
+  return {
+    status,
+    summary,
+    items: referenceItems.map((item) => ({
+      id: item.id,
+      title: item.title,
+      status: item.status,
+      markerEnv: item.markerEnv,
+      evidence: item.evidence,
+      command: item.command,
+      secondaryEnv: item.secondaryEnv,
+      secondaryEvidence: item.secondaryEvidence,
+      requiredEvidence: item.requiredEvidence,
+    })),
+    commands: referenceItems.map((item) => item.command),
+    sanitizedEnvironment: sanitizedEnvironment(env, [
+      "REFERENCE_MASTER_FRESHNESS_REVIEWED",
+      "REFERENCE_MASTER_FRESHNESS_REPORT_EVIDENCE",
+      "REFERENCE_MASTER_MIGRATION_DRY_RUN_REVIEWED",
+      "REFERENCE_MASTER_MIGRATION_PLAN_REVIEWED",
+      "REFERENCE_MASTER_MIGRATION_STAGING_READY",
+      "REFERENCE_MASTER_MIGRATION_BACKUP_EVIDENCE",
+      "REFERENCE_MASTER_MIGRATION_SIGNED_OFF",
+    ]),
   };
 }
 
@@ -231,6 +323,31 @@ function summarize(items) {
 
 function sanitizedEnvironment(env, keys) {
   return Object.fromEntries(keys.map((key) => [key, maskIfSensitive(key, env[key])]));
+}
+
+function requiredEvidenceStatus(requirement, env) {
+  const keys = [requirement.key, ...(requirement.aliases || [])];
+  const matchedKey = keys.find((key) => stringValue(env[key])) || requirement.key;
+  const rawValue = stringValue(env[matchedKey]);
+  const ready = requirement.kind === "text" ? Boolean(rawValue) : truthy(rawValue);
+
+  return {
+    label: requirement.label || requirement.key,
+    env: requirement.key,
+    aliases: requirement.aliases || [],
+    ready,
+    value: rawValue ? maskIfSensitive(matchedKey, rawValue) : "(missing)",
+  };
+}
+
+function renderRequiredEvidence(requiredEvidence = []) {
+  if (!requiredEvidence.length) {
+    return "-";
+  }
+
+  return requiredEvidence
+    .map((item) => `${item.label}: ${item.ready ? "ready" : "missing"} (${item.env})`)
+    .join("; ");
 }
 
 function maskIfSensitive(key, value) {

@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { auditTrailReadinessReport } from "./auditTrailRepository.js";
+import { buildProductionEnvironmentAdvisor } from "./deploymentChecklistService.js";
 import {
   createGatewayCheckoutSession,
   createStripeWebhookSignature,
@@ -7,6 +8,7 @@ import {
   paymentGatewayAutoCompletesCheckout,
   paymentGatewayInfo,
 } from "./paymentGatewayService.js";
+import { portfolioSnapshotHealthSummary } from "./portfolioSnapshotRecoveryService.js";
 import { patchAppState, readAppState, readScopedAppState, stateRepositoryInfo, writeAppState } from "./stateRepository.js";
 import { buildStorageReadinessReport, stateSchemaManifest } from "./stateSchemaService.js";
 import { buildTenantScopeForUser, filterStateByTenantScope, tenantScopeSummary } from "./tenantScopeService.js";
@@ -977,12 +979,143 @@ export async function storageReadinessSummary(viewerUserId) {
     throw new Error("Storage readiness is available to owner and admin accounts only.");
   }
   requirePlanEntitlement(viewer, "storage.readiness");
+  const repository = stateRepositoryInfo();
+  const readiness = buildStorageReadinessReport(state);
 
   return {
-    currentStore: stateRepositoryInfo(),
+    currentStore: repository,
     schema: stateSchemaManifest(),
-    readiness: buildStorageReadinessReport(state),
+    readiness,
+    databaseModeAdvisor: buildDatabaseModeAdvisor(repository, readiness),
   };
+}
+
+function buildDatabaseModeAdvisor(repository = stateRepositoryInfo(), readiness = buildStorageReadinessReport({})) {
+  const adapter = textValue(repository.adapter || repository.engine || "local_file").toLowerCase();
+  const label = {
+    local_file: "Local file",
+    sqlite: "SQLite trial database",
+    postgres: "Postgres production database",
+  }[adapter] || adapter;
+  const mode = {
+    local_file: "development_demo",
+    sqlite: "trial_demo",
+    postgres: "production",
+  }[adapter] || "unknown";
+  const readinessStatus = readiness.status || "unknown";
+  const productionReady = Boolean(repository.productionReady && adapter === "postgres" && readinessStatus === "ready");
+  const status = productionReady
+    ? "production_ready"
+    : adapter === "postgres"
+      ? "needs_production_verification"
+      : adapter === "sqlite"
+        ? "trial_only"
+        : "prototype_only";
+  const storagePath = repository.stateFile || repository.databasePath || repository.engine || adapter;
+  const blockers = [
+    ...databaseModeBlockers(adapter, repository),
+    ...(readiness.blockerCount ? [`Storage readiness has ${readiness.blockerCount} blocker(s).`] : []),
+  ];
+
+  return {
+    adapter,
+    label,
+    mode,
+    status,
+    productionReady,
+    storagePath,
+    engine: repository.engine || adapter,
+    writeMode: repository.writeMode || repository.patchWrites?.mode || "-",
+    patchWriteMode: repository.patchWriteMode || repository.patchWrites?.mode || "-",
+    scopedReads: repository.scopedReads || repository.tenantQueryGuard?.scopedReadMode || "service_level_filtering_only",
+    migrationTarget: repository.migrationTarget || "production_database_repository",
+    currentUse: databaseModeCurrentUse(adapter),
+    recommendedAction: databaseModeRecommendedAction(adapter, repository, readiness),
+    commands: databaseModeCommands(adapter),
+    blockers,
+    warnings: databaseModeWarnings(adapter, repository, readiness),
+  };
+}
+
+function databaseModeBlockers(adapter, repository) {
+  if (adapter !== "postgres") {
+    return [];
+  }
+
+  const blockers = [];
+  if (!repository.databaseUrlConfigured) {
+    blockers.push("DATABASE_URL is not configured.");
+  }
+  if (!repository.productionReady) {
+    blockers.push("Postgres adapter is not production-ready yet.");
+  }
+  return blockers;
+}
+
+function databaseModeWarnings(adapter, repository, readiness) {
+  const warnings = [];
+  if (adapter === "local_file") {
+    warnings.push("Local file storage is for development/demo only, not paid multi-tenant production.");
+  }
+  if (adapter === "sqlite") {
+    warnings.push("SQLite is good for trial/demo but should be promoted to Postgres before paid production.");
+    if (repository.driverInstall) {
+      warnings.push(repository.driverInstall);
+    }
+  }
+  if (adapter === "postgres" && readiness.warningCount) {
+    warnings.push(`Storage readiness has ${readiness.warningCount} warning(s).`);
+  }
+  return warnings;
+}
+
+function databaseModeCurrentUse(adapter) {
+  return {
+    local_file: "Good for developer testing and small demos on one machine.",
+    sqlite: "Good for trial, UAT, or demos that need a database file without a server.",
+    postgres: "Target mode for production subscriptions, multi-user tenants, backup, and monitoring.",
+  }[adapter] || "Unknown storage adapter. Check APP_STATE_REPOSITORY.";
+}
+
+function databaseModeRecommendedAction(adapter, repository, readiness) {
+  if (adapter === "postgres") {
+    if (!repository.databaseUrlConfigured) {
+      return "Configure DATABASE_URL, SSL, backup evidence, and staging validation before production.";
+    }
+    if (readiness.status !== "ready") {
+      return "Resolve storage readiness blockers/warnings before opening production traffic.";
+    }
+    return "Verify backup runbook, patch validation, patch smoke, deployment checklist, and monitoring in staging.";
+  }
+
+  if (adapter === "sqlite") {
+    return "Use SQLite for trial/demo, then run sqlite:promote dry-run and confirm into Postgres before production.";
+  }
+
+  return "Use local file for development only; choose SQLite for trial/demo or Postgres before paid production.";
+}
+
+function databaseModeCommands(adapter) {
+  if (adapter === "postgres") {
+    return [
+      "npm run postgres:backup-runbook -- --strict",
+      "npm run postgres:patch-validation -- --strict",
+      "npm run postgres:patch-smoke -- --dry-run --strict",
+      "npm run deployment:check -- --strict",
+    ];
+  }
+
+  if (adapter === "sqlite") {
+    return [
+      "APP_STATE_REPOSITORY=sqlite SQLITE_DATABASE_PATH=data/stockflix.sqlite npm start",
+      "npm run sqlite:promote -- --sqlite data/stockflix.sqlite --dry-run --format text",
+    ];
+  }
+
+  return [
+    "APP_STATE_REPOSITORY=sqlite SQLITE_DATABASE_PATH=data/stockflix.sqlite npm start",
+    "npm run import:postgres -- --dry-run",
+  ];
 }
 
 export async function recordAuditEvent(event) {
@@ -1327,7 +1460,10 @@ export async function businessMetrics() {
   const auditIntegrity = auditIntegrityReport(state.auditEvents);
   const auditTrail = await auditTrailReadinessReport(state.auditEvents);
   const storageReadiness = buildStorageReadinessReport(state);
+  const repository = stateRepositoryInfo();
   const paymentGateway = paymentGatewayInfo();
+  const portfolioDataHealth = await portfolioSnapshotHealthSummary({ state });
+  const productionEnvironmentAdvisor = buildProductionEnvironmentAdvisor();
   const rejectedWebhookEvents = state.paymentWebhookEvents.filter((event) => event.status === "rejected").length;
   const verifiedWebhookEvents = state.paymentWebhookEvents.filter((event) => event.signatureVerified).length;
   const organizationSummaries = state.organizations
@@ -1367,6 +1503,7 @@ export async function businessMetrics() {
       secretConfigured: Boolean(process.env.PAYMENT_WEBHOOK_SECRET),
     },
     paymentGateway,
+    portfolioDataHealth,
     tenantMetadata,
     auditIntegrity,
     auditTrail: {
@@ -1390,6 +1527,8 @@ export async function businessMetrics() {
       warningCount: storageReadiness.warningCount,
       issues: storageReadiness.issues.slice(0, 10),
     },
+    databaseModeAdvisor: buildDatabaseModeAdvisor(repository, storageReadiness),
+    productionEnvironmentAdvisor,
     arpu: paidUsers ? mrrEstimate / paidUsers : 0,
     usersByPlan,
     usersByRole,
@@ -2028,6 +2167,10 @@ function parseCookies(header) {
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
+}
+
+function textValue(value) {
+  return value === null || value === undefined ? "" : String(value).trim();
 }
 
 function numberValue(value) {

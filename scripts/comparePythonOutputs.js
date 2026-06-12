@@ -68,6 +68,12 @@ const formulaColumns = [
   "Upside_Pct",
   "RRR",
 ];
+const sectorComparisonColumns = [
+  "Sector",
+  "Sector_PE",
+  "Sector_ROE",
+  "Sector_Yield",
+];
 const reportColumns = [
   "Symbol",
   "Price",
@@ -103,6 +109,7 @@ const portfolioRows = await analyzePortfolio(
 const rawColumnCheck = checkColumns(rawRows[0], requiredRawColumns);
 const recommendedColumnCheck = checkColumns(pythonRecommendations[0], requiredRecommendedColumns);
 const formulaComparison = compareFormulaOutputs(pythonRecommendations, jsRecommendations);
+const sectorComparison = compareSectorOutputs(pythonRecommendations, jsRecommendations);
 const reportComparison = await comparePortfolioReportAgainstExpected({
   marketRows: pythonRecommendations,
   portfolioRows: syntheticPortfolioRows,
@@ -120,6 +127,7 @@ const report = {
   rawColumnCheck,
   recommendedColumnCheck,
   formulaComparison,
+  sectorComparison,
   reportComparison,
   notes: [
     "Formula comparison uses the existing Python-generated siamchart_raw.csv as shared input.",
@@ -135,6 +143,10 @@ await fs.writeFile(
 );
 
 printSummary(report);
+
+if (hasComparisonFailures(report)) {
+  process.exitCode = 1;
+}
 
 async function readCsv(filePath) {
   const content = await fs.readFile(filePath, "utf8");
@@ -157,10 +169,12 @@ function compareFormulaOutputs(pythonRows, jsRows) {
   const mismatches = [];
   let numericMismatchCount = 0;
   let textMismatchCount = 0;
+  let missingJsRowCount = 0;
 
   for (const pythonRow of pythonRows) {
     const jsRow = jsBySymbol.get(pythonRow.Symbol);
     if (!jsRow) {
+      missingJsRowCount += 1;
       mismatches.push({
         symbol: pythonRow.Symbol,
         column: "Symbol",
@@ -204,8 +218,48 @@ function compareFormulaOutputs(pythonRows, jsRows) {
 
   return {
     sampleSymbols,
+    missingJsRowCount,
     numericMismatchCount,
     textMismatchCount,
+    sampleMismatches: mismatches,
+  };
+}
+
+function compareSectorOutputs(pythonRows, jsRows) {
+  const jsBySymbol = new Map(jsRows.map((row) => [row.Symbol, row]));
+  const mismatchCounts = Object.fromEntries(sectorComparisonColumns.map((column) => [column, 0]));
+  const mismatches = [];
+  const numericColumns = new Set(["Sector_PE", "Sector_ROE", "Sector_Yield"]);
+
+  for (const pythonRow of pythonRows) {
+    const jsRow = jsBySymbol.get(pythonRow.Symbol);
+    if (!jsRow) {
+      continue;
+    }
+
+    for (const column of sectorComparisonColumns) {
+      const differs = numericColumns.has(column)
+        ? Math.abs(numberValue(pythonRow[column]) - numberValue(jsRow[column])) > 1e-6
+        : String(pythonRow[column] ?? "") !== String(jsRow[column] ?? "");
+
+      if (differs) {
+        mismatchCounts[column] += 1;
+        if (mismatches.length < 25) {
+          mismatches.push({
+            symbol: pythonRow.Symbol,
+            column,
+            python: pythonRow[column],
+            js: jsRow[column],
+          });
+        }
+      }
+    }
+  }
+
+  return {
+    comparedColumns: sectorComparisonColumns,
+    mismatchCounts,
+    totalMismatchCount: Object.values(mismatchCounts).reduce((total, count) => total + count, 0),
     sampleMismatches: mismatches,
   };
 }
@@ -420,9 +474,23 @@ function printSummary(report) {
   console.log(`recommended missing columns: ${report.recommendedColumnCheck.missing.join(", ") || "none"}`);
   console.log(`formula numeric mismatches: ${report.formulaComparison.numericMismatchCount}`);
   console.log(`formula text mismatches: ${report.formulaComparison.textMismatchCount}`);
+  console.log(`sector mismatches: ${report.sectorComparison.totalMismatchCount}`);
   console.log(`portfolio report rows: expected=${report.reportComparison.expectedRows}, js=${report.reportComparison.jsRows}`);
   console.log(`portfolio report sample mismatches: ${report.reportComparison.mismatchCount}`);
   console.log("detail: data/outputs/t10_comparison_report.json");
+}
+
+function hasComparisonFailures(report) {
+  return (
+    report.inputs.pythonRecommendedRows !== report.inputs.jsRecommendedRows
+    || report.rawColumnCheck.missing.length > 0
+    || report.recommendedColumnCheck.missing.length > 0
+    || report.formulaComparison.missingJsRowCount > 0
+    || report.formulaComparison.numericMismatchCount > 0
+    || report.formulaComparison.textMismatchCount > 0
+    || report.sectorComparison.totalMismatchCount > 0
+    || report.reportComparison.mismatchCount > 0
+  );
 }
 
 function numberValue(value) {

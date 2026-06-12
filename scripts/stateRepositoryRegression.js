@@ -11,7 +11,7 @@ process.chdir(tempRoot);
 
 try {
   const repository = await import(pathToFileURL(path.join(repoRoot, "src", "services", "stateRepository.js")).href);
-  const { readAppState, stateRepositoryInfo, writeAppState } = repository;
+  const { patchAppState, readAppState, readScopedAppState, stateRepositoryInfo, writeAppState } = repository;
 
   const empty = await readAppState({
     normalize: (state) => ({
@@ -41,11 +41,56 @@ try {
   assertEqual(info.stateFile, "data/app-state.json", "Repository should expose portable state file path.");
   assertEqual(info.normalizedOnRead, true, "Repository should declare normalized reads.");
   assertEqual(info.productionReady, false, "Local file adapter should not be marked production ready.");
-  assertIncludes(info.supportedAdapters, ["local_file", "postgres"], "Repository should advertise local and postgres adapters.");
+  assertIncludes(info.supportedAdapters, ["local_file", "sqlite", "postgres"], "Repository should advertise local, sqlite, and postgres adapters.");
 
   const stateFile = path.join(tempRoot, "data", "app-state.json");
   const raw = JSON.parse(await fs.readFile(stateFile, "utf8"));
   assertEqual(raw.users.length, 1, "Repository should write to cwd data/app-state.json.");
+
+  process.env.APP_STATE_REPOSITORY = "sqlite";
+  process.env.SQLITE_DATABASE_PATH = path.join(tempRoot, "data", "trial-stockflix.sqlite");
+  const sqliteInfo = stateRepositoryInfo();
+  assertEqual(sqliteInfo.adapter, "sqlite", "SQLite adapter should be selectable by env.");
+  assertEqual(sqliteInfo.engine, "sqlite", "SQLite adapter should expose database engine.");
+  assertEqual(sqliteInfo.productionReady, false, "SQLite adapter should be marked as trial/demo storage, not production ready.");
+  assertEqual(sqliteInfo.databasePathConfigured, true, "SQLite adapter should report explicit database path configuration.");
+  assertEqual(sqliteInfo.patchWrites.mode, "logical_patch_then_sqlite_write", "SQLite adapter should expose its patch write mode.");
+  await writeAppState({
+    users: [{ id: "user_sqlite", email: "sqlite-owner@example.test", organizationId: "org_sqlite" }],
+    organizations: [{ id: "org_sqlite", name: "SQLite Trial", type: "platform", createdAt: "2026-06-11T00:00:00.000Z", updatedAt: "2026-06-11T00:00:00.000Z" }],
+    sessions: [],
+  });
+  const sqliteWritten = await readAppState({
+    normalize: (state) => ({
+      ...state,
+      userCount: (state.users || []).length,
+      organizationCount: (state.organizations || []).length,
+    }),
+  });
+  assertEqual(sqliteWritten.userCount, 1, "SQLite repository should read back written users.");
+  assertEqual(sqliteWritten.organizationCount, 1, "SQLite repository should read back written organizations.");
+  assertEqual(sqliteWritten.users[0].email, "sqlite-owner@example.test", "SQLite repository should preserve JSON content.");
+  const sqliteScoped = await readScopedAppState({ mode: "restricted", userIds: ["user_sqlite"] });
+  assertEqual(sqliteScoped.users.length, 1, "SQLite scoped read should stay available through the repository boundary.");
+  await patchAppState({
+    operations: [
+      {
+        type: "upsert",
+        collection: "users",
+        record: {
+          id: "user_sqlite",
+          email: "sqlite-owner-updated@example.test",
+          role: "owner",
+          organizationId: "org_sqlite",
+          createdAt: "2026-06-11T00:00:00.000Z",
+        },
+      },
+    ],
+  });
+  const sqlitePatched = await readAppState();
+  assertEqual(sqlitePatched.users[0].email, "sqlite-owner-updated@example.test", "SQLite repository should support logical patch writes through the repository boundary.");
+  await fs.stat(process.env.SQLITE_DATABASE_PATH);
+  delete process.env.SQLITE_DATABASE_PATH;
 
   process.env.APP_STATE_REPOSITORY = "postgres";
   const postgresInfo = stateRepositoryInfo();
@@ -67,6 +112,9 @@ try {
     ok: true,
     tempRoot,
     adapter: info.adapter,
+    supportedAdapters: info.supportedAdapters,
+    sqliteAdapter: sqliteInfo.adapter,
+    sqlitePatchWriteMode: sqliteInfo.patchWrites.mode,
     stateFile: info.stateFile,
     userCount: written.userCount,
   }, null, 2));

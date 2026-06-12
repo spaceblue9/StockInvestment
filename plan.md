@@ -806,9 +806,11 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T59 - Browser Visual QA for Business Launch Evidence Center
 
-- สถานะ: Deferred - Browser Sandbox Blocked
+- สถานะ: Deferred - Browser Localhost Blocked
 - เริ่มเมื่อ: 2026-06-08 07:57:01 +07:00
 - เสร็จเมื่อ: -
+- เริ่ม retry ล่าสุด: 2026-06-11 20:07:31 +07:00
+- ผล retry ล่าสุด: 2026-06-11 20:13:37 +07:00 - Browser runtime เชื่อมได้แล้ว แต่เปิด `http://localhost:3000` และ `http://127.0.0.1:3000` ถูกบล็อกด้วย `net::ERR_BLOCKED_BY_CLIENT`; PowerShell ตรวจ `/api/health` ผ่าน จึงเป็นข้อจำกัดของ Browser policy ไม่ใช่ server
 - งานที่ต้องทำ:
   - เปิด Web App ด้วย browser/in-app browser เมื่อเครื่องมือพร้อม เพื่อ visual QA หน้า Business dashboard หลังเพิ่ม Launch Evidence Center
   - ตรวจ desktop/mobile ว่า cards, command list, table และ metrics ไม่ล้น/ทับกัน
@@ -846,9 +848,9 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T62 - Audit Logged Launch Evidence Export Trail
 
-- สถานะ: Pending
-- เริ่มเมื่อ: -
-- เสร็จเมื่อ: -
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-11 07:55:10 +07:00
+- เสร็จเมื่อ: 2026-06-11 08:01:13 +07:00
 - งานที่ต้องทำ:
   - บันทึก audit event เมื่อ owner/admin export Launch Evidence sign-off pack เพื่อให้ตรวจย้อนหลังได้ว่าใคร export ก่อน deploy
   - แยก format `json`/`text`, launch status, evidence summary และ sanitized metadata ใน audit details โดยไม่เก็บ raw secret
@@ -857,8 +859,465 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - อัปเดตเอกสารและ `plan.md`
   - ทดสอบ syntax, targeted regression, regression รวม และ CI quality
 
+### T63 - Investigate Python Comparison Reference Drift
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-11 08:12:37 +07:00
+- เสร็จเมื่อ: 2026-06-11 08:18:12 +07:00
+- งานที่ต้องทำ:
+  - ตรวจสาเหตุที่ `compare:python` ในรอบ 2026-06-11 รายงาน numeric mismatches 48 และ text mismatches 42 แม้ `npm run ci:quality` จะผ่าน exit code 0
+  - ตรวจว่าเกิดจาก reference CSV ที่ modified อยู่ใน worktree (`siamchart_raw.csv`, `recommended_stocks.csv`) หรือเกิดจากสูตร JavaScript เปลี่ยนจริง
+  - ตรวจความต่างด้าน `Sector` และ fundamental fields (`PE`, `ROE`, `Yield`, `DE`) ระหว่าง run Python เดิม, run Node live data และ regression compare ที่ใช้ raw input เดียวกัน
+  - แยกให้ชัดว่าความต่าง `Sector` เกิดจาก data source/fallback mapping หรือเกิดจากสูตรวิเคราะห์หลังได้ raw data แล้ว
+  - ห้าม revert reference/output files โดยไม่ขออนุญาต เพราะเป็นไฟล์ที่ modified อยู่ก่อนงาน T62
+  - เสนอแนวทางแก้ที่ชัดเจน: regenerate reference, ปรับ threshold/contract, หรือแก้สูตร หากพบสาเหตุจริง
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ targeted regression, regression รวม และ CI quality
+
+### T64 - Live Market Data Sector/Fundamental Coverage Audit
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-11 08:20:35 +07:00
+- เสร็จเมื่อ: 2026-06-11 08:31:44 +07:00
+- งานที่ต้องทำ:
+  - ตรวจ coverage ของ `Sector`, `PE`, `ROE`, `Yield`, `DE` เมื่อ Node/Web App ดึง live market data จริงผ่าน Yahoo chart endpoint และ fallback จาก `recommended_stocks.csv`
+  - ระบุจำนวน symbol ที่ยังเป็น `Unknown` sector หรือ fundamental เป็น 0/blank หลัง fallback
+  - เพิ่ม diagnostic/report สำหรับ live data coverage โดยไม่เขียนทับ reference CSV หลัก
+  - เสนอแนวทาง production: ใช้ reference master, datasource เพิ่มเติม, หรือ scheduled enrichment สำหรับ sector/fundamental fields
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ targeted regression, regression รวม และ CI quality
+
+### T65 - Production Reference Master and Fundamental Enrichment Foundation
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-11 09:33:17 +07:00
+- เสร็จเมื่อ: 2026-06-11 09:43:41 +07:00
+- งานที่ต้องทำ:
+  - ออกแบบ reference master สำหรับ `Sector`, `PE`, `ROE`, `Yield`, `DE` ให้เหมาะกับ production มากกว่าอ่านจาก `recommended_stocks.csv` โดยตรง
+  - เพิ่ม metadata เช่น source, lastUpdated, freshness status และ manual review status เพื่อให้ผู้ใช้เชื่อถือข้อมูลพื้นฐานได้มากขึ้น
+  - เพิ่ม importer/normalizer จาก `recommended_stocks.csv` ไปเป็น reference master โดยไม่เขียนทับ reference CSV หลัก
+  - ปรับ fallback path ให้รองรับ reference master ก่อน แล้วค่อย fallback ไป CSV เดิมหากยังไม่มี master
+  - ทำ regression ตรวจ coverage ดีขึ้นหลังใช้ reference master และไม่ทำให้ `compare:python` แตก
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ targeted regression, regression รวม และ CI quality
+
+### T67 - Reference Master Admin Review and Freshness Workflow
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-11 13:06:53 +07:00
+- เสร็จเมื่อ: 2026-06-11 13:21:21 +07:00
+- งานที่ต้องทำ:
+  - ออกแบบ owner/admin UI หรือ API สำหรับดู symbol ที่ `reviewStatus = needs_review` จาก reference master
+  - เพิ่ม workflow แก้/ยืนยันค่า `Sector`, `PE`, `ROE`, `Yield`, `DE` พร้อม audit event
+  - เพิ่ม freshness policy เช่น stale threshold, lastUpdated warning และ summary ใน Business dashboard
+  - เตรียม schema/adapter path สำหรับย้าย reference master จาก JSON file ไป database table ใน production
+  - เพิ่ม regression ตรวจ admin review flow, audit trail และ fallback หลังแก้ master
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ targeted regression, regression รวม และ CI quality
+
+### T68 - Reference Master Database Adapter and Freshness Scheduler Foundation
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-11 13:24:25 +07:00
+- เสร็จเมื่อ: 2026-06-11 13:31:27 +07:00
+- เหตุผล:
+  - T67 ทำ owner/admin review workflow แบบ file-backed JSON สำเร็จแล้ว แต่ production จริงควรย้าย reference master ไป persistence layer ที่ควบคุม transaction, audit และ scheduled freshness ได้ดีกว่าไฟล์ JSON
+  - ข้อมูลพื้นฐานหุ้นยังต้องมีรอบ refresh/review ที่ตรวจ stale data และหลักฐานย้อนหลังได้ เพื่อให้บริการ subscription น่าเชื่อถือขึ้น
+- งานที่ต้องทำ:
+  - ออกแบบ schema/adapter สำหรับ reference master record ใน production database โดยแยกจาก `data/reference/market-reference-master.json`
+  - เพิ่ม repository boundary สำหรับอ่าน summary, update record และ audit metadata โดยยังรองรับ local file mode เป็น fallback
+  - เพิ่ม dry-run migration/import plan จาก JSON master เข้า database path โดยไม่แตะ private portfolio files
+  - เพิ่ม freshness scheduler/report foundation สำหรับระบุ stale rows, missing fields และ last review age
+  - เพิ่ม regression ด้วย fake database/client หรือ temp repository เพื่อยืนยัน adapter, migration dry-run, freshness report และ owner/admin guard
+  - อัปเดต README, Web App usage, CI quality docs และ `plan.md`
+  - ทดสอบ syntax, targeted regression, regression รวม และ CI quality
+
+### T69 - Reference Master Staging Migration Execution Guard
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-11 13:39:00 +07:00
+- เสร็จเมื่อ: 2026-06-11 13:47:27 +07:00
+- เหตุผล:
+  - T68 มี database adapter foundation และ migration dry-run plan แล้ว แต่ยังไม่มี CLI execution harness ที่บังคับ dry-run-first/confirm guard สำหรับ staging
+  - ก่อนใช้ production database จริงควรมี evidence output, secret masking และ rollback/verification checklist คล้าย Postgres patch smoke ที่มีอยู่แล้ว
+- งานที่ต้องทำ:
+  - เพิ่ม CLI สำหรับ reference master database migration แบบ default dry-run และต้องใช้ `--confirm` ก่อน execute
+  - เพิ่ม guard ไม่ให้ execute ถ้าไม่มี staging marker, `DATABASE_URL`, backup evidence หรือ migration plan summary
+  - เพิ่ม evidence JSON/text output พร้อม masked connection string, row counts, upsert counts, freshness summary และ verification checklist
+  - เพิ่ม fake-client regression สำหรับ dry-run, blocked guard, confirm execute path, evidence output และ secret masking
+  - อัปเดต README, Web App usage, CI quality docs และ `plan.md`
+  - ทดสอบ syntax, targeted regression, regression รวม และ CI quality
+
+### T70 - Reference Master Launch Evidence Integration
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-11 19:27:08 +07:00
+- เสร็จเมื่อ: 2026-06-11 19:37:52 +07:00
+- เหตุผล:
+  - T69 มี CLI migration guard แล้ว แต่ owner/admin ยังต้องดูหลักฐาน reference master migration/freshness ผ่าน command output เอง
+  - ก่อน go-live ควรให้ Launch Evidence Center แสดง readiness ของ reference master migration, freshness report และ staging evidence แบบอ่านง่ายโดยไม่รันคำสั่งจาก browser
+- งานที่ต้องทำ:
+  - เพิ่ม Launch Evidence item สำหรับ reference master freshness/migration readiness
+  - เพิ่ม env markers เช่น dry-run reviewed, staging migration ready, backup evidence และ migration sign-off โดยต้อง sanitize secret
+  - แสดง command/evidence summary ใน Business dashboard หรือ Launch Evidence Center โดย frontend ไม่ execute command
+  - เพิ่ม regression ตรวจ evidence status pending/blocked/ready, secret masking, frontend marker และ owner/customer guard
+  - อัปเดต README, Web App usage, CI quality docs และ `plan.md`
+  - ทดสอบ syntax, targeted regression, regression รวม และ CI quality
+
+### T71 - Screener Beginner Filter Tooltips
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-11 13:53:18 +07:00
+- เสร็จเมื่อ: 2026-06-11 14:04:21 +07:00
+- เหตุผล:
+  - กลุ่มเป้าหมายเป็นผู้ไม่มีความรู้ด้านการลงทุน จึงไม่ควรให้กรอก `Min Score`, `Min RRR`, `Max D/E`, `Sector` และ `Trend` โดยไม่มีคำอธิบาย
+  - หน้า Screener ควรบอกว่าค่านี้คืออะไร ควรกรองค่าเท่าไหร่จึงถือว่าดี และมีข้อควรระวังแบบภาษาง่าย
+  - Tooltip ต้องช่วยให้ผู้ใช้ตัดสินใจได้เองมากขึ้น โดยไม่เปลี่ยนสูตรวิเคราะห์หรือผลลัพธ์เดิม
+- งานที่ต้องทำ:
+  - เพิ่ม tooltip/help copy ในหน้า Screener สำหรับ `Min Score`, `Min RRR`, `Max D/E`, `Sector` และ `Trend`
+  - ใส่ค่าแนะนำสำหรับมือใหม่ เช่น Score 60-70+, RRR 1.5-2.0+ และ D/E ไม่เกิน 0.7-1.0 พร้อมข้อยกเว้นของบางธุรกิจ
+  - ทำ tooltip ให้ใช้งานได้ด้วย mouse hover และ keyboard focus พร้อมไม่ล้นบน mobile
+  - เพิ่มข้อความสรุปค่าเริ่มต้นที่เหมาะกับมือใหม่โดยไม่เปลี่ยนค่า filter default เดิม
+  - เพิ่ม regression/frontend marker เพื่อยืนยันว่า tooltip และคำแนะนำยังอยู่ใน bundle
+  - อัปเดต README, Web App usage และ `plan.md`
+  - ทดสอบ syntax, targeted frontend regression, web smoke และ CI quality เท่าที่เหมาะสม
+
+### T72 - Recommended Actions Table Controls
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-11 14:15:49 +07:00
+- เสร็จเมื่อ: 2026-06-11 14:25:08 +07:00
+- เหตุผล:
+  - หน้า Portfolio มีตาราง `Recommended actions` แต่ยังดูได้แบบตารางคงที่ ผู้ใช้ยังกรองรายการ, เลือก field ที่แสดง หรือเรียงลำดับตามคะแนน/มูลค่า/กำไรขาดทุนไม่ได้
+  - ผู้ใช้จริงควรจัดมุมมองเองได้ เช่น ดูเฉพาะ action เร่งด่วน, เรียงตามคะแนน, ซ่อน field ที่ไม่จำเป็น หรือเพิ่ม field สำคัญเพื่ออ่านประกอบ
+  - ต้องเพิ่มความยืดหยุ่นของ UI โดยไม่เปลี่ยนสูตรวิเคราะห์พอร์ตและไม่เปลี่ยน output เดิม
+- งานที่ต้องทำ:
+  - เพิ่ม filter สำหรับ `Recommended actions` เช่น ค้นหา Symbol, กลุ่ม Action, Sector, Trend และ Min Score
+  - เพิ่ม Order by ให้เลือกเรียงตาม Score, Market Value, Gain/Loss %, RRR, Price หรือ Symbol พร้อม ascending/descending
+  - เพิ่ม Field picker ให้เลือกเพิ่ม/ลดคอลัมน์ที่แสดงในตารางได้
+  - เพิ่ม status summary ว่ากำลังแสดงกี่รายการจากทั้งหมด และ filter/sort ที่ใช้
+  - ทำ UI ให้ responsive และใช้งานง่ายบน desktop/mobile
+  - เพิ่ม regression/frontend marker เพื่อยืนยันว่า controls ยังอยู่ใน bundle
+  - อัปเดต README, Web App usage และ `plan.md`
+  - ทดสอบ syntax, targeted frontend regression, web smoke และ CI quality เท่าที่เหมาะสม
+
+### T73 - Recommended Actions Initialization Bug Fix
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-11 14:30:04 +07:00
+- เสร็จเมื่อ: 2026-06-11 14:33:44 +07:00
+- เหตุผล:
+  - หลัง T72 หากผู้ใช้มี saved portfolio แล้วหน้า Portfolio render ระหว่าง `await initialize()` จะเกิด error `can't access lexical declaration 'recommendedActionSortFields' before initialization`
+  - สาเหตุคือ config ของ Recommended actions ถูกประกาศด้วย `const` หลัง `await initialize()` ทำให้ยังอยู่ใน temporal dead zone ตอน render ครั้งแรก
+  - ต้องแก้ให้ config ที่ render ใช้งานถูก initialize ก่อนเริ่ม app และเพิ่ม regression guard กันเกิดซ้ำ
+- งานที่ต้องทำ:
+  - ย้าย `recommendedActionFields` และ `recommendedActionSortFields` ไปไว้ก่อน `await initialize()`
+  - ตรวจว่าฟังก์ชัน render/controls ยังใช้งานได้เหมือนเดิม
+  - เพิ่ม regression ตรวจลำดับ declaration ก่อน `await initialize()`
+  - อัปเดต `plan.md`
+  - ทดสอบ syntax, targeted frontend regression, web smoke และ CI quality เท่าที่เหมาะสม
+
+### T74 - SQLite Adapter and Database Selection Foundation
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-11 19:50:44 +07:00
+- เสร็จเมื่อ: 2026-06-11 19:59:33 +07:00
+- เหตุผล:
+  - ช่วงทดลองระบบหรือ demo ควรมี database แบบง่ายที่ไม่ต้องติดตั้ง server เพื่อให้เอกและผู้ทดลองใช้งานเริ่มได้เร็วกว่า Postgres
+  - Production จริงยังควรใช้ Postgres เพราะเหมาะกับผู้ใช้หลายคน, subscription, audit, backup, query-level tenant guard และ deployment จริง
+  - ระบบควรเลือก adapter ผ่าน env ได้ชัดเจน เช่น `APP_STATE_REPOSITORY=sqlite` สำหรับทดลอง และ `APP_STATE_REPOSITORY=postgres` สำหรับ production โดยไม่ผูก business logic กับ database ใด database หนึ่ง
+- งานที่ต้องทำ:
+  - เพิ่ม `sqlite` เป็น supported app-state repository adapter โดย default ยังเป็น `local_file`
+  - เพิ่ม SQLite repository foundation สำหรับ read/write state และ repository metadata โดยใช้ไฟล์ local database
+  - เพิ่ม env/config docs เช่น `APP_STATE_REPOSITORY=sqlite`, `SQLITE_DATABASE_PATH=data/stockflix.sqlite`
+  - เพิ่ม regression ตรวจ default local file, sqlite selectable/read-write, postgres selectable และ unsupported adapter fail-fast
+  - อัปเดต README, Web App usage, Database migration foundation, CI quality docs และ `plan.md`
+  - ทดสอบ syntax, state repository regression, targeted regression และ CI quality เท่าที่เหมาะสม
+
+### T75 - SQLite Trial to Postgres Promotion Runbook
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-11 20:13:37 +07:00
+- เสร็จเมื่อ: 2026-06-11 20:26:37 +07:00
+- เหตุผล:
+  - หลังเพิ่ม SQLite adapter แล้ว ผู้ใช้สามารถทดลองระบบด้วยไฟล์ SQLite ได้ง่าย แต่เมื่อต้องขึ้น production ควรมีขั้นตอนย้ายข้อมูลไป Postgres ที่ชัดเจน
+  - ต้องทำแบบ dry-run-first เพื่อป้องกันการเขียนฐานข้อมูล production โดยไม่ได้ตรวจ readiness, backup และ target database config
+  - ควร reuse state/importer foundation เดิมให้มากที่สุด เพื่อลดความเสี่ยงและทำให้ AI รอบถัดไปอ่านต่อได้จาก `plan.md`
+- งานที่ต้องทำ:
+  - เพิ่ม service/CLI สำหรับสร้าง promotion plan จาก SQLite trial state ไป Postgres production โดย default เป็น dry-run
+  - รองรับ input เช่น `SQLITE_DATABASE_PATH`, `DATABASE_URL`, `--dry-run`, `--confirm` และ guard สำหรับ backup/readiness evidence
+  - เพิ่ม output evidence แบบ JSON/text ที่ mask secret และแสดง record counts, blockers/warnings, import target และ next steps
+  - เพิ่ม regression ด้วย fake Postgres client หรือ dry-run path เพื่อยืนยันว่าไม่เขียนจริงถ้าไม่ confirm
+  - อัปเดต README, Web App usage, Database migration foundation, CI quality docs และ `plan.md`
+  - ทดสอบ syntax, targeted regression, regression รวม และ CI quality เท่าที่เหมาะสม
+
+### T76 - Database Mode Advisor for Owner Dashboard
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-12 07:26:50 +07:00
+- เสร็จเมื่อ: 2026-06-12 07:39:16 +07:00
+- เหตุผล:
+  - หลังระบบรองรับ `local_file`, `sqlite` และ `postgres` แล้ว owner/admin ควรเห็นชัดว่า environment ปัจจุบันใช้ storage แบบใด
+  - ผู้ใช้ที่ไม่เชี่ยวชาญฐานข้อมูลควรเห็นคำอธิบายง่าย ๆ ว่า mode นี้เหมาะกับ demo, trial หรือ production
+  - ก่อนเปิดขายจริง Business dashboard ควรบอก next action เช่น ใช้ SQLite ทดลองได้, ต้อง promote ไป Postgres, หรือต้องตั้ง backup/SSL/driver ให้ครบ
+- งานที่ต้องทำ:
+  - เพิ่ม database mode advisor ใน business metrics/storage readiness payload โดยใช้ `stateRepositoryInfo()` และ readiness report เดิม
+  - แสดงในหน้า Business dashboard เป็น card/section อ่านง่ายสำหรับ owner/admin
+  - ระบุ adapter ปัจจุบัน, production readiness, write mode, migration target, recommended action และ command สำคัญแบบไม่เปิดเผย secret
+  - เพิ่ม regression/frontend marker เพื่อยืนยัน UI/ข้อความและ payload ยังอยู่
+  - อัปเดต README, Web App usage, CI quality docs และ `plan.md`
+  - ทดสอบ syntax, targeted regression, web smoke และ CI quality เท่าที่เหมาะสม
+
+### T77 - Production Environment Advisor for Owner Dashboard
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-12 07:43:04 +07:00
+- เสร็จเมื่อ: 2026-06-12 07:51:33 +07:00
+- เหตุผล:
+  - ระบบมี deployment checklist/ops alert CLI แล้ว แต่ owner/admin ที่ไม่ถนัดเทคนิคยังต้องอ่าน env และ command หลายจุดเอง
+  - ก่อนเปิดขายจริงควรมี advisor ที่แปล production env readiness เป็นภาษาง่าย เห็น blocker, warning, next action และคำสั่งที่ต้องรัน
+  - ต้อง reuse deployment checklist เดิม ไม่อ่านหรือแสดง secret และไม่ execute command จากหน้าเว็บ
+- งานที่ต้องทำ:
+  - เพิ่ม production environment advisor จาก `buildProductionDeploymentChecklist()` เพื่อสรุป status, blockers, warnings, next action, env groups และ commands
+  - expose advisor ใน business metrics payload และ Business dashboard สำหรับ owner/admin
+  - เพิ่ม frontend section/markers และ CSS ให้ command/checklist ไม่ล้นบน desktop/mobile
+  - เพิ่ม regression ตรวจ payload, secret masking และ frontend markers
+  - อัปเดต README, Web App usage, CI quality docs และ `plan.md`
+  - ทดสอบ syntax, deployment checklist regression, frontend regression, web smoke และ CI quality เท่าที่เหมาะสม
+
+### T78 - Blank Input Template Downloads
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-12 08:06:56 +07:00
+- เสร็จเมื่อ: 2026-06-12 08:12:16 +07:00
+- เหตุผล:
+  - ผู้ใช้ใหม่ยังไม่มีไฟล์ portfolio/watchlist ที่ format ถูกต้อง จึงไม่รู้ว่าต้องกรอกคอลัมน์อะไร
+  - หน้า Upload portfolio ควรมีปุ่ม Download template เปล่าให้โหลดไปกรอกเองก่อนวิเคราะห์
+  - Template ต้องไม่มีข้อมูลหุ้น/พอร์ตตัวอย่าง เพื่อไม่ทำให้ผู้ใช้เข้าใจว่าเป็นคำแนะนำลงทุนหรือเปิดเผยข้อมูลส่วนตัว
+- งานที่ต้องทำ:
+  - เพิ่ม endpoint สำหรับดาวน์โหลด `portfolio_template.xlsx` ที่มี header `Symbol`, `Quantity`, `Avg_Price` และไม่มี holding data
+  - เพิ่ม endpoint สำหรับดาวน์โหลด `watchlist_template.txt` แบบไฟล์เปล่าเพื่อให้ผู้ใช้กรอก ticker ทีละบรรทัด
+  - เพิ่มลิงก์/ปุ่ม Download template ในหน้า Run Analysis ใกล้ช่อง upload
+  - เพิ่มคำอธิบายสั้น ๆ ว่าต้องกรอกอะไรและ template ไม่มีข้อมูลตัวอย่าง
+  - เพิ่ม regression ตรวจ endpoint, header/template content และ frontend markers
+  - อัปเดต README, Web App usage, CI quality docs และ `plan.md`
+  - ทดสอบ syntax, web smoke/frontend regression และ CI quality เท่าที่เหมาะสม
+
+### T79 - Watchlist Template Instructions
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-12 08:19:03 +07:00
+- เสร็จเมื่อ: 2026-06-12 08:23:25 +07:00
+- เหตุผล:
+  - Watchlist template แบบไฟล์เปล่าใช้งานถูกต้องทางเทคนิค แต่ผู้ใช้ใหม่อาจไม่รู้ว่าต้องกรอก ticker อย่างไร
+  - ควรใส่คำอธิบายในไฟล์ template โดยไม่ทำให้ parser เอาคำอธิบายไปวิเคราะห์เป็น symbol
+  - ต้องรักษา portfolio template ให้ไม่มี holding data ตัวอย่างเหมือนเดิม เพื่อลดความเข้าใจผิดว่าเป็นคำแนะนำลงทุน
+- งานที่ต้องทำ:
+  - ปรับ watchlist parser ให้ข้ามบรรทัด comment ที่ขึ้นต้นด้วย `#`
+  - ปรับ `watchlist_template.txt` ให้มีคำแนะนำการกรอก, ตัวอย่างรูปแบบที่เป็น comment และพื้นที่ให้เริ่มกรอก
+  - อัปเดต UI/docs ให้ไม่บอกว่า watchlist template เป็นไฟล์เปล่า
+  - ปรับ regression จากคาดว่าไฟล์ว่าง เป็นคาดว่ามีคำแนะนำและ parser ignore comment ได้
+  - อัปเดต `plan.md` พร้อมผลทดสอบ
+  - ทดสอบ syntax, web smoke/frontend regression และ CI quality เท่าที่เหมาะสม
+
+### T80 - Public Raw CSV Download Filename
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-12 08:31:15 +07:00
+- เสร็จเมื่อ: 2026-06-12 08:34:30 +07:00
+- เหตุผล:
+  - ชื่อ download `siamchart_raw.csv` อาจทำให้ผู้ใช้เข้าใจผิดว่าระบบเอาข้อมูลจากเว็บไซต์ SiamChart
+  - ต้องเปลี่ยนชื่อไฟล์ที่ผู้ใช้ดาวน์โหลดเป็นกลาง ๆ เช่น `raw_CSV.csv`
+  - ควรคงไฟล์ภายใน `siamchart_raw.csv` ไว้ก่อนเพื่อไม่กระทบ Python parity/regression และเอกสาร behavior contract เดิม
+- งานที่ต้องทำ:
+  - เปลี่ยน `Content-Disposition` ของ `/api/analysis/raw` ให้ download เป็น `raw_CSV.csv`
+  - ปรับข้อความ link ใน UI ให้ระบุชื่อไฟล์ใหม่หรือ neutral wording
+  - เพิ่ม regression ตรวจ filename จาก raw CSV download โดยไม่ต้อง run market fetch จริง
+  - อัปเดต README/docs/plan ให้แยกระหว่าง internal compatibility file กับ public download filename
+  - ทดสอบ syntax, web smoke และ CI quality เท่าที่เหมาะสม
+
+### T81 - Coverage Report Public Raw Filename Sanitization
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-12 08:40:24 +07:00
+- เสร็จเมื่อ: 2026-06-12 08:46:14 +07:00
+- เหตุผล:
+  - แม้ T80 เปลี่ยนชื่อไฟล์ raw CSV ตอน download เป็น `raw_CSV.csv` แล้ว แต่ `live_market_coverage_report.json` ยังมี `source.targetFile` ชี้ path ภายใน `...siamchart_raw.csv`
+  - JSON report เป็นสิ่งที่ผู้ใช้ดาวน์โหลดได้ จึงไม่ควร expose ชื่อ internal compatibility file หรือ absolute path ในเครื่อง
+  - ต้องรักษาไฟล์ภายใน `siamchart_raw.csv` เพื่อ Python parity/regression แต่ public report ควรใช้ชื่อกลาง
+- งานที่ต้องทำ:
+  - ปรับ coverage report จาก Web App ให้ `source.targetFile` เป็น public filename `raw_CSV.csv` แทน internal path
+  - ปรับ CLI/market coverage report path ให้หลีกเลี่ยง absolute path หรือชื่อที่ทำให้เข้าใจผิดเมื่อต้อง export ให้ผู้ใช้
+  - เพิ่ม regression ตรวจว่า coverage report/download ไม่ expose `siamchart_raw.csv` ใน public-facing field
+  - อัปเดต docs/plan ให้แยก internal compatibility file กับ public report metadata
+  - ทดสอบ syntax, market coverage regression, web smoke และ CI quality เท่าที่เหมาะสม
+
+### T82 - Portfolio Data Missing After Public Filename Rename
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-12 12:55:52 +07:00
+- เสร็จเมื่อ: 2026-06-12 13:10:34 +07:00
+- เหตุผล:
+  - หลังเปลี่ยนชื่อ public download/raw report filename เป็น `raw_CSV.csv` ผู้ใช้พบว่าหน้า Portfolio ไม่แสดงข้อมูล
+  - ต้องแยกให้ชัดว่า portfolio data หายจาก API response, saved portfolio snapshot, หรือ frontend render หลัง analysis
+  - ต้องรักษา internal compatibility file `siamchart_raw.csv` ไว้ เพื่อไม่กระทบ Python parity/regression เดิม
+- งานที่ต้องทำ:
+  - ตรวจ analysis route/service ว่ายังอ่าน internal raw file และ portfolio workbook ถูกต้อง
+  - ตรวจ frontend render Portfolio หลัง analysis และหลังโหลด saved snapshot ว่ายังใช้ field ถูกต้อง
+  - เพิ่ม regression ที่จำลอง upload/run analysis แล้วต้องมี portfolio rows/render markers ไม่ว่าง
+  - แก้จุดที่ผูกชื่อไฟล์ public `raw_CSV.csv` ผิดกับ internal analysis file หากพบ
+  - อัปเดต docs/plan และทดสอบ syntax, targeted regression, web smoke และ CI quality เท่าที่เหมาะสม
+
+### T83 - Zero-Market Portfolio Snapshot Recovery Tool
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-12 13:17:04 +07:00
+- เสร็จเมื่อ: 2026-06-12 14:11:23 +07:00
+- เหตุผล:
+  - T82 ป้องกันไม่ให้ zero-row market fetch ทับข้อมูลในอนาคตแล้ว แต่ snapshot/output ที่เคยถูกทับก่อนหน้าอาจยังค้างเป็น market value/score = 0
+  - ผู้ใช้ที่เห็นหน้า Portfolio ว่างหรือ `No Data` จาก snapshot เก่า ควรมีเครื่องมือ dry-run เพื่อดูว่าสามารถซ่อมจาก reference fallback ได้หรือไม่
+  - การซ่อมข้อมูลลูกค้าต้องปลอดภัยและไม่เขียนทับจริงถ้าไม่ได้สั่ง `--confirm`
+- งานที่ต้องทำ:
+  - เพิ่ม CLI dry-run สำหรับหา portfolio snapshots ที่มี holdings แต่ market value เป็น 0/No Data
+  - ใช้ reference master/`recommended_stocks.csv` เพื่อ rehydrate portfolio rows ด้วย `analyzeHolding()`
+  - default เป็น dry-run, แสดงจำนวน snapshot ที่ซ่อมได้/ซ่อมไม่ได้ และรองรับ `--confirm` เมื่อผู้ใช้ต้องการเขียนจริง
+  - เพิ่ม safety backup ก่อน confirm write สำหรับ local state
+  - เพิ่ม regression ด้วย temp state/reference เพื่อยืนยัน dry-run/confirm behavior
+  - อัปเดต docs/plan และทดสอบ syntax, targeted regression, CI quality เท่าที่เหมาะสม
+
+### T84 - Portfolio Data Health Visibility for Admin
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-12 14:15:18 +07:00
+- เสร็จเมื่อ: 2026-06-12 14:28:29 +07:00
+- เหตุผล:
+  - T82/T83 ป้องกันและกู้ snapshot ที่ market value เป็น 0 ได้แล้ว แต่ owner/admin ยังไม่มีหน้าจอในเว็บเพื่อมองเห็น health ของ portfolio snapshots
+  - ถ้าผู้ใช้หรือทีม support เจอ Portfolio ว่าง ควรเห็นจำนวน snapshot ที่ healthy/repairable/skipped และคำสั่ง dry-run/confirm ที่ปลอดภัยโดยไม่ต้องเดาจาก CLI
+  - ต้องไม่ให้ customer ทั่วไปเห็นข้อมูล portfolio ของคนอื่น
+- งานที่ต้องทำ:
+  - เพิ่ม service summary สำหรับ portfolio data health โดย reuse logic จาก recovery service แบบ dry-run
+  - เพิ่ม owner/admin API ที่คืน snapshot health, repairable count, skipped count และ command guidance โดยไม่เขียนข้อมูลจริง
+  - เพิ่ม Business dashboard card/panel ให้เห็น Portfolio Data Health พร้อม marker สำหรับ regression
+  - เพิ่ม regression ครอบคลุม owner access, customer access denied และ frontend marker
+  - อัปเดต docs/plan และทดสอบ targeted regression, web smoke และ CI quality เท่าที่เหมาะสม
+- ผลลัพธ์:
+  - เพิ่ม `portfolioSnapshotHealthSummary()` แบบ read-only เพื่อสรุป healthy/zero-market/repairable/skipped/empty snapshots โดย reuse recovery dry-run logic
+  - เพิ่ม owner/admin API `GET /api/admin/portfolio-health` และกัน customer/advisor ไม่ให้เข้าถึงข้อมูลรวมของ portfolio คนอื่น
+  - เพิ่ม Portfolio Data Health panel ใน Business dashboard พร้อม status, metric, dry-run/confirm command guidance, safeguards และ recent snapshot table
+  - เพิ่ม regression ใน `test:portfolio-recovery`, `test:frontend-auth`, `test:web-smoke` และอัปเดต docs
+  - ทดสอบผ่าน: `npm run check`, `npm run test:portfolio-recovery`, `npm run test:frontend-auth`, `npm run test:web-smoke`, `npm run ci:quality`
+
+### T85 - Portfolio Data Health Support Context and Export
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-12 14:32:09 +07:00
+- เสร็จเมื่อ: 2026-06-12 14:40:56 +07:00
+- เหตุผล:
+  - T84 ทำให้ owner/admin เห็นว่า snapshot ไหน healthy/repairable แล้ว แต่ตารางยังเน้น `userId` ซึ่งทีม support อ่านยาก
+  - ทีม support ควรรู้ว่า record นั้นเป็นของลูกค้าคนไหน, workspace ใด, plan/status อะไร และ export เป็น CSV เพื่อเก็บหลักฐานก่อน/หลัง recovery ได้
+  - CSV export ต้องจำกัด owner/admin และควรบันทึก audit event โดยไม่ใส่ข้อมูลลับลง audit details
+- งานที่ต้องทำ:
+  - เพิ่ม customer/workspace/subscription context ใน `portfolioSnapshotHealthSummary()` โดยไม่เปลี่ยน behavior recovery
+  - เพิ่ม CSV renderer และ owner/admin endpoint สำหรับ export Portfolio Data Health
+  - เพิ่มปุ่ม/link download ใน Business dashboard และปรับ table ให้ทีม support อ่านได้ง่ายขึ้น
+  - เพิ่ม regression ตรวจ owner export, customer denied, frontend marker และ service CSV output
+  - อัปเดต docs/plan และทดสอบ targeted regression, web smoke และ CI quality เท่าที่เหมาะสม
+- ผลลัพธ์:
+  - เพิ่ม support context ใน `portfolioSnapshotHealthSummary()` เช่น customer name/email, workspace, plan และ subscription status โดยยังเป็น read-only summary
+  - เพิ่ม `renderPortfolioSnapshotHealthCsv()` และ endpoint `GET /api/admin/portfolio-health/export` สำหรับ owner/admin พร้อม filename `stockflix-portfolio-health-{date}.csv`
+  - เพิ่ม audit action `portfolio_health.export` โดยบันทึกเฉพาะ metadata จำนวน snapshot/status ไม่บันทึกรายละเอียดลูกค้าลง audit details
+  - ปรับ Business dashboard Portfolio Data Health ให้มี `Download health CSV` และ table แสดง Customer/Email/Workspace/Plan แทน userId อย่างเดียว
+  - เพิ่ม regression ใน `test:portfolio-recovery`, `test:frontend-auth`, `test:web-smoke` และอัปเดต docs
+  - ทดสอบผ่าน: `npm run check`, `npm run test:portfolio-recovery`, `npm run test:frontend-auth`, `npm run test:web-smoke`, `npm run ci:quality`
+
+### T86 - Portfolio Data Health Support Filters
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-12 21:50:38 +07:00
+- เสร็จเมื่อ: 2026-06-12 21:54:38 +07:00
+- เหตุผล:
+  - T85 ทำให้ export CSV ได้แล้ว แต่ทีม support ยังต้องอ่านรายการในหน้า Business แบบรวมทั้งหมด
+  - เมื่อมีลูกค้าหลายคน ควรค้นหาด้วยชื่อ/email/workspace, filter ตามสถานะ และ sort ตาม generated date/status/market value ได้จากหน้าเว็บทันที
+  - controls ต้องเป็น frontend-only ไม่เปลี่ยนข้อมูลจริง และต้องไม่กระทบ recovery/CSV behavior เดิม
+- งานที่ต้องทำ:
+  - เพิ่ม state และ controls ใน Portfolio Data Health panel สำหรับ search, status filter, order by และ direction
+  - ปรับ table ให้ใช้ผลลัพธ์ที่ filter/sort แล้ว พร้อม status text ว่าแสดงกี่รายการจากทั้งหมด
+  - เพิ่ม event handler แบบไม่แตะ backend state และ reset view ที่ปลอดภัย
+  - เพิ่ม regression/frontend markers และอัปเดต docs/plan
+  - ทดสอบ targeted regression, web smoke และ CI quality เท่าที่เหมาะสม
+- ผลลัพธ์:
+  - เพิ่ม state `portfolioHealthFilters` สำหรับ query/status/orderBy/direction และ reset เมื่อ logout หรือไม่ใช่ owner/admin
+  - เพิ่ม controls ใน Portfolio Data Health panel สำหรับ search customer, status filter, order by, direction และ reset view
+  - เพิ่ม helper `filterPortfolioHealthSnapshots()` และ `attachPortfolioHealthControls()` ให้ filter/sort ทำงานแบบ frontend-only ไม่เขียน backend state
+  - ปรับ table ให้แสดงรายการที่ผ่าน filter/sort พร้อมข้อความ `Showing X of Y snapshots`
+  - เพิ่ม regression markers ใน `test:frontend-viewport` และ `test:web-smoke` พร้อมอัปเดต docs
+  - ทดสอบผ่าน: `npm run check`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run ci:quality`
+
+### T87 - Commit and Push Current Web App Work
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: 2026-06-12 22:07:04 +07:00
+- เสร็จเมื่อ: -
+- เหตุผล:
+  - ผู้ใช้ขอให้ commit และ push งานล่าสุดขึ้น GitHub
+  - ต้อง stage เฉพาะไฟล์งานที่เกี่ยวข้อง และไม่ commit ไฟล์ state/backup ที่อาจมีข้อมูลส่วนตัว
+  - ต้องคง branch `codex-node-web-app-migration` และยังไม่สร้าง Pull Request เข้า main ตามคำสั่งก่อนหน้า
+- งานที่ต้องทำ:
+  - ตรวจ branch/status และเลือกไฟล์ที่จะ stage
+  - exclude `data/app-state*.json` backup/runtime state จาก commit
+  - run git diff/check ที่จำเป็นก่อน commit
+  - commit ด้วยข้อความที่สรุป portfolio health/support hardening
+  - push branch `codex-node-web-app-migration` ไป GitHub
+  - อัปเดต `plan.md` พร้อมผลลัพธ์ commit/push
+
+### T66 - Analysis Run Loading and Progress UX
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-11 09:13:40 +07:00
+- เสร็จเมื่อ: 2026-06-11 09:20:13 +07:00
+- เหตุผล:
+  - ตอนผู้ใช้กดปุ่ม `Analyze my portfolio` แล้วระบบใช้เวลาทำงาน แต่หน้าเว็บยังไม่มี feedback ชัดเจนว่ากำลังประมวลผลอยู่
+  - ผู้ใช้ทั่วไปอาจคิดว่าเว็บค้างหรือ error แล้วกดซ้ำ/ปิดหน้า ก่อนที่ analysis จะเสร็จ
+- งานที่ต้องทำ:
+  - เพิ่ม loading state ทันทีหลัง submit form วิเคราะห์พอร์ต เช่น spinner, progress message หรือ status panel ที่เห็นชัด
+  - เปลี่ยนข้อความปุ่มจาก `Analyze my portfolio` เป็นสถานะกำลังทำงาน เช่น `Analyzing...` และ disable ปุ่มชั่วคราวเพื่อกันกดซ้ำ
+  - แสดงข้อความอธิบายสำหรับมือใหม่ว่าอาจใช้เวลาหลายวินาทีถึงหลายนาที เพราะต้องดึงข้อมูลหุ้น, คำนวณคะแนน และสร้างรายงานพอร์ต
+  - แยกสถานะสำเร็จ/ล้มเหลวให้ชัด เช่น loading, success, error, retry โดยต้อง restore ปุ่มกลับมาเมื่อจบงานหรือเกิด error
+  - เพิ่ม accessibility พื้นฐาน เช่น `aria-live` สำหรับ status message และให้ข้อความไม่ล้นบน mobile
+  - เพิ่ม regression/frontend marker เพื่อยืนยันว่ามี loading copy, disabled button handling หรือ marker ที่เกี่ยวข้องใน bundle
+  - อัปเดตเอกสารและ `plan.md`
+  - ทดสอบ syntax, targeted frontend regression, web smoke และ CI quality เท่าที่เหมาะสม
+
 ## บันทึกการอัปเดต
 
+- 2026-06-11 19:50:44 +07:00 - เริ่ม T74: เพิ่ม SQLite adapter/database selection foundation เพื่อให้ทดลองระบบด้วย SQLite และ production ใช้ Postgres ได้จาก env โดยไม่กระทบ local_file default
+- 2026-06-11 19:59:33 +07:00 - ทำ T74 เสร็จ: เพิ่ม SQLite state repository adapter แบบ opt-in, รองรับ `APP_STATE_REPOSITORY=sqlite` และ `SQLITE_DATABASE_PATH`, เพิ่ม regression read/write/patch, docs และ `npm run ci:quality` ผ่าน
+- 2026-06-11 20:07:31 +07:00 - กลับมาทำ T59: retry Browser Visual QA สำหรับ Business dashboard / Launch Evidence Center หลัง T74 เสร็จ โดยยังข้าม T47 GitHub force push ตามคำสั่งผู้ใช้
+- 2026-06-11 20:13:37 +07:00 - เลื่อน T59 ต่อ: Browser runtime เชื่อมได้ แต่ localhost/127.0.0.1 ถูกบล็อกด้วย `net::ERR_BLOCKED_BY_CLIENT` แม้ PowerShell health check ผ่าน จึงเพิ่ม T75 เป็นงานถัดไปสำหรับ SQLite trial to Postgres promotion runbook
+- 2026-06-11 20:26:37 +07:00 - ทำ T75 เสร็จ: เพิ่ม SQLite -> Postgres promotion service/CLI แบบ dry-run-first, backup/review guard, secret masking, fake-client regression, docs และ `npm run ci:quality` ผ่าน
+- 2026-06-12 07:26:50 +07:00 - เริ่ม T76: เพิ่ม Database Mode Advisor ให้ owner/admin เห็นว่า storage mode ปัจจุบันเป็น local_file/sqlite/postgres เหมาะกับ demo/trial/production แค่ไหน และควรทำอะไรต่อ
+- 2026-06-12 07:39:16 +07:00 - ทำ T76 เสร็จ: เพิ่ม Database Mode Advisor ใน storage/business metrics payload และ Business dashboard พร้อม markers/regression/docs และ `npm run ci:quality` ผ่าน
+- 2026-06-12 07:43:04 +07:00 - เริ่ม T77: เพิ่ม Production Environment Advisor ให้ owner/admin เห็น deployment/env readiness, blockers, warnings, next action และ command ถัดไปจาก Business dashboard โดยไม่เปิดเผย secret
+- 2026-06-12 07:51:33 +07:00 - ทำ T77 เสร็จ: เพิ่ม Production Environment Advisor จาก deployment checklist เข้า business metrics และ Business dashboard พร้อม env group, next action, command list, secret masking regression/docs และ `npm run ci:quality` ผ่าน
+- 2026-06-12 08:06:56 +07:00 - เริ่ม T78: เพิ่ม Download blank template สำหรับ portfolio Excel และ watchlist text ในหน้า Run Analysis เพื่อให้ผู้ใช้โหลดไปกรอกข้อมูลเอง
+- 2026-06-12 08:12:16 +07:00 - ทำ T78 เสร็จ: เพิ่ม blank portfolio/watchlist template download endpoints, ปุ่มในหน้า Upload portfolio, CSS/docs/regression และ `npm run ci:quality` ผ่าน
+- 2026-06-12 08:19:03 +07:00 - เริ่ม T79: ปรับ watchlist template ไม่ให้เป็นไฟล์เปล่า โดยใส่คำแนะนำแบบ comment และให้ parser ข้ามบรรทัด `#`
+- 2026-06-12 08:23:25 +07:00 - ทำ T79 เสร็จ: เพิ่มคำแนะนำใน watchlist template, parser ignore comment `#`, ปรับ UI/docs/regression และ `npm run ci:quality` ผ่าน
+- 2026-06-12 08:31:15 +07:00 - เริ่ม T80: เปลี่ยน public download filename ของ raw CSV จาก `siamchart_raw.csv` เป็น `raw_CSV.csv` เพื่อลดความเข้าใจผิดเรื่องแหล่งข้อมูล
+- 2026-06-12 08:34:30 +07:00 - ทำ T80 เสร็จ: เปลี่ยน `/api/analysis/raw` ให้ download เป็น `raw_CSV.csv`, ปรับ UI/docs/regression และ `npm run ci:quality` ผ่าน โดยคง internal file `siamchart_raw.csv` สำหรับ compatibility
+- 2026-06-12 08:40:24 +07:00 - เริ่ม T81: sanitize `source.targetFile` ใน live data coverage report ไม่ให้ expose internal path/name `siamchart_raw.csv` ใน JSON ที่ผู้ใช้ดาวน์โหลด
+- 2026-06-12 08:46:14 +07:00 - ทำ T81 เสร็จ: sanitize live data coverage report `source.targetFile` ให้แสดง public filename `raw_CSV.csv` ไม่ expose internal path/name `siamchart_raw.csv` พร้อม regression/docs และ `npm run ci:quality` ผ่าน
+- 2026-06-12 08:52:14 +07:00 - เพิ่มเติม T81: sanitize `source.fallbackReference` ไม่ให้ expose absolute path, regenerate `data/outputs/live_market_coverage_report.json` จริง และ `npm run ci:quality` ผ่านพร้อม marker `public-reference-path-sanitization`
+- 2026-06-12 12:55:52 +07:00 - เริ่ม T82: ตรวจและแก้ปัญหาหน้า Portfolio ไม่แสดงข้อมูลหลังเปลี่ยนชื่อ public filename เป็น `raw_CSV.csv`
+- 2026-06-12 13:10:34 +07:00 - ทำ T82 เสร็จ: ป้องกัน zero-row market fetch ทับ raw/recommended/snapshot เดิม, เพิ่ม reference fallback เมื่อ live fetch ล้ม, เพิ่ม Portfolio warning และ regression `test:analysis-portfolio-flow`; `npm run ci:quality` ผ่าน
+- 2026-06-12 13:17:04 +07:00 - เริ่ม T83: เพิ่ม zero-market portfolio snapshot recovery tool แบบ dry-run-first เพื่อช่วยซ่อม snapshot ที่ถูก zero-row market fetch ทับก่อน T82
+- 2026-06-12 14:11:23 +07:00 - ทำ T83 เสร็จ: เพิ่ม recovery service/CLI `portfolio:recover-zero-market`, regression `test:portfolio-recovery`, แก้ injected-state confirm ไม่ให้แตะ demo state, กู้ `data/app-state.json` จาก clone เก่าและ merge audit events ปัจจุบัน, dry-run พบไม่มี zero-market snapshot ค้าง, `npm run ci:quality` ผ่าน
+- 2026-06-11 14:30:04 +07:00 - เริ่ม T73: แก้ bug `recommendedActionSortFields` ยังไม่ initialize ตอนหน้า Portfolio render หลัง analysis/saved portfolio
+- 2026-06-11 14:33:44 +07:00 - ทำ T73 เสร็จ: ย้าย `recommendedActionFields` และ `recommendedActionSortFields` ไปก่อน `await initialize()`, เพิ่ม regression ตรวจ initialization order และ `npm run ci:quality` ผ่าน
+- 2026-06-11 14:15:49 +07:00 - เริ่ม T72: เพิ่ม filter, field picker และ order by ให้ตาราง Recommended actions ในหน้า Portfolio โดยไม่เปลี่ยนสูตรวิเคราะห์เดิม
+- 2026-06-11 14:25:08 +07:00 - ทำ T72 เสร็จ: เพิ่ม controls ให้ Recommended actions กรอง Symbol/Action/Sector/Trend/Min Score, เลือก Order by/direction, เลือก field ที่แสดง, reset view, responsive CSS, regression markers, docs และ `npm run ci:quality` ผ่าน
+- 2026-06-11 13:53:18 +07:00 - เริ่ม T71: เพิ่ม Screener tooltip และคำแนะนำค่า filter สำหรับผู้ใช้มือใหม่ โดยไม่เปลี่ยนสูตรวิเคราะห์เดิม
+- 2026-06-11 14:04:21 +07:00 - ทำ T71 เสร็จ: เพิ่ม beginner guide และ tooltip ในหน้า Screener สำหรับ Score/RRR/D/E/Sector/Trend, เพิ่ม CSS responsive/accessibility, regression markers, docs และ `npm run ci:quality` ผ่าน; Browser visual QA ยังไม่มี tool callable ในรอบนี้
 - 2026-06-02 20:55:35 +07:00 - สร้าง `plan.md` และกำหนด Task list สำหรับ migration เป็น Node.js Web App
 - 2026-06-02 20:56:50 +07:00 - ทำ T02 เสร็จ: เพิ่ม behavior contract ของระบบเดิมเพื่อใช้เป็นเกณฑ์เทียบตอนย้ายเป็น Node.js
 - 2026-06-02 20:58:19 +07:00 - ทำ T03 เสร็จ: เลือกสถาปัตยกรรม Node.js Web App และ library หลัก
@@ -976,6 +1435,28 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 - 2026-06-08 08:04:52 +07:00 - ทำ T60 เสร็จ: เพิ่ม `test:launch-evidence`, ตรวจ pending/blocked/ready evidence, importer dry-run marker, secret masking, frontend/CSS guardrails, owner/customer API guard, docs และ `npm run ci:quality` ผ่าน
 - 2026-06-08 08:08:20 +07:00 - เริ่ม T61: เพิ่ม Launch Evidence export/sign-off pack สำหรับ owner/admin โดยยังไม่รันคำสั่งจาก frontend และต้องไม่เปิดเผย secret
 - 2026-06-08 08:16:17 +07:00 - ทำ T61 เสร็จ: เพิ่ม Launch Evidence JSON/text sign-off export, copy/download action ใน Business dashboard, export regression/header/customer guard/docs และ `npm run ci:quality` ผ่าน; Browser visual QA ยังถูก sandbox block จึงยังไม่ปิด T59
+- 2026-06-11 07:55:10 +07:00 - เริ่ม T62: เพิ่ม audit event สำหรับ Launch Evidence export/sign-off pack เพื่อให้ owner/admin ตรวจย้อนหลังได้ก่อน deploy
+- 2026-06-11 08:01:13 +07:00 - ทำ T62 เสร็จ: export Launch Evidence JSON/text บันทึก audit action `launch_evidence.export`, Recent activity แสดง export activity หลัง copy/download, regression/docs ผ่าน และ `npm run ci:quality` ผ่าน exit code 0; แต่ `compare:python` รายงาน numeric mismatches 48 และ text mismatches 42 จาก reference/output CSV ที่ modified อยู่ใน worktree จึงเพิ่ม T63 เพื่อตรวจแยก
+- 2026-06-11 08:05:46 +07:00 - เพิ่มบันทึกความต่างผลลัพธ์ Python เดิม vs Node/Web App ใหม่ใน `plan.md` โดยระบุ mismatch ล่าสุด, ประเด็น `Sector`/fundamental source และขอบเขตที่ T63 ต้องตรวจต่อ
+- 2026-06-11 08:12:37 +07:00 - เริ่ม T63: ตรวจ reference drift ของ `compare:python` โดยเน้น `RSI_Score`, `Trend_Status`, `Rationale` และแยกประเด็น `Sector` live data vs shared raw input
+- 2026-06-11 08:18:12 +07:00 - ทำ T63 เสร็จ: แก้ JS numeric parser ให้ค่าว่างเป็น `NaN` เหมือน Python, `RSI_Score`/trend/rationale กลับมาตรง, เพิ่ม sector comparison ใน report, ทำให้ `compare:python` fail หากพบ mismatch และ `npm run ci:quality` ผ่านโดย formula/text/sector mismatch = 0
+- 2026-06-11 08:20:35 +07:00 - เริ่ม T64: ตรวจ coverage ของ live market data สำหรับ `Sector`, `PE`, `ROE`, `Yield`, `DE` และออกแบบ diagnostic/report โดยไม่เขียนทับ reference CSV หลัก
+- 2026-06-11 08:31:44 +07:00 - ทำ T64 เสร็จ: เพิ่ม live market coverage report, CLI `npm run market:coverage`, regression `npm run test:market-coverage`, endpoint/download link, docs และ `npm run ci:quality` ผ่าน; report ล่าสุดพบ 851 rows, complete coverage 57.11%, unknown sector 18, missing PE 245, ROE 39, Yield 242, D/E 75, missing reference rows 0
+- 2026-06-11 08:31:44 +07:00 - เพิ่ม T65 Pending สำหรับทำ production reference master/fundamental enrichment ต่อจากข้อสรุป T64 โดยยังไม่เริ่มแก้โค้ดใน task นี้
+- 2026-06-11 08:44:26 +07:00 - เพิ่ม T66 Pending จากข้อสังเกต UX: เมื่อกด `Analyze my portfolio` ต้องมี loading/progress state ชัดเจน กันผู้ใช้เข้าใจผิดว่าเว็บ error หรือกดซ้ำระหว่างระบบยังทำงาน
+- 2026-06-11 09:13:40 +07:00 - เริ่ม T66: แก้ UX ตอนกด `Analyze my portfolio` ให้มี loading/progress state, disable ปุ่มกันกดซ้ำ, status message และ regression marker
+- 2026-06-11 09:20:13 +07:00 - ทำ T66 เสร็จ: เพิ่ม analysis progress panel, spinner, staged status messages, disable/restore ปุ่ม `Analyze my portfolio`, success/error state, `aria-live`, regression markers, docs และ `npm run ci:quality` ผ่าน; รอบนี้ไม่มี browser control tool สำหรับ screenshot localhost จึงยืนยันด้วย automated frontend/web smoke
+- 2026-06-11 09:33:17 +07:00 - เริ่ม T65: ทำ reference master/fundamental enrichment foundation โดยใช้ file-backed JSON master พร้อม metadata และ fallback จาก CSV เดิม
+- 2026-06-11 09:43:41 +07:00 - ทำ T65 เสร็จ: เพิ่ม file-backed reference master JSON, importer `npm run reference:import`, dry-run/overwrite guard, master-first CSV fallback, `test:reference-master`, docs, `data/reference/.gitkeep`, ignore generated master และ `npm run ci:quality` ผ่าน; import ล่าสุดสร้าง master 851 rows, complete 486, needs review 365
+- 2026-06-11 09:43:41 +07:00 - เพิ่ม T67 Pending สำหรับทำ owner/admin review และ freshness workflow ของ reference master ในขั้นถัดไป
+- 2026-06-11 13:06:53 +07:00 - เริ่ม T67: เพิ่ม owner/admin reference master review/freshness workflow พร้อม audit event, UI/API และ regression
+- 2026-06-11 13:21:21 +07:00 - ทำ T67 เสร็จ: เพิ่ม owner/admin Reference Master Review UI/API, freshness summary, edit workflow, audit event `reference_master.review`, regression `test:reference-master-admin`, docs และ `npm run ci:quality` ผ่าน; เพิ่ม T68 Pending สำหรับย้าย reference master ไป database adapter/freshness scheduler foundation
+- 2026-06-11 13:24:25 +07:00 - เริ่ม T68: เพิ่ม reference master database adapter/repository boundary, dry-run migration/import plan และ freshness scheduler/report foundation โดยยังคง local file fallback
+- 2026-06-11 13:31:27 +07:00 - ทำ T68 เสร็จ: เพิ่ม reference master repository/database adapter foundation, Postgres table bootstrap SQL, migration dry-run plan, freshness report CLI `reference:freshness`, fake-client regression `test:reference-master-database`, docs และ `npm run ci:quality` ผ่าน; เพิ่ม T69 Pending สำหรับ staging migration execution guard
+- 2026-06-11 13:39:00 +07:00 - เริ่ม T69: เพิ่ม reference master staging migration execution guard แบบ dry-run-first/confirm guard, evidence output, secret masking และ fake-client regression
+- 2026-06-11 13:47:27 +07:00 - ทำ T69 เสร็จ: เพิ่ม reference master migration service/CLI `reference:migrate`, dry-run-first/confirm guard, staging/backup/plan-reviewed/production guards, evidence output, secret masking, fake-client regression `test:reference-master-migration`, docs และ `npm run ci:quality` ผ่าน; เพิ่ม task T70 สำหรับ Launch Evidence integration
+- 2026-06-11 19:27:08 +07:00 - เริ่ม T70: เชื่อม reference master freshness/migration readiness เข้ากับ Launch Evidence Center พร้อม env markers, secret masking, frontend summary และ regression guard
+- 2026-06-11 19:37:52 +07:00 - ทำ T70 เสร็จ: เพิ่ม Reference Master freshness/migration readiness ใน Launch Evidence Center, env markers, reference master summary, sign-off export, frontend marker `data-reference-master-launch-evidence`, regression pending/blocked/ready/owner/customer guard, docs และ `npm run ci:quality` ผ่าน
 
 ## ผลลัพธ์ T18: Audit Log and Activity Timeline Prototype
 
@@ -2654,6 +3135,1062 @@ git push "--force-with-lease=refs/heads/codex-node-web-app-migration:${expected}
 - Browser/in-app browser setup ยังถูก Windows sandbox block (`windows sandbox failed: spawn setup refresh`) จึงยังไม่ได้ทำ visual screenshot QA จริง และ T59 ยัง Deferred
 - การ export sign-off pack ยังไม่ได้บันทึก audit event แยก จึงเพิ่ม T62 เพื่อทำ export audit trail ต่อ
 
+## ผลลัพธ์ T62: Audit Logged Launch Evidence Export Trail
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/routes/authRoutes.js`
+  - เพิ่ม audit event หลัง owner/admin export Launch Evidence sign-off pack สำเร็จ
+  - action คือ `launch_evidence.export`
+  - details เก็บ format (`json`/`text`), pack version, launch status, generated/exported time, ready/pending/blocked/total summary, evidence item count และ sanitized environment
+  - unsupported format และ customer/advisor 403 ไม่สร้าง export audit event
+- `src/public/app.js`
+  - เพิ่ม JS download flow สำหรับ `Download JSON` เพื่อ fetch export, trigger download และ refresh audit events
+  - `Copy sign-off pack` refresh audit events หลัง copy สำเร็จ
+  - Business dashboard ใช้ `state.auditEvents` ล่าสุดก่อน metrics snapshot เพื่อให้ Recent activity แสดง export activity หลัง action สำเร็จ
+  - เพิ่ม label `Launch evidence exported` และ detail summary สำหรับ audit action ใหม่
+- `scripts/launchEvidenceCenterRegression.js`
+  - ตรวจว่า JSON/text export สร้าง audit events 2 รายการ
+  - ตรวจ format, launch status, masked `DATABASE_URL` และไม่มี raw secret ใน audit details
+  - ตรวจว่า customer export guard ไม่สร้าง audit event เพิ่ม
+- `scripts/webAppSmokeRegression.js`
+  - เพิ่ม frontend markers สำหรับ download flow และ `launch_evidence.export`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - อัปเดตเอกสารให้ระบุ export audit trail และ coverage
+- `plan.md`
+  - ปิด T62 และเพิ่ม T63 Pending สำหรับตรวจ reference drift ของ Python comparison
+
+ผลการทดสอบ:
+
+- `node --check src/routes/authRoutes.js` ผ่าน
+- `node --check src/public/app.js` ผ่าน
+- `node --check scripts/launchEvidenceCenterRegression.js` ผ่าน
+- `node --check scripts/webAppSmokeRegression.js` ผ่าน
+- `npm run test:launch-evidence` ผ่าน: owner JSON/text export, owner export audit events, customer export guard และ customer export no-audit-event
+- `npm run test:frontend-auth` ผ่าน
+- `npm run test:web-smoke` ผ่าน
+- `npm run ci:quality` ผ่าน exit code 0 รวม dependency risk gate
+- `git diff --check` ผ่าน มีเฉพาะคำเตือน LF/CRLF จาก Git บน Windows
+
+ข้อจำกัด/ข้อสังเกต:
+
+- `npm run ci:quality` ผ่าน แต่ `compare:python` รอบนี้รายงาน raw/recommended rows 851, numeric mismatches 48 และ text mismatches 42
+- Worktree ก่อนเริ่ม T62 มีไฟล์ output/reference modified อยู่แล้ว ได้แก่ `recommended_stocks.csv`, `siamchart_raw.csv`, `stock_analysis_dashboard.png` และ `__pycache__/stock_visualizer.cpython-312.pyc`
+- ไม่ได้ revert ไฟล์เหล่านั้นตามกติกาไม่ลบ/ไม่ย้อนงานที่ไม่ได้ทำ จึงเพิ่ม T63 เพื่อวิเคราะห์สาเหตุแยก
+- Browser/in-app browser setup ยังถูก Windows sandbox block จึงยังไม่ได้ทำ visual screenshot QA จริง และ T59 ยัง Deferred
+
+## บันทึกความต่างผลลัพธ์ Python เดิม vs Node/Web App ใหม่
+
+อัปเดตล่าสุด: 2026-06-11 08:05:46 +07:00
+
+หลักฐานจากรอบล่าสุด:
+
+- `data/outputs/t10_comparison_report.json`
+  - generatedAt: `2026-06-11T01:00:54.337Z`
+  - raw rows: 851
+  - Python recommended rows: 851
+  - JS recommended rows: 851
+  - required raw columns: ไม่ขาด
+  - required recommended columns: ไม่ขาด
+  - formula numeric mismatches: 48
+  - formula text mismatches: 42
+- sample mismatch ที่เห็นชัด:
+  - `TVDH`: `RSI_Score` Python=50, JS=100; `Total_Score` Python=80.25, JS=85.25; `Trend_Status` Python=`Weak Trend ⚠️`, JS=`Bearish 📉`; `Rationale` ของ JS เพิ่ม `Technical entry point`
+  - `LRH`: `RSI_Score` Python=50, JS=100; `Total_Score` Python=78.55882352941177, JS=83.55882352941177; `Trend_Status` และ `Rationale` ต่างกัน
+  - `CIMBT`, `OHTL`, `BLISS`, `DEXON`, `GLAND` มี pattern คล้ายกัน คือ `RSI_Score` ต่าง ทำให้ `Total_Score`, `Trend_Status`, `Rationale` ต่างตาม
+- ตรวจ `Sector`, `Sector_PE`, `Sector_ROE`, `Sector_Yield` ระหว่าง `recommended_stocks.csv` และ `data/outputs/recommended_stocks_compare.csv` ใน regression compare ล่าสุด:
+  - `Sector` mismatch count = 0
+  - `Sector_PE` mismatch count = 0
+  - `Sector_ROE` mismatch count = 0
+  - `Sector_Yield` mismatch count = 0
+
+ข้อสรุปชั่วคราว:
+
+- ถ้าใช้ raw input เดียวกันจาก `siamchart_raw.csv` แล้วให้ Node วิเคราะห์ซ้ำผ่าน `analyzeStocks()` รอบนี้ `Sector` และ sector aggregate fields ไม่ต่างจาก Python reference
+- ความต่าง `Sector` ที่ผู้ใช้สังเกตจากการ run จริงน่าจะเกิดในขั้น data source/live market data มากกว่าขั้นสูตรวิเคราะห์ เพราะ Node live data จาก Yahoo chart endpoint ไม่ได้ให้ `Sector`, `PE`, `ROE`, `Yield`, `DE` ครบเหมือน reference เดิม
+- `scripts/comparePythonOutputs.js` มี note เดิมว่า Live Node market data ยังต่างจาก Python เพราะ Yahoo chart endpoint ไม่ include `PE/ROE/Yield/D/E/Sector`
+- ความต่างที่ regression รอบล่าสุดนับจริงอยู่ที่ formula/text หลังใช้ raw เดียวกัน โดยจุดน่าสงสัยหลักคือ handling ของ `RSI_Score`, trend label และ rationale phrase `Technical entry point`
+
+ผลหลังทำ T63:
+
+- สาเหตุจริงของ numeric/text mismatch คือ JS เคย parse ค่าว่างเป็น `0` แต่ Python ใช้ `NaN`
+- ผลกระทบหลักคือหุ้นที่ `RSI` ว่างได้ `RSI_Score` 100 ใน JS แต่ Python ได้ 50 ทำให้ `Total_Score`, `Trend_Status` และ `Rationale` ต่างกัน
+- แก้ `src/services/stockAnalysisService.js` ให้ blank numeric กลายเป็น `NaN` เหมือน Python และแก้ CSV output ให้ `NaN` เป็น blank
+- เพิ่ม sector comparison ใน `scripts/comparePythonOutputs.js` และทำให้ `compare:python` fail หาก row count, required columns, formula, sector aggregate หรือ portfolio report ต่างจาก reference
+- `npm run compare:python` หลังแก้แล้วได้ formula numeric mismatches 0, formula text mismatches 0 และ sector mismatches 0
+
+รายการที่แยกไปทำต่อใน T64:
+
+- ตรวจ live data coverage ว่าหลัง Yahoo chart + reference fallback ยังเหลือ `Unknown` sector หรือ fundamental 0/blank แค่ไหน
+- แยกให้ชัดว่าปัญหา live `Sector`/fundamental ไม่ใช่สูตรวิเคราะห์ แต่เป็นข้อจำกัดของ data source และ reference master
+- ห้าม revert หรือ overwrite `recommended_stocks.csv`, `siamchart_raw.csv`, `stock_analysis_dashboard.png`, `__pycache__/stock_visualizer.cpython-312.pyc` โดยไม่ขออนุญาต เพราะเป็นไฟล์ modified อยู่ก่อนงานนี้
+
+## ผลลัพธ์ T63: Python Comparison Reference Drift Fix
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/stockAnalysisService.js`
+  - แก้ numeric parser ให้ค่าว่าง, `-`, `nan` และค่าที่ไม่ใช่เลขเป็น `NaN` แทน `0`
+  - แก้ median ของชุดว่างให้เป็น `NaN` เพื่อเลี่ยง sector aggregate ปลอม
+  - แก้ price position ให้ใช้ `Number.isFinite()` แทน falsy check
+- `src/services/csvService.js`
+  - export `NaN` เป็น cell ว่าง เพื่อให้ output CSV ตรงกับ Python reference
+- `scripts/comparePythonOutputs.js`
+  - เพิ่ม sector comparison สำหรับ `Sector`, `Sector_PE`, `Sector_ROE`, `Sector_Yield`
+  - ทำให้ process exit fail หากพบ formula/text/sector/report mismatch
+- `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`, `README.md`
+  - อัปเดตคำอธิบาย comparison gate และข้อจำกัด live fundamental data
+
+หลักฐานทดสอบ:
+
+- `node --check src/services/stockAnalysisService.js` ผ่าน
+- `node --check src/services/csvService.js` ผ่าน
+- `node --check scripts/comparePythonOutputs.js` ผ่าน
+- `npm run compare:python` ผ่าน: numeric 0, text 0, sector 0, portfolio report mismatch 0
+- `npm run test:launch-evidence` ผ่าน
+- `npm run test:web-smoke` ผ่าน
+- `npm run ci:quality` ผ่าน
+
+## ผลลัพธ์ T64: Live Market Data Sector/Fundamental Coverage Audit
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/marketCoverageService.js`
+  - เพิ่ม report builder สำหรับตรวจ `Sector`, `PE`, `ROE`, `Yield`, `DE`
+  - นับ `Unknown`, ค่าว่าง, `-`, `NaN` และเลข `0` เป็น missing หลัง fallback
+  - สรุป complete coverage, missing reference rows, impacted symbols และ production recommendation
+- `src/services/marketDataService.js`
+  - สร้าง coverage report หลัง fetch live market data และ enrich ด้วย reference fallback
+- `src/routes/analysisRoutes.js`
+  - เพิ่ม output `live_market_coverage_report.json`
+  - เพิ่ม endpoint `GET /api/analysis/coverage`
+- `src/public/app.js`
+  - เพิ่มลิงก์ download coverage report และข้อความสรุป status/coverage หลัง run analysis
+- `scripts/liveMarketCoverageAudit.js`
+  - เพิ่ม CLI `npm run market:coverage`
+  - อ่าน `data/outputs/siamchart_raw.csv` หากมี ไม่เช่นนั้น fallback ไป `siamchart_raw.csv`
+  - เขียน `data/outputs/live_market_coverage_report.json` โดยไม่เขียนทับ reference CSV หลัก
+- `scripts/liveMarketCoverageRegression.js`
+  - เพิ่ม regression `npm run test:market-coverage`
+- `package.json`, `scripts/webAppSmokeRegression.js`, `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - ผูก regression เข้า quality gate และอัปเดตคู่มือ
+
+ผล audit จริงจาก `npm run market:coverage`:
+
+- rows: 851
+- status: `needs_reference_enrichment`
+- complete rows: 486
+- complete coverage: 57.11%
+- unknown sectors: 18
+- missing fundamentals:
+  - `PE`: 245
+  - `ROE`: 39
+  - `Yield`: 242
+  - `DE`: 75
+- missing reference rows: 0
+- detail: `data/outputs/live_market_coverage_report.json`
+
+ข้อสรุป:
+
+- reference fallback มี symbol ครบ 851 ตัว แต่ reference master เองยังมี fundamental บาง field เป็น 0/blank
+- ความต่างที่เอกเห็นเรื่อง Sector/fundamental ใน live run จึงควรแก้เชิงข้อมูล production ต่อ เช่น ทำ reference master ใน database, เพิ่ม provider fundamental data หรือทำ scheduled enrichment พร้อม freshness metadata
+- ไม่ควรสรุปว่า live data เทียบ Python เดิมครบ 100% จนกว่า coverage report จะได้ status `ready`
+
+หลักฐานทดสอบ:
+
+- `node --check src/services/marketCoverageService.js` ผ่าน
+- `node --check src/services/marketDataService.js` ผ่าน
+- `node --check src/routes/analysisRoutes.js` ผ่าน
+- `node --check scripts/liveMarketCoverageAudit.js` ผ่าน
+- `node --check scripts/liveMarketCoverageRegression.js` ผ่าน
+- `npm run test:market-coverage` ผ่าน
+- `npm run test:web-smoke` ผ่าน
+- `npm run market:coverage` ผ่านและสร้าง report
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+
+## ผลลัพธ์ T66: Analysis Run Loading and Progress UX
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/public/index.html`
+  - เพิ่มปุ่ม `#analysisSubmitButton`
+  - เพิ่ม progress panel `#analysisStatusPanel` พร้อม `data-analysis-progress`
+  - เพิ่ม `aria-live="polite"` และ `aria-busy` สำหรับ status ที่ screen reader อ่านได้
+  - เพิ่ม step list สำหรับ `Fetching market data`, `Scoring stocks`, `Building portfolio report`
+- `src/public/app.js`
+  - เพิ่ม state `analysisRunning`
+  - เพิ่ม `setAnalysisButtonLoading()`, `showAnalysisStatus()`, `startAnalysisProgressTimers()`
+  - เมื่อกด `Analyze my portfolio` แล้วปุ่มเปลี่ยนเป็น `Analyzing...` และถูก disable ทันที
+  - แสดงข้อความว่าระบบกำลังดึงข้อมูลหุ้น, คำนวณคะแนน และสร้างรายงาน
+  - แสดง success state เมื่อ report พร้อม และ error state เมื่อ API/ไฟล์มีปัญหา
+  - restore ปุ่มกลับเป็น `Analyze my portfolio` เสมอใน `finally`
+- `src/public/styles.css`
+  - เพิ่ม style สำหรับ `.analysis-status`, `.analysis-spinner`, step active/done และ responsive overflow wrapping
+- `scripts/frontendViewportRegression.js`, `scripts/webAppSmokeRegression.js`
+  - เพิ่ม marker ตรวจ loading/progress UX ใน HTML/JS/CSS
+- `README.md`, `docs/WEB_APP_USAGE.md`
+  - อัปเดตคู่มือว่าระหว่างวิเคราะห์จะมี progress panel และไม่ควรกดซ้ำ
+
+หลักฐานทดสอบ:
+
+- `node --check src/public/app.js` ผ่าน
+- `npm run test:frontend-viewport` ผ่าน และตรวจ `analysis-loading-markers`
+- `npm run test:web-smoke` ผ่าน
+- `npm run ci:quality` ผ่าน รวม regression ทั้งหมด, `compare:python` 0 mismatch และ dependency risk gate
+- รอบนี้ไม่มี browser control tool สำหรับเปิด/screenshot localhost ให้ใช้โดยตรง จึงยังไม่ได้ทำ visual screenshot จริงจาก Browser plugin
+
+## ผลลัพธ์ T65: Production Reference Master and Fundamental Enrichment Foundation
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/referenceMasterService.js`
+  - เพิ่ม schema `market-reference-master-v1`
+  - normalize `Symbol`, `Sector`, `PE`, `ROE`, `Yield`, `DE`, `PBV`, `High_52W`, `Low_52W`
+  - เพิ่ม metadata ต่อ symbol ได้แก่ source, sourceFile, sourceRow, lastUpdated, freshnessStatus, reviewStatus และ missingFields
+  - สรุป totals: totalRows, completeRows, needsReviewRows และ missingFieldCounts
+- `src/services/referenceDataService.js`
+  - ปรับ `loadReferenceMarketData()` ให้ใช้ `data/reference/market-reference-master.json` ก่อน
+  - fallback ไป `recommended_stocks.csv` เดิมเมื่อยังไม่มี master หรือ master ยังขาดบาง field
+  - normalize fallback number ให้เป็น number เมื่อเป็นตัวเลขจริง
+- `scripts/importReferenceMaster.js`
+  - เพิ่ม CLI `npm run reference:import`
+  - รองรับ `--dry-run`, `--input`, `--output`, `--force`
+  - ไม่ overwrite master เดิมหากไม่ระบุ `--force`
+- `scripts/referenceMasterRegression.js`
+  - เพิ่ม regression `npm run test:reference-master`
+  - ตรวจ CSV import, metadata counts, master write/read, master-first fallback merge, enrichment และ CSV compatibility
+- `scripts/liveMarketCoverageAudit.js`, `src/services/marketDataService.js`
+  - ปรับ coverage/runtime path ให้ถือว่า reference fallback คือ `market-reference-master.json -> recommended_stocks.csv`
+- `.gitignore`, `data/reference/.gitkeep`
+  - เพิ่มโฟลเดอร์สำหรับ generated reference master โดย ignore ไฟล์ master จริงไม่ให้เผลอ commit snapshot
+- `package.json`, `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - เพิ่ม npm scripts, เอกสารการใช้งาน, regression และ failure guide
+
+ผล import ล่าสุด:
+
+- `npm run reference:import -- --dry-run` ผ่าน
+- `npm run reference:import` ผ่านและสร้าง `data/reference/market-reference-master.json`
+- rows: 851
+- complete rows: 486
+- needs review rows: 365
+- missing fields:
+  - `Sector`: 18
+  - `PE`: 245
+  - `ROE`: 39
+  - `Yield`: 242
+  - `DE`: 75
+
+หลักฐานทดสอบ:
+
+- `node --check src/services/referenceMasterService.js` ผ่าน
+- `node --check src/services/referenceDataService.js` ผ่าน
+- `node --check scripts/importReferenceMaster.js` ผ่าน
+- `node --check scripts/referenceMasterRegression.js` ผ่าน
+- `node --check scripts/liveMarketCoverageAudit.js` ผ่าน
+- `npm run test:reference-master` ผ่าน
+- `npm run test:market-coverage` ผ่าน
+- `npm run market:coverage -- --input siamchart_raw.csv` ผ่าน: rows 851, missing reference rows 0
+- `npm run test-regression` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `compare:python` ยังได้ numeric/text/sector mismatch = 0
+
+ข้อสรุป:
+
+- ระบบมี foundation สำหรับ reference master แล้ว แต่ข้อมูลที่ import จาก CSV ยังมี 365 rows ที่ต้อง review/enrich
+- งานต่อไปควรเป็น T67 เพื่อให้ owner/admin เห็นรายการ needs review, แก้ค่าพื้นฐานได้, มี audit trail และมี freshness warning ก่อนเปิดขายจริง
+
+## ผลลัพธ์ T67: Reference Master Admin Review and Freshness Workflow
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/referenceMasterService.js`
+  - เพิ่ม `referenceMasterReviewSummary()` เพื่อสรุป totals, queue ที่ต้อง review, stale rows, reviewed rows และ freshness status
+  - เพิ่ม `updateReferenceMasterRecord()` เพื่อให้ owner/admin แก้/ยืนยัน `Sector`, `PE`, `ROE`, `Yield`, `DE` และ metadata ต่อ symbol
+  - เพิ่ม stale threshold default 30 วัน และ summary สำหรับ Business dashboard
+- `src/routes/authRoutes.js`
+  - เพิ่ม `GET /api/admin/reference-master?limit=...` สำหรับ owner/admin ดู review queue และ freshness summary
+  - เพิ่ม `POST /api/admin/reference-master/:symbol` สำหรับบันทึกค่าที่รีวิวแล้ว
+  - บังคับ `business.metrics` entitlement และปฏิเสธ customer/advisor
+  - บันทึก audit action `reference_master.review` พร้อม symbol, changed fields และ missing fields ก่อน/หลัง
+- `src/public/app.js`, `src/public/index.html`, `src/public/styles.css`
+  - เพิ่ม Reference Master Review panel ในหน้า Business dashboard
+  - แสดง metrics เช่น reference rows, needs review, reviewed, stale rows, oldest update และ stale threshold
+  - เพิ่ม table queue สำหรับแก้ `Sector`, `PE`, `ROE`, `Yield`, `DE` และ review note
+  - เพิ่ม save action, error/retry state และ refresh Recent activity หลังบันทึก
+  - ล้าง `referenceMaster` state หลัง logout
+- `scripts/referenceMasterAdminRegression.js`
+  - เพิ่ม regression สำหรับ owner review summary, owner update record, audit event และ customer guard
+- `package.json`
+  - เพิ่ม `npm run test:reference-master-admin`
+  - ผูก `test:reference-master-admin` เข้า `test-regression`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - อัปเดตคู่มือ Reference Master Review, API, audit event, regression และ quality gate
+- `plan.md`
+  - ปิด T67 และเพิ่ม T68 สำหรับ database adapter/freshness scheduler foundation
+
+ผลการทดสอบ:
+
+- `node --check src/services/referenceMasterService.js` ผ่าน
+- `node --check src/routes/authRoutes.js` ผ่าน
+- `node --check src/public/app.js` ผ่าน
+- `node --check scripts/referenceMasterAdminRegression.js` ผ่าน
+- `npm run test:reference-master` ผ่าน
+- `npm run test:reference-master-admin` ผ่าน
+- `npm run test:frontend-viewport` ผ่าน
+- `npm run test:web-smoke` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `compare:python` ยังได้ numeric/text/sector mismatch = 0
+
+ข้อสรุป:
+
+- Owner/admin มี workflow สำหรับรีวิว reference master บน Business dashboard แล้ว
+- ข้อมูลแก้ไขถูกบันทึกพร้อม metadata และ audit trail เพื่อให้ตรวจย้อนหลังได้
+- ระบบยังเป็น file-backed JSON master; งาน production ถัดไปคือ T68 เพื่อทำ database adapter และ freshness scheduler foundation
+
+## ผลลัพธ์ T68: Reference Master Database Adapter and Freshness Scheduler Foundation
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/referenceMasterRepository.js`
+  - เพิ่ม repository/database adapter foundation สำหรับ reference master
+  - เพิ่ม `referenceMasterRepositoryInfo()` เพื่อบอก adapter, supported adapters, local file path, Postgres table และ freshness report path
+  - เพิ่ม Postgres bootstrap SQL สำหรับ table `reference_master_records` และ indexes หลัก
+  - เพิ่ม record-level upsert/read helper ที่รับ injected client เพื่อทดสอบได้โดยไม่ต่อ database จริง
+  - เพิ่ม migration dry-run plan เพื่อสรุป rows ที่จะ upsert, bootstrap statements, missing fields, stale rows และ guardrails
+  - เพิ่ม freshness report builder สำหรับ stale rows, review queue, missing field counts และ recommendations
+- `scripts/referenceMasterFreshnessReport.js`
+  - เพิ่ม CLI `npm run reference:freshness`
+  - รองรับ `--dry-run`, `--input`, `--output`, `--stale-days`, `--limit`
+  - dry-run จะแสดง migration plan และ freshness report โดยไม่เขียนไฟล์
+  - ถ้าไม่ dry-run จะเขียน report ไปที่ `data/reference/reference-master-freshness-report.json` ซึ่งอยู่ใน path ที่ Git ignore
+- `scripts/referenceMasterDatabaseRegression.js`
+  - เพิ่ม fake-client regression สำหรับ Postgres bootstrap SQL, repository info, migration dry-run, freshness report, write/read และ record upsert
+- `package.json`
+  - เพิ่ม `npm run test:reference-master-database`
+  - เพิ่ม `npm run reference:freshness`
+  - ผูก `test:reference-master-database` เข้า `test-regression`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - อัปเดตคำสั่ง T68, database adapter foundation, freshness report, regression และ CI quality gate
+- `plan.md`
+  - ปิด T68 และเพิ่ม T69 สำหรับ staging migration execution guard
+
+ผลการทดสอบ:
+
+- `node --check src/services/referenceMasterRepository.js` ผ่าน
+- `node --check scripts/referenceMasterFreshnessReport.js` ผ่าน
+- `node --check scripts/referenceMasterDatabaseRegression.js` ผ่าน
+- `npm run test:reference-master` ผ่าน
+- `npm run test:reference-master-admin` ผ่าน
+- `npm run test:reference-master-database` ผ่าน
+- `npm run reference:freshness -- --dry-run --limit 5` ผ่าน: master 851 rows, needs review 365, stale rows 0, migration dry-run upsert rows 851
+- `npm run test:web-smoke` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `compare:python` ยังได้ numeric/text/sector mismatch = 0
+
+ข้อสรุป:
+
+- ระบบมี production database adapter foundation สำหรับ reference master แล้ว โดยยังไม่ต้องต่อ database จริงใน regression
+- มี dry-run report ที่บอกทั้ง migration plan และ freshness/review status ของ master ปัจจุบัน
+- ขั้นถัดไปควรเป็น T69 เพื่อเพิ่ม execution guard สำหรับ staging migration แบบ confirm/evidence/secret masking ก่อนใช้ database จริง
+
+## ผลลัพธ์ T69: Reference Master Staging Migration Execution Guard
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/referenceMasterMigrationService.js`
+  - เพิ่ม execution guard สำหรับ reference master migration แบบ dry-run-first
+  - default เป็น dry-run และต้องใช้ `--confirm` ก่อน execute
+  - เพิ่ม guard สำหรับ `REFERENCE_MASTER_REPOSITORY=postgres`, `DATABASE_URL`, `DATABASE_SSL_MODE`, staging marker, backup evidence, migration plan reviewed และ production guard
+  - เพิ่ม evidence output เช่น source rows, planned upserts, before/after counts, needs review rows, stale rows และ verification checklist
+  - sanitize `DATABASE_URL` และค่า secret-like keys ทุกครั้งก่อนแสดงผล
+  - รองรับ injected fake client สำหรับ regression และใช้ optional `pg` เฉพาะตอน execute จริง
+- `scripts/referenceMasterMigration.js`
+  - เพิ่ม CLI `npm run reference:migrate`
+  - รองรับ `--dry-run`, `--confirm`, `--replace`, `--allow-production`, `--input`, `--database-url`, `--repository-adapter`, `--ssl-mode`, `--node-env`, `--backup-evidence`, `--staging-ready`, `--migration-plan-reviewed`, `--format json|text`, `--strict`
+- `scripts/referenceMasterMigrationRegression.js`
+  - เพิ่ม regression สำหรับ dry-run guard, secret masking, production blocker, backup blocker, confirm execute path ด้วย fake client และ CLI strict behavior
+- `package.json`
+  - เพิ่ม `npm run reference:migrate`
+  - เพิ่ม `npm run test:reference-master-migration`
+  - ผูก `test:reference-master-migration` เข้า `test-regression`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - อัปเดตคำสั่ง migration guard, required flags, execution safety, regression และ CI quality gate
+- `plan.md`
+  - ปิด T69 และเพิ่ม T70 สำหรับ Launch Evidence integration
+
+ผลการทดสอบ:
+
+- `node --check src/services/referenceMasterMigrationService.js` ผ่าน
+- `node --check scripts/referenceMasterMigration.js` ผ่าน
+- `node --check scripts/referenceMasterMigrationRegression.js` ผ่าน
+- `npm run test:reference-master-migration` ผ่าน
+- `npm run reference:migrate -- --dry-run --repository-adapter postgres --database-url postgres://stockflix:demo-secret@db.example.com:5432/stockflix_staging --ssl-mode require --node-env staging --staging-ready --backup-evidence snapshot-reference-demo --migration-plan-reviewed --limit 5 --format json --strict` ผ่าน: status `dry_run`, planned upserts 851, needs review 365, stale rows 0 และ database password ถูก mask
+- `npm run test:reference-master-database` ผ่าน
+- `npm run test:reference-master-admin` ผ่าน
+- `npm run test:web-smoke` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `compare:python` ยังได้ numeric/text/sector mismatch = 0
+
+ข้อสรุป:
+
+- มี staging migration guard สำหรับ reference master แล้ว และยังไม่เขียน database หากไม่มี `--confirm`
+- Execution path ถูกทดสอบด้วย fake client จึงมั่นใจเรื่อง transaction, table clear เฉพาะเมื่อ `--replace`, record-level upsert และ evidence counts
+- ขั้นถัดไปควรเป็น T70 เพื่อเอาหลักฐาน reference master migration/freshness เข้า Launch Evidence Center ให้ owner/admin ตรวจ go-live readiness ได้จากหน้า Business dashboard
+
+## ผลลัพธ์ T71: Screener Beginner Filter Tooltips
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/public/app.js`
+  - เพิ่ม `screenerFilterTips` สำหรับอธิบาย `Min Score`, `Min RRR`, `Max D/E`, `Sector` และ `Trend` ด้วยภาษาง่าย
+  - เพิ่ม helper `renderScreenerTooltip()` และ `renderScreenerFilterField()` เพื่อให้ filter ทุกตัวมี tooltip และ hint ที่ reusable
+  - เพิ่ม beginner guide เหนือ filter: `Score 60+`, `RRR 1.5+`, `D/E <= 1.0` สำหรับเริ่มใช้งาน และค่าเข้มขึ้น `Score 70+`, `RRR 2.0+`, `D/E <= 0.7`
+  - ใช้ `<button type="button">` เป็น tooltip trigger พร้อม `aria-describedby` เพื่อรองรับ keyboard focus
+  - ไม่เปลี่ยนค่า default filter เดิมและไม่เปลี่ยนสูตรกรอง/สูตรวิเคราะห์เดิม
+- `src/public/styles.css`
+  - เพิ่ม layout ของ `filter-field`, `filter-label-row`, `screener-beginner-guide`, `tooltip-trigger` และ `tooltip-card`
+  - ทำ tooltip ให้แสดงจาก hover/focus, ไม่ล้นด้วย `width: min(320px, calc(100vw - 48px))` และคง responsive breakpoint เดิม
+- `scripts/frontendViewportRegression.js`
+  - เพิ่ม marker ตรวจ beginner tooltip, recommended filter copy และ CSS tooltip guardrails
+- `scripts/webAppSmokeRegression.js`
+  - เพิ่ม marker ตรวจ tooltip/guidance ผ่าน static server จริง
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - อัปเดตเอกสารว่า Screener มี tooltip สำหรับผู้เริ่มต้น พร้อมค่าแนะนำและ coverage ของ regression
+- `plan.md`
+  - เพิ่ม/ปิด T71 และบันทึกผลลัพธ์พร้อมเวลา
+
+ผลการทดสอบ:
+
+- `node --check src/public/app.js` ผ่าน
+- `npm run test:frontend-viewport` ผ่าน และตรวจ `screener-beginner-tooltip-markers`
+- `npm run test:web-smoke` ผ่าน
+- `git diff --check` ผ่าน มีเฉพาะคำเตือน LF/CRLF จาก Git บน Windows
+- `npm run ci:quality` ผ่านครบ รวม `compare:python` ได้ numeric/text/sector mismatch = 0
+
+ข้อจำกัด:
+
+- Browser/in-app browser visual QA ยังไม่ได้ทำในรอบนี้ เพราะ `tool_search` ไม่พบ Browser control tool ที่ callable มีเพียง automation/sub-agent tools ถูก expose มาแทน
+- T59 ยังเป็น Browser Visual QA ที่ถูก defer อยู่ หาก Browser กลับมาใช้งานได้ควรกลับมาตรวจ screenshot หน้า Screener desktop/mobile เพิ่ม
+
+ข้อสรุป:
+
+- หน้า Screener เหมาะกับผู้ใช้มือใหม่มากขึ้น เพราะอธิบายความหมายของ filter และบอกค่าที่ควรเริ่มลองโดยไม่เปลี่ยนผลวิเคราะห์เดิม
+- หลัง T70 เสร็จ งานหลักที่เหลือคือ T47 GitHub force push/history rewrite และ T59 Browser Visual QA เมื่อ Browser พร้อม
+
+## ผลลัพธ์ T72: Recommended Actions Table Controls
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/public/app.js`
+  - เพิ่ม `recommendedActionFields` และ `recommendedActionSortFields` เพื่อกำหนด field ที่เลือกแสดงได้และ field ที่ใช้เรียงลำดับได้
+  - ปรับหน้า Portfolio ส่วน `Recommended actions` จากตารางคงที่เป็น control panel พร้อม output container
+  - เพิ่ม filter: ค้นหา Symbol, Action group (`Urgent`, `Exit/Sell`, `Reduce`, `Buy/Accumulate`, `Wait`, `Hold`), Sector, Trend และ Min Score
+  - เพิ่ม Order by: Score, Market Value, Gain/Loss %, RRR, Price, Symbol และ Action Group พร้อม direction high-to-low/low-to-high
+  - เพิ่ม Field picker ผ่าน `Choose fields to display` ให้เพิ่ม/ลดคอลัมน์ เช่น Market Value, P/E, ROE, D/E, RSI, Upside % ได้ โดย `Symbol` เป็น field หลักที่คงไว้
+  - เพิ่ม Reset view และ status summary ว่าแสดงกี่รายการจากทั้งหมด พร้อม filter/sort ที่ใช้อยู่
+  - ไม่เปลี่ยนสูตรวิเคราะห์พอร์ต, ไม่เปลี่ยน Excel report และไม่เปลี่ยน output compatibility กับ Python
+- `src/public/styles.css`
+  - เพิ่ม style สำหรับ `table-control-panel`, `compact-filter-bar`, `field-picker`, `field-picker-grid`, `check-option`, `control-actions` และ `table-control-status`
+  - ทำ responsive fallback ให้ controls และ status ไม่ล้นบน mobile
+- `scripts/frontendViewportRegression.js`
+  - เพิ่ม marker ตรวจ Recommended actions controls และ CSS guardrails
+- `scripts/webAppSmokeRegression.js`
+  - เพิ่ม marker ตรวจ Recommended actions controls ผ่าน static server จริง
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - อัปเดตเอกสารว่า Recommended actions รองรับ filter/order by/field picker แล้ว และ regression coverage ตรวจ markers เหล่านี้
+- `plan.md`
+  - เพิ่ม/ปิด T72 และบันทึกผลลัพธ์พร้อมเวลา
+
+ผลการทดสอบ:
+
+- `node --check src/public/app.js` ผ่าน
+- `npm run test:frontend-viewport` ผ่าน และตรวจ `recommended-actions-control-markers`
+- `npm run test:web-smoke` ผ่าน
+- `npm run ci:quality` ผ่านครบ รวม `compare:python` ได้ numeric/text/sector mismatch = 0
+- `git diff --check` ผ่าน มีเฉพาะคำเตือน LF/CRLF จาก Git บน Windows
+
+ข้อจำกัด:
+
+- ยังไม่ได้ทำ Browser/in-app browser visual QA เพราะ Browser control tool ไม่ถูก expose ในรอบนี้; T59 ยังเป็นงาน defer สำหรับ screenshot QA จริง
+
+ข้อสรุป:
+
+- ตาราง Recommended actions ใช้งานจริงได้ดีขึ้นสำหรับผู้ใช้มือใหม่และผู้ใช้ที่ต้องการคุมมุมมองเอง เช่น ดูเฉพาะ action เร่งด่วนหรือเรียงตามคะแนนสูงสุด
+- หลัง T70 เสร็จ งานหลักที่เหลือคือ T47 GitHub force push/history rewrite และ T59 Browser Visual QA เมื่อ Browser พร้อม
+
+## ผลลัพธ์ T73: Recommended Actions Initialization Bug Fix
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/public/app.js`
+  - ย้าย `recommendedActionFields` และ `recommendedActionSortFields` ไปไว้ก่อน `await initialize()`
+  - แก้ error `can't access lexical declaration 'recommendedActionSortFields' before initialization` ที่เกิดเมื่อหน้า Portfolio render ระหว่าง app initialization หลัง analysis หรือ saved portfolio load
+  - ไม่เปลี่ยนสูตรวิเคราะห์พอร์ต, filter logic, field picker หรือ output report
+- `scripts/frontendViewportRegression.js`
+  - เพิ่ม `assertBefore()` เพื่อตรวจว่า `recommendedActionFields` และ `recommendedActionSortFields` ต้องอยู่ก่อน `await initialize()`
+  - เพิ่ม checked marker `recommended-actions-initialization-order`
+- `plan.md`
+  - เพิ่ม/ปิด T73 และบันทึกผลลัพธ์พร้อมเวลา
+
+ผลการทดสอบ:
+
+- `node --check src/public/app.js` ผ่าน
+- `npm run test:frontend-viewport` ผ่าน และตรวจ `recommended-actions-initialization-order`
+- `npm run test:web-smoke` ผ่าน
+- `npm run ci:quality` ผ่านครบ รวม `compare:python` ได้ numeric/text/sector mismatch = 0
+- `git diff --check` ผ่าน มีเฉพาะคำเตือน LF/CRLF จาก Git บน Windows
+
+ข้อสรุป:
+
+- หน้า Portfolio ไม่ควรเจอ TDZ error ของ `recommendedActionSortFields` ระหว่าง analysis/saved portfolio render แล้ว
+- หลัง T70 เสร็จ งานหลักที่เหลือคือ T47 GitHub force push/history rewrite และ T59 Browser Visual QA เมื่อ Browser พร้อม
+
+## ผลลัพธ์ T76: Database Mode Advisor for Owner Dashboard
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/authService.js`
+  - เพิ่ม `databaseModeAdvisor` ใน `storageReadinessSummary()` และ `businessMetrics()`
+  - Advisor ใช้ข้อมูลจาก `stateRepositoryInfo()` และ `buildStorageReadinessReport()`
+  - แยกสถานะให้อ่านง่าย:
+    - `local_file` = `prototype_only`
+    - `sqlite` = `trial_only`
+    - `postgres` = `needs_production_verification` หรือ `production_ready`
+  - ส่งข้อมูล current adapter, best-use mode, production readiness, write mode, patch write mode, scoped reads, migration target, recommended action, commands, warnings และ blockers โดยไม่เปิดเผย secret
+- `src/public/app.js`
+  - เพิ่ม metric `DB Store` และ `DB Mode` ใน Business dashboard
+  - เพิ่ม `renderDatabaseModeAdvisor()` พร้อม marker `data-database-mode-advisor`, `data-database-mode-commands` และ `data-database-mode-warnings`
+  - แสดงคำอธิบายง่าย ๆ ว่า storage ปัจจุบันเหมาะกับ development/demo, trial/demo หรือ production
+  - แสดงคำสั่งถัดไป เช่น SQLite trial setup, `sqlite:promote` dry-run, Postgres backup runbook, patch validation, patch smoke และ deployment checklist
+- `src/public/styles.css`
+  - เพิ่ม style สำหรับ `.database-mode-advisor`, `.mode-status`, `.advisor-warning-list` และ `.database-command-list`
+  - ทำ command/warning ให้ wrap ได้และไม่ล้นบนหน้าจอเล็ก
+- `scripts/storageReadinessRegression.js`
+  - ตรวจว่า storage readiness payload มี database advisor และ local file mode ถูก mark เป็น `prototype_only`
+  - ตรวจว่ามี command แนะนำ `APP_STATE_REPOSITORY=sqlite`
+- `scripts/frontendViewportRegression.js`, `scripts/webAppSmokeRegression.js`
+  - เพิ่ม frontend/static markers สำหรับ Database Mode Advisor
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/DATABASE_MIGRATION_FOUNDATION.md`, `docs/CI_QUALITY_GATE.md`
+  - อัปเดตเอกสารว่ามี Database Mode Advisor ใน Business dashboard และ CI coverage ตรวจ markers แล้ว
+
+ผลการทดสอบ:
+
+- `node --check src/services/authService.js` ผ่าน
+- `node --check src/public/app.js` ผ่าน
+- `node --check scripts/storageReadinessRegression.js` ผ่าน
+- `node --check scripts/frontendViewportRegression.js` ผ่าน
+- `node --check scripts/webAppSmokeRegression.js` ผ่าน
+- `npm run test:storage-readiness` ผ่าน
+- `npm run test:frontend-viewport` ผ่าน และตรวจ `database-mode-advisor-markers`
+- `npm run test:web-smoke` ผ่าน
+- `npm run test:frontend-auth` ผ่าน
+- `npm run ci:quality` ผ่านครบ รวม `compare:python` ได้ numeric/text/sector mismatch = 0
+- `git diff --check` ผ่าน มีเฉพาะคำเตือน LF/CRLF จาก Git บน Windows
+
+หมายเหตุ:
+
+- `npm run test:frontend-auth` รอบแรกใน parallel เจอ Windows sandbox ACL error จึง rerun แยกเดี่ยวแบบ escalated แล้วผ่าน ไม่ใช่ test failure
+- T59 ยังไม่ได้ทำ screenshot QA จริงเพราะ Browser เปิด localhost/127.0.0.1 ถูกบล็อกด้วย `net::ERR_BLOCKED_BY_CLIENT`
+
+ข้อสรุป:
+
+- Owner/admin เห็นภาพ database readiness ชัดขึ้นจาก Business dashboard โดยไม่ต้องอ่าน env หรือ docs เอง
+- งานหลักที่เหลือยังเป็น T47 GitHub force push/history rewrite ที่ผู้ใช้ให้ข้ามไว้ก่อน และ T59 Browser Visual QA ที่ยังติด local URL block
+
+## ผลลัพธ์ T77: Production Environment Advisor for Owner Dashboard
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/deploymentChecklistService.js`
+  - เพิ่ม `buildProductionEnvironmentAdvisor()` โดย reuse `buildProductionDeploymentChecklist()` เดิม
+  - แปล deployment checklist เป็นสถานะ owner-friendly: `ready`, `needs_review`, `blocked`
+  - ส่ง `healthLabel`, `plainLanguageSummary`, `nextAction`, blockers, warnings, groups, commands, release checklist, rollback checklist และ sanitized environment
+  - จัดกลุ่ม checks เป็น Hosting environment, Production database, Payment gateway, Audit retention, Backup and restore และ Quality gate
+  - เพิ่ม command `npm run deployment:check -- --format text --strict` ใน advisor command list เพื่อให้ owner/admin เห็นคำสั่งเริ่มต้นชัดเจน
+- `src/services/authService.js`
+  - เพิ่ม `productionEnvironmentAdvisor` เข้า payload ของ `businessMetrics()`
+  - ใช้ server-side sanitized checklist จึงไม่เปิดเผย raw secret/database password ไปยัง frontend
+- `src/public/app.js`
+  - เพิ่ม metric `Production Env` และ `Env Blockers` ใน Business dashboard
+  - เพิ่ม guidance card `Production env`
+  - เพิ่ม `renderProductionEnvironmentAdvisor()` พร้อม marker `data-production-environment-advisor`, `data-production-env-groups`, `data-production-env-warnings` และ `data-production-env-commands`
+  - แสดง status, blocker/warning count, next action, release/rollback guard, env group cards และ command list โดย frontend ไม่ execute command
+- `src/public/styles.css`
+  - เพิ่ม style สำหรับ `.production-environment-advisor`, `.env-status`, `.env-group-grid`, `.env-group-card`, `.production-env-warning-list` และ `.production-command-list`
+  - เพิ่ม responsive grid fallback ให้ env group ไม่ล้นบน mobile
+- `scripts/deploymentChecklistRegression.js`
+  - ตรวจ ready/blocked advisor, productionReady flag, database group, command list, next action และ secret masking
+- `scripts/frontendViewportRegression.js`, `scripts/webAppSmokeRegression.js`, `scripts/frontendAuthenticatedSmokeRegression.js`
+  - เพิ่ม marker regression และ owner metrics assertion สำหรับ Production Environment Advisor
+  - ตรวจว่า `DATABASE_URL` password ไม่หลุดใน advisor payload
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - อัปเดตเอกสารว่ามี Production Environment Advisor ใน Business dashboard และ CI coverage ตรวจ marker/payload แล้ว
+
+ผลการทดสอบ:
+
+- `node --check src/services/deploymentChecklistService.js` ผ่าน
+- `node --check src/services/authService.js` ผ่าน
+- `node --check src/public/app.js` ผ่าน
+- `node --check scripts/deploymentChecklistRegression.js` ผ่าน
+- `npm run test:deployment-checklist` ผ่าน
+- `npm run test:frontend-viewport` ผ่าน และตรวจ `production-environment-advisor-markers`
+- `npm run test:web-smoke` ผ่าน
+- `npm run test:frontend-auth` ผ่าน
+- `npm run ci:quality` ผ่านครบ รวม `compare:python` ได้ numeric/text/sector mismatch = 0 และ dependency risk ยังเป็น accepted moderate เดิมของ `exceljs`/`uuid`
+
+หมายเหตุ:
+
+- Advisor นี้เป็น dry-run/read-only guidance จาก environment variables และ checklist เดิม ไม่ deploy, migrate, backup, restore หรือส่ง webhook จริงจากหน้าเว็บ
+- Browser visual screenshot QA ยังไม่ได้ทำจริงเพราะ T59 ยังติด Browser เปิด localhost/127.0.0.1 ถูกบล็อกด้วย `net::ERR_BLOCKED_BY_CLIENT`
+- T47 GitHub force push/history rewrite ยังถูกเลื่อนไว้ตามคำสั่งผู้ใช้
+
+ข้อสรุป:
+
+- Owner/admin เห็น readiness ก่อนเปิดขายจริงชัดขึ้นใน Business dashboard โดยไม่ต้องอ่าน env/raw command เองทั้งหมด
+- Task list หลักยังเหลือเฉพาะ T47 ที่ defer ขั้น GitHub force push และ T59 ที่ต้องรอ Browser/in-app browser เปิด localhost ได้
+
+## ผลลัพธ์ T78: Blank Input Template Downloads
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/inputTemplateService.js`
+  - เพิ่ม `buildBlankPortfolioTemplateBuffer()` สำหรับสร้าง `portfolio_template.xlsx`
+  - Excel template มี sheet `Portfolio` พร้อม header `Symbol`, `Quantity`, `Avg_Price` และไม่มี holding data แถวตัวอย่าง
+  - เพิ่ม sheet `How to fill` เพื่ออธิบายความหมายของแต่ละ field โดยไม่ใส่ข้อมูลพอร์ตจริง
+  - เพิ่ม `buildBlankWatchlistTemplateText()` สำหรับสร้าง `watchlist_template.txt`; ภายหลัง T79 ปรับให้มีคำแนะนำแบบ comment `#` แทนไฟล์เปล่า
+- `src/routes/analysisRoutes.js`
+  - เพิ่ม `GET /api/analysis/template/portfolio` เพื่อดาวน์โหลด `portfolio_template.xlsx`
+  - เพิ่ม `GET /api/analysis/template/watchlist` เพื่อดาวน์โหลด `watchlist_template.txt`
+  - endpoint template เป็น public download ส่วน analysis run ยังต้อง login/entitlement เหมือนเดิม
+- `src/public/index.html`
+  - เพิ่มกลุ่มปุ่ม `data-template-downloads` ใน panel `Run Analysis`
+  - เพิ่มลิงก์ `Download blank portfolio template` และ watchlist template download
+  - เพิ่มข้อความสั้น ๆ ว่า portfolio template มี header `Symbol`, `Quantity`, `Avg_Price` และ watchlist ใช้กรอก ticker ทีละบรรทัด
+- `src/public/styles.css`
+  - เพิ่ม `.template-downloads` ให้ปุ่ม template แตะง่าย, ไม่ล้น และอ่านง่ายบน mobile
+- `scripts/frontendViewportRegression.js`, `scripts/webAppSmokeRegression.js`
+  - เพิ่ม marker regression สำหรับ template download
+  - web smoke fetch template endpoint จริง, อ่าน Excel workbook แล้วตรวจว่า sheet `Portfolio` มี header ถูกต้องและไม่มี data row
+  - ตรวจว่า watchlist template download filename ถูกต้อง; ภายหลัง T79 ปรับ regression ให้ตรวจคำแนะนำและ comment parsing แทนไฟล์เปล่า
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - อัปเดตเอกสารว่ามี blank template download และ regression coverage แล้ว
+
+ผลการทดสอบ:
+
+- `node --check src/services/inputTemplateService.js` ผ่าน
+- `node --check src/routes/analysisRoutes.js` ผ่าน
+- `node --check scripts/webAppSmokeRegression.js` ผ่าน
+- `npm run test:frontend-viewport` ผ่าน และตรวจ `blank-template-download-markers`
+- `npm run test:web-smoke` ผ่าน และตรวจ `blank-template-downloads`
+- `npm run ci:quality` ผ่านครบ รวม `compare:python` ได้ numeric/text/sector mismatch = 0 และ dependency risk ยังเป็น accepted moderate เดิมของ `exceljs`/`uuid`
+
+หมายเหตุ:
+
+- Portfolio template ไม่มีข้อมูลหุ้น/พอร์ตตัวอย่าง เพื่อเลี่ยงความเข้าใจผิดว่าเป็นคำแนะนำลงทุน และไม่มีข้อมูลส่วนตัว
+- T79 ปรับ watchlist template ไม่ให้เป็นไฟล์เปล่าแล้ว โดยเพิ่ม comment instruction และ parser ignore บรรทัด `#`
+
+ข้อสรุป:
+
+- ผู้ใช้ใหม่สามารถโหลด template เปล่าจากหน้า Upload portfolio แล้วนำไปกรอกเองก่อนวิเคราะห์ได้แล้ว
+- Task list หลักยังเหลือเฉพาะ T47 ที่ defer ขั้น GitHub force push และ T59 ที่ต้องรอ Browser/in-app browser เปิด localhost ได้
+
+## ผลลัพธ์ T79: Watchlist Template Instructions
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/inputService.js`
+  - ปรับ `parseWatchlistText()` ให้ข้ามบรรทัดว่างและบรรทัดที่ขึ้นต้นด้วย `#`
+  - ผู้ใช้ยังกรอก ticker จริงทีละบรรทัดได้เหมือนเดิม และระบบยัง normalize เป็นตัวใหญ่
+- `src/services/inputTemplateService.js`
+  - เปลี่ยน `watchlist_template.txt` จากไฟล์เปล่าเป็นไฟล์ที่มีคำแนะนำ:
+    - วิธีกรอก ticker ทีละบรรทัด
+    - ไม่ต้องใส่ `.BK`
+    - บรรทัด `#` เป็นคำอธิบายและไม่ถูกนำไปวิเคราะห์
+    - ตัวอย่างรูปแบบแบบ comment เช่น `# PTT`, `# CPALL`, `# AOT`
+  - คงหลักการว่า template ไม่มี ticker จริงที่ระบบจะนำไปวิเคราะห์โดยอัตโนมัติ
+- `src/public/index.html`
+  - เปลี่ยนปุ่มเป็น `Download watchlist guide template`
+  - ปรับคำอธิบายหน้า Upload portfolio ว่า watchlist template มี `#` instructions และ guidance สำหรับกรอก ticker ทีละบรรทัด
+- `scripts/frontendViewportRegression.js`, `scripts/webAppSmokeRegression.js`
+  - เพิ่ม regression ตรวจข้อความปุ่มใหม่
+  - web smoke ตรวจว่า watchlist template มีคำว่า `วิธีกรอก`, มีตัวอย่าง comment และ `parseWatchlistText()` ไม่คืน symbol จาก comment-only template
+  - ตรวจว่าเมื่อผู้ใช้เพิ่ม `ptt` และ `cpall` ด้านล่าง parser คืน `PTT|CPALL`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - อัปเดตเอกสารให้ตรงกับ behavior ใหม่ ไม่เรียก watchlist template ว่าไฟล์เปล่าอีก
+
+ผลการทดสอบ:
+
+- `node --check src/services/inputService.js` ผ่าน
+- `node --check src/services/inputTemplateService.js` ผ่าน
+- `node --check scripts/webAppSmokeRegression.js` ผ่าน
+- `npm run test:frontend-viewport` ผ่าน
+- `npm run test:web-smoke` ผ่าน
+- `npm run ci:quality` ผ่านครบ รวม `compare:python` ได้ numeric/text/sector mismatch = 0 และ dependency risk ยังเป็น accepted moderate เดิมของ `exceljs`/`uuid`
+
+ข้อสรุป:
+
+- ผู้ใช้ที่ดาวน์โหลด `watchlist_template.txt` จะไม่เจอไฟล์เปล่าที่งงแล้ว
+- ระบบยังไม่เอาคำอธิบายหรือตัวอย่างในไฟล์ template ไปวิเคราะห์เป็นหุ้นจริง เพราะทุกบรรทัดตัวอย่างเป็น comment `#`
+- Task list หลักยังเหลือเฉพาะ T47 ที่ defer ขั้น GitHub force push และ T59 ที่ต้องรอ Browser/in-app browser เปิด localhost ได้
+
+## ผลลัพธ์ T80: Public Raw CSV Download Filename
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/routes/analysisRoutes.js`
+  - เปลี่ยน download filename ของ `GET /api/analysis/raw` จาก `siamchart_raw.csv` เป็น `raw_CSV.csv`
+  - ยังอ่านไฟล์ภายในจาก `data/outputs/siamchart_raw.csv` เหมือนเดิม เพื่อรักษา compatibility กับ Python parity/regression และ workflow เดิม
+- `src/public/app.js`
+  - เปลี่ยนข้อความลิงก์หลัง run analysis เป็น `Download raw_CSV.csv`
+- `scripts/webAppSmokeRegression.js`
+  - เพิ่ม smoke test สร้าง internal `data/outputs/siamchart_raw.csv` ใน temp output แล้ว fetch `/api/analysis/raw`
+  - ตรวจ `Content-Disposition` ว่ามี `raw_CSV.csv`
+  - ตรวจว่า public filename ไม่ expose `siamchart_raw.csv`
+  - ตรวจว่า content ยังเป็น raw CSV เดิมที่ server สร้าง
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - อธิบายให้ชัดว่า `siamchart_raw.csv` เป็น internal compatibility file ส่วนไฟล์ที่ผู้ใช้ดาวน์โหลดจากหน้าเว็บชื่อ `raw_CSV.csv`
+
+ผลการทดสอบ:
+
+- `node --check src/routes/analysisRoutes.js` ผ่าน
+- `node --check src/public/app.js` ผ่าน
+- `node --check scripts/webAppSmokeRegression.js` ผ่าน
+- `npm run test:web-smoke` ผ่าน และตรวจ `raw-csv-public-filename`
+- `npm run ci:quality` ผ่านครบ รวม `compare:python` ได้ numeric/text/sector mismatch = 0 และ dependency risk ยังเป็น accepted moderate เดิมของ `exceljs`/`uuid`
+
+ข้อสรุป:
+
+- ผู้ใช้ดาวน์โหลด raw CSV แล้วจะเห็นชื่อไฟล์ `raw_CSV.csv` ไม่ใช่ `siamchart_raw.csv`
+- ระบบภายในยังคงไฟล์ `siamchart_raw.csv` เพื่อไม่กระทบผลเทียบ Python เดิมและ regression
+- Task list หลักยังเหลือเฉพาะ T47 ที่ defer ขั้น GitHub force push และ T59 ที่ต้องรอ Browser/in-app browser เปิด localhost ได้
+
+## ผลลัพธ์ T81: Coverage Report Public Raw Filename Sanitization
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/marketCoverageService.js`
+  - เพิ่มการ sanitize `source.targetFile` ก่อนสร้าง live market coverage report
+  - หาก target ภายในเป็น `siamchart_raw.csv` จะแสดงเป็น public filename `raw_CSV.csv`
+  - sanitize `source.fallbackReference` ด้วย โดยย่อเป็นชื่อไฟล์กลาง เช่น `market-reference-master.json -> recommended_stocks.csv`
+  - ตัด absolute path ออกจาก source metadata โดยใช้เฉพาะ basename เพื่อไม่ expose path ในเครื่องผู้ใช้หรือ server
+- `src/services/marketDataService.js`
+  - ตอน Web App สร้าง coverage report หลังดึงข้อมูลตลาด จะส่ง `publicTargetFile: "raw_CSV.csv"` เข้า report
+  - ยังเขียนไฟล์ raw ภายในเป็น `data/outputs/siamchart_raw.csv` เพื่อ compatibility กับ Python parity/regression เดิม
+- `scripts/liveMarketCoverageRegression.js`
+  - เพิ่ม regression ตรวจว่า `report.source.targetFile` เป็น `raw_CSV.csv`
+  - เพิ่ม regression ตรวจว่า `report.source.fallbackReference` ไม่ expose absolute path
+  - ตรวจว่า JSON report ที่บันทึกไม่ contain ชื่อ internal `siamchart_raw.csv`
+  - เพิ่ม checked markers `public-target-file-sanitization` และ `public-reference-path-sanitization`
+- `scripts/webAppSmokeRegression.js`
+  - เพิ่ม smoke test สำหรับ download `/api/analysis/coverage`
+  - ตรวจว่า downloaded JSON มี `"targetFile": "raw_CSV.csv"`
+  - ตรวจว่า downloaded JSON ไม่ expose `siamchart_raw.csv`
+  - เพิ่ม checked marker `coverage-report-public-target-file`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - อธิบายให้ชัดว่า coverage report public metadata ใช้ `raw_CSV.csv`
+  - ย้ำว่า `siamchart_raw.csv` เป็น internal compatibility file เท่านั้น และ source metadata ไม่ควรแสดง absolute path
+- `data/outputs/live_market_coverage_report.json`
+  - regenerate output จริงด้วย `npm run market:coverage`
+  - ค่า `source.targetFile` เป็น `raw_CSV.csv`
+  - ค่า `source.fallbackReference` เป็น `market-reference-master.json -> recommended_stocks.csv`
+
+ผลการทดสอบ:
+
+- `node --check src/services/marketCoverageService.js` ผ่าน
+- `node --check src/services/marketDataService.js` ผ่าน
+- `node --check scripts/liveMarketCoverageRegression.js` ผ่าน
+- `node --check scripts/webAppSmokeRegression.js` ผ่าน
+- `npm run test:market-coverage` ผ่าน และตรวจ `public-target-file-sanitization` / `public-reference-path-sanitization`
+- `npm run market:coverage` ผ่าน และ regenerate `data/outputs/live_market_coverage_report.json`
+- `npm run test:web-smoke` ผ่าน และตรวจ `coverage-report-public-target-file`
+- `npm run ci:quality` ผ่านครบ รวม `compare:python` ได้ numeric/text/sector mismatch = 0 และ dependency risk ยังเป็น accepted moderate เดิมของ `exceljs`/`uuid`
+
+ข้อสรุป:
+
+- JSON coverage report ที่ผู้ใช้ดาวน์โหลดจะไม่เห็น `"targetFile": "D:\\...\\siamchart_raw.csv"` อีกแล้ว
+- ค่า public-facing จะเป็น `"targetFile": "raw_CSV.csv"`
+- source metadata จะไม่ expose absolute path ของ reference file; `fallbackReference` จะแสดงเป็น `market-reference-master.json -> recommended_stocks.csv`
+- ระบบภายในยังคงไฟล์ `siamchart_raw.csv` เพื่อไม่กระทบ workflow เดิมและผลเทียบ Python
+- Task list หลักยังเหลือเฉพาะ T47 ที่ defer ขั้น GitHub force push และ T59 ที่ต้องรอ Browser/in-app browser เปิด localhost ได้
+
+## ผลลัพธ์ T82: Portfolio Data Missing After Public Filename Rename
+
+สาเหตุที่ตรวจพบ:
+
+- หลังเปลี่ยน public filename เป็น `raw_CSV.csv` มีการ run analysis รอบที่ live market fetch ได้ `fetchedRows: 0`
+- ระบบเดิมยังเขียน `data/outputs/siamchart_raw.csv` และ `data/outputs/recommended_stocks.csv` เป็นไฟล์ว่าง และยัง save portfolio snapshot ต่อด้วย market value/score เป็น 0
+- ผลคือผู้ใช้เห็นหน้า Portfolio เหมือนไม่มีข้อมูลหรือมีแต่ `No Data` แม้ไฟล์ portfolio upload มี holdings จริง
+- ปัญหาไม่ได้เกิดจากชื่อ download `raw_CSV.csv` โดยตรง แต่เกิดจาก zero-row live fetch ที่ระบบยอมทับ output/snapshot เดิม
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/marketDataService.js`
+  - ไม่เขียน raw output ถ้า fetch ได้ 0 rows เพื่อกัน `siamchart_raw.csv` ถูกทับเป็นไฟล์ว่าง
+  - ถ้า Yahoo/live fetch ล้ม แต่มี reference row ของ symbol นั้นจาก reference master/`recommended_stocks.csv` จะใช้ reference row เป็น fallback market row
+  - เพิ่ม log `Using reference fallback...` เพื่อให้หน้าเว็บ/ผู้ดูแลรู้ว่ารอบนั้นใช้ข้อมูล fallback
+- `src/routes/analysisRoutes.js`
+  - ถ้า upload แล้วไม่พบ symbol เลย จะคืน 400 พร้อมข้อความให้กรอก `Symbol` ใน portfolio/watchlist
+  - ถ้า fetch market rows ไม่ได้เลย จะคืน 502 และหยุด flow ก่อนสร้าง recommendations/report/snapshot
+  - ข้อความ error บอกชัดว่า existing portfolio outputs ถูกเก็บไว้ ไม่ถูกทับด้วยไฟล์ว่าง
+- `src/public/app.js`, `src/public/styles.css`
+  - เพิ่ม warning ในหน้า Portfolio เมื่อ snapshot มี holdings แต่ market data ทั้งหมดเป็น 0/`No Data`
+  - แจ้งผู้ใช้ว่ารอบล่าสุด market data unavailable และควร rerun เมื่อ data connection พร้อม
+- `scripts/analysisPortfolioFlowRegression.js`
+  - เพิ่ม regression ใหม่สำหรับ flow สมัครบัญชี, upload workbook ที่ rename แล้ว, run analysis, ตรวจ `portfolioRows`, saved snapshot, internal raw file และ public raw download filename
+  - ตรวจกรณี zero-row fetch ต้อง reject และไม่ทับ raw/recommended/snapshot เดิม
+  - ตรวจกรณี live fetch fail แต่มี reference rows ต้องยัง analysis สำเร็จจาก reference fallback
+- `package.json`
+  - เพิ่ม `npm run test:analysis-portfolio-flow`
+  - ผูกเข้า `npm run test-regression` และ `npm run ci:quality`
+- `scripts/frontendViewportRegression.js`, `scripts/webAppSmokeRegression.js`
+  - เพิ่ม marker สำหรับ Portfolio empty-market-data warning
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - อธิบาย behavior ใหม่ของ reference fallback และ zero-row output protection
+
+ผลการทดสอบ:
+
+- `node --check src/routes/analysisRoutes.js` ผ่าน
+- `node --check src/services/marketDataService.js` ผ่าน
+- `node --check src/public/app.js` ผ่าน
+- `node --check scripts/analysisPortfolioFlowRegression.js` ผ่าน
+- `npm run test:analysis-portfolio-flow` ผ่าน และตรวจ `zero-row-fetch-keeps-existing-outputs`, `zero-row-fetch-keeps-existing-snapshot`, `reference-fallback-analysis`
+- `npm run test:frontend-viewport` ผ่าน และตรวจ `portfolio-empty-market-data-warning`
+- `npm run test:web-smoke` ผ่าน
+- `npm run ci:quality` ผ่านครบ รวม `compare:python` ได้ numeric/text/sector mismatch = 0 และ dependency risk ยังเป็น accepted moderate เดิมของ `exceljs`/`uuid`
+
+ข้อสรุป:
+
+- ต่อไปถ้า live market fetch ได้ 0 rows ระบบจะไม่ทำให้ไฟล์ output และ portfolio snapshot เดิมกลายเป็นข้อมูลว่าง
+- ถ้ามี reference data ของหุ้น ระบบจะใช้ fallback เพื่อให้ Portfolio ยังแสดงข้อมูลได้ แม้ live source ใช้งานไม่ได้ชั่วคราว
+- ผู้ใช้ที่มี snapshot จากรอบ fail เดิมอาจต้อง rerun analysis อีกครั้งหลัง deploy code นี้ เพื่อสร้าง snapshot ที่มี market data กลับมา
+- Task list หลักยังเหลือเฉพาะ T47 ที่ defer ขั้น GitHub force push และ T59 ที่ต้องรอ Browser/in-app browser เปิด localhost ได้
+
+## ผลลัพธ์ T83: Zero-Market Portfolio Snapshot Recovery Tool
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/portfolioSnapshotRecoveryService.js`
+  - เพิ่ม service สำหรับหา portfolio snapshots ที่มี holdings แต่ market value/market rows เป็น 0 หรือทุก row เป็น `No Data`
+  - ใช้ reference master/`recommended_stocks.csv` ร่วมกับ `analyzeHolding()` เพื่อ rehydrate portfolio rows ให้สูตรตรงกับหน้า Portfolio
+  - default เป็น dry-run และไม่เขียน state จริง
+  - เมื่อใช้ `--confirm` กับ state จริง จะสร้าง safety backup ก่อนเขียน
+  - แก้ guard สำคัญ: ถ้า regression/injected state ส่ง state object เข้ามา จะไม่เขียน `data/app-state.json` จริง เว้นแต่ส่ง `stateFile` ชัดเจน
+- `scripts/recoverZeroMarketPortfolioSnapshots.js`
+  - เพิ่ม CLI `npm run portfolio:recover-zero-market`
+  - รองรับ `--format text|json`, `--user-id <id>` และ `--confirm`
+- `scripts/portfolioSnapshotRecoveryRegression.js`
+  - เพิ่ม regression ตรวจ dry-run detect, dry-run ไม่ mutate state, confirm repair, safety backup, healthy snapshot ไม่ถูกแก้ และ missing reference ถูก skipped
+- `package.json`
+  - เพิ่ม `npm run test:portfolio-recovery`
+  - เพิ่ม `npm run portfolio:recover-zero-market`
+  - ผูก `test:portfolio-recovery` เข้า `npm run test-regression` / `npm run ci:quality`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/CI_QUALITY_GATE.md`
+  - เพิ่มคำสั่งและคำอธิบาย recovery flow แบบ dry-run-first
+
+การกู้ state ระหว่างทำ T83:
+
+- ระหว่าง regression รอบแรกพบว่า confirm path เขียน `data/app-state.json` จริงจาก fixture ชั่วคราว
+- ได้สำรอง fixture ที่ถูกเขียนทับไว้ที่ `data/app-state.overwritten-by-t83-fixture.json`
+- กู้ `data/app-state.json` จาก clone เก่า:
+  - `C:\Users\saraw\AppData\Local\Temp\stockinvestment-commit-f3edadec9fef4a1599330dee2055a890\repo\data\app-state.json`
+  - candidate มี users 22, sessions 23, portfolio snapshots 3 และ portfolio market value ปกติ
+- merge `auditEvents` จาก `data/audit-events.ndjson` ปัจจุบันกลับเข้า state หลัง restore
+- state หลัง restore:
+  - users 22
+  - sessions 23
+  - portfolio snapshots 3
+  - audit events 301
+  - dry-run recovery หลัง restore: checked snapshots 0, repairable 0, skipped 0
+
+ผลการทดสอบ:
+
+- `node --check src/services/portfolioSnapshotRecoveryService.js` ผ่าน
+- `node --check scripts/recoverZeroMarketPortfolioSnapshots.js` ผ่าน
+- `node --check scripts/portfolioSnapshotRecoveryRegression.js` ผ่าน
+- `npm run test:portfolio-recovery` ผ่าน
+- `npm run portfolio:recover-zero-market -- --format text` ผ่าน และพบว่าไม่มี zero-market snapshot ค้าง
+- `npm run ci:quality` ผ่านครบ รวม `test:portfolio-recovery`, `test:analysis-portfolio-flow`, `test:web-smoke`, `compare:python` ได้ numeric/text/sector mismatch = 0 และ dependency risk ยังเป็น accepted moderate เดิมของ `exceljs`/`uuid`
+
+ข้อสรุป:
+
+- มีเครื่องมือ recovery สำหรับตรวจ/ซ่อม snapshot ที่ถูก zero-row market fetch ทับก่อน T82 แล้ว
+- regression ใหม่ไม่ควรแตะ `data/app-state.json` จริงอีก เพราะ confirm path ของ injected state ถูก guard แล้ว
+- หากต้องซ่อมข้อมูลจริงในอนาคต ให้รัน dry-run ก่อน:
+  - `npm run portfolio:recover-zero-market -- --format text`
+  - ถ้าผลถูกต้องค่อยรัน `npm run portfolio:recover-zero-market -- --confirm --format text`
+- Task list หลักยังเหลือเฉพาะ T47 ที่ defer ขั้น GitHub force push และ T59 ที่ต้องรอ Browser/in-app browser เปิด localhost ได้
+
+## ผลลัพธ์ T75: SQLite Trial to Postgres Promotion Runbook
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/sqlitePostgresPromotionService.js`
+  - เพิ่ม service สำหรับอ่าน state จาก SQLite trial database แล้วสร้าง Postgres promotion plan
+  - default เป็น dry-run และไม่เขียน Postgres ถ้าไม่มี confirm
+  - ตรวจ source SQLite file, record counts, storage readiness, target `APP_STATE_REPOSITORY=postgres`, `DATABASE_URL`, pg driver readiness, backup evidence และ dry-run review marker
+  - mask `DATABASE_URL` และค่า secret-like ก่อนแสดงใน output
+  - รองรับ confirm path โดย reuse `importAppStateToPostgres()` และ fake-client path สำหรับ regression
+  - เพิ่ม text renderer สำหรับ evidence/runbook output ที่อ่านง่าย
+- `scripts/promoteSQLiteToPostgres.js`
+  - เพิ่ม CLI `npm run sqlite:promote`
+  - รองรับ `--sqlite`, `--dry-run`, `--confirm`, `--allow-blocked`, `--backup-evidence`, `--promotion-reviewed`, `--pg-driver-ready` และ `--format json|text`
+  - real promotion ต้องมี `--confirm` พร้อม env/evidence ที่ครบ
+- `scripts/sqlitePostgresPromotionRegression.js`
+  - เพิ่ม regression สร้าง SQLite ชั่วคราว, ตรวจ dry-run ready, ตรวจ missing backup blocker, ตรวจ secret masking และตรวจ confirm path ผ่าน fake Postgres client
+- `src/services/sqliteStateRepository.js`
+  - เพิ่ม options `databasePath` สำหรับอ่าน/เขียน SQLite แบบชี้ไฟล์ชั่วคราวใน regression โดยไม่ต้องพึ่ง env global
+- `package.json`
+  - เพิ่ม `sqlite:promote`
+  - เพิ่ม `test:sqlite-promotion`
+  - ผูก `test:sqlite-promotion` เข้า `npm run test-regression` และ `npm run ci:quality`
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/DATABASE_MIGRATION_FOUNDATION.md`, `docs/CI_QUALITY_GATE.md`
+  - เพิ่มคำอธิบาย SQLite trial -> Postgres production promotion
+  - เพิ่มตัวอย่าง dry-run/confirm และ required env/evidence
+  - เพิ่ม troubleshooting และ CI coverage note
+
+ตัวอย่างคำสั่ง:
+
+```bash
+npm run sqlite:promote -- --sqlite data/stockflix.sqlite --dry-run --format text
+```
+
+ก่อนย้ายจริงต้องตั้ง:
+
+```text
+APP_STATE_REPOSITORY=postgres
+DATABASE_URL=postgres://user:password@host:5432/database
+SQLITE_TO_POSTGRES_PG_DRIVER_READY=true
+SQLITE_TO_POSTGRES_BACKUP_EVIDENCE=<snapshot-or-pgdump-id>
+SQLITE_TO_POSTGRES_PROMOTION_REVIEWED=true
+```
+
+แล้วจึงรัน:
+
+```bash
+npm run sqlite:promote -- --sqlite data/stockflix.sqlite --confirm --format text
+```
+
+ผลการทดสอบ:
+
+- `node --check src/services/sqlitePostgresPromotionService.js` ผ่าน
+- `node --check scripts/promoteSQLiteToPostgres.js` ผ่าน
+- `node --check scripts/sqlitePostgresPromotionRegression.js` ผ่าน
+- `node --check src/services/sqliteStateRepository.js` ผ่าน
+- `npm run test:sqlite-promotion` ผ่าน
+- `npm run sqlite:promote -- --sqlite data/stockflix.sqlite --dry-run --format text` ผ่าน โดยรายงาน `blocked` อย่างถูกต้องเมื่อ source SQLite ยังไม่มีและ env/evidence production ยังไม่ครบ
+- `npm run test:state-repository` ผ่าน
+- `npm run test:state-patch` ผ่าน
+- `npm run ci:quality` ผ่านครบ รวม `compare:python` ได้ numeric/text/sector mismatch = 0
+- `git diff --check` ผ่าน มีเฉพาะคำเตือน LF/CRLF จาก Git บน Windows
+
+หมายเหตุ:
+
+- T59 ถูก retry แล้ว Browser runtime เชื่อมได้ แต่ Browser เปิด localhost/127.0.0.1 ไม่ได้เพราะ `net::ERR_BLOCKED_BY_CLIENT`; PowerShell ตรวจ `/api/health` ผ่าน จึงเป็นข้อจำกัดของ Browser policy รอบนี้ ไม่ใช่ server
+- `node:sqlite` ยังแสดง ExperimentalWarning ตามที่คาดไว้ใน Node 22+
+
+ข้อสรุป:
+
+- ตอนนี้ flow database ชัดขึ้น: ทดลองด้วย SQLite ได้, ก่อนขึ้น production มี dry-run/guard/evidence สำหรับ promote ไป Postgres และ CI ตรวจ path นี้แล้ว
+- งานหลักที่เหลือยังเป็น T47 GitHub force push/history rewrite ที่ผู้ใช้ให้ข้ามไว้ก่อน และ T59 Browser Visual QA ที่ยังติด local URL block
+
+## ผลลัพธ์ T74: SQLite Adapter and Database Selection Foundation
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/sqliteStateRepository.js`
+  - เพิ่ม SQLite state repository adapter แบบ opt-in สำหรับช่วงทดลอง/demo โดยใช้ไฟล์ database local
+  - รองรับ read/write state ตาม schema collection เดิม เช่น users, organizations, subscriptions, audit events และ customer portfolio snapshots
+  - รองรับ scoped read สำหรับ tenant scope เพื่อให้ flow เดิมที่อ่านตาม organization/user ยังทำงานผ่าน repository layer ได้
+  - เพิ่ม bootstrap SQL และ repository metadata สำหรับตรวจ readiness
+  - default path คือ `data/stockflix.sqlite` และสามารถกำหนดเองด้วย `SQLITE_DATABASE_PATH`
+- `src/services/stateRepository.js`
+  - เพิ่ม `sqlite` ใน supported adapters ร่วมกับ `local_file` และ `postgres`
+  - รองรับ `APP_STATE_REPOSITORY=sqlite` สำหรับทดลองระบบ
+  - default ยังเป็น `local_file` เพื่อไม่กระทบการใช้งานเดิม
+  - production จริงยังแนะนำ `APP_STATE_REPOSITORY=postgres`
+- `scripts/stateRepositoryRegression.js`
+  - เพิ่ม regression ตรวจว่า SQLite selectable, read/write state ได้, scoped read ได้, patch write ผ่าน repository path ได้ และสร้างไฟล์ database จริง
+  - ตรวจ supported adapters เป็น `local_file`, `sqlite`, `postgres`
+- `.gitignore`
+  - ignore ไฟล์ `*.sqlite` และ `*.sqlite-*` เพื่อไม่เผลอ commit database/customer data เข้า Git
+- `README.md`, `docs/WEB_APP_USAGE.md`, `docs/DATABASE_MIGRATION_FOUNDATION.md`, `docs/CI_QUALITY_GATE.md`
+  - เพิ่มเอกสารการเลือก database adapter ระหว่าง local file, SQLite และ Postgres
+  - เพิ่มตัวอย่าง env:
+    - `APP_STATE_REPOSITORY=sqlite`
+    - `SQLITE_DATABASE_PATH=data/stockflix.sqlite`
+  - ระบุว่า SQLite เหมาะกับ trial/demo หรือเครื่องเดียว ส่วน Postgres เหมาะกับ production/subscription จริง
+
+ผลการทดสอบ:
+
+- `node --check src/services/sqliteStateRepository.js` ผ่าน
+- `node --check src/services/stateRepository.js` ผ่าน
+- `node --check scripts/stateRepositoryRegression.js` ผ่าน
+- `npm run test:state-repository` ผ่าน และตรวจ SQLite read/write/patch path
+- `npm run test:state-patch` ผ่าน
+- `npm run test:web-smoke` ผ่าน
+- `npm run ci:quality` ผ่านครบ รวม `compare:python` ได้ numeric/text/sector mismatch = 0
+- `git diff --check` ผ่าน มีเฉพาะคำเตือน LF/CRLF จาก Git บน Windows
+
+หมายเหตุ:
+
+- Node.js แสดง `ExperimentalWarning: SQLite is an experimental feature` เพราะใช้ built-in `node:sqlite` ใน Node 22+; เป็น warning ที่คาดไว้สำหรับ foundation นี้
+- SQLite เป็นตัวเลือกที่ดีสำหรับทดลองระบบก่อน deploy เพราะไม่ต้องติดตั้ง database server แต่ยังไม่ควรใช้เป็น production หลักถ้ามีหลาย user/subscription/customer data จริง
+- เมื่อขึ้น production ให้ใช้ Postgres พร้อม backup/restore, migration evidence, tenant guard และ operational monitoring ตาม runbook ที่ทำไว้ก่อนหน้า
+
+ข้อสรุป:
+
+- ระบบเลือก storage ได้ชัดขึ้นเป็น 3 ระดับ: `local_file` สำหรับ dev เดิม, `sqlite` สำหรับ trial/demo และ `postgres` สำหรับ production
+- หลัง T74 เสร็จ งานหลักที่เหลือยังเป็น T47 GitHub force push/history rewrite ที่ผู้ใช้ให้ข้ามไว้ก่อน และ T59 Browser Visual QA เมื่อ Browser/in-app browser พร้อมใช้งาน
+
+## ผลลัพธ์ T70: Reference Master Launch Evidence Integration
+
+ไฟล์และความสามารถที่เพิ่ม/แก้:
+
+- `src/services/launchEvidenceService.js`
+  - เพิ่ม Launch Evidence items สำหรับ `reference_master_freshness` และ `reference_master_migration_readiness`
+  - เพิ่ม required env marker logic หลายตัวสำหรับ migration readiness ได้แก่ `REFERENCE_MASTER_MIGRATION_DRY_RUN_REVIEWED`, alias `REFERENCE_MASTER_MIGRATION_PLAN_REVIEWED`, `REFERENCE_MASTER_MIGRATION_STAGING_READY` และ `REFERENCE_MASTER_MIGRATION_BACKUP_EVIDENCE`
+  - เพิ่ม marker หลัก `REFERENCE_MASTER_FRESHNESS_REVIEWED`, `REFERENCE_MASTER_FRESHNESS_REPORT_EVIDENCE` และ `REFERENCE_MASTER_MIGRATION_SIGNED_OFF`
+  - เพิ่ม `referenceMaster` summary ใน Launch Evidence payload และ sign-off pack เพื่อให้ export JSON/text มี reference master evidence summary
+  - ถ้า sign-off แล้วแต่ required evidence ยังขาด ระบบจะแสดง `blocked`; ถ้ายังไม่ sign-off จะแสดง `pending`; ถ้าครบจะแสดง `ready`
+- `src/public/app.js`
+  - เพิ่มส่วน `Reference master launch evidence` ใน Launch Evidence Center
+  - เพิ่ม marker `data-reference-master-launch-evidence`
+  - แสดง command/evidence summary และ required env markers โดย frontend แสดงข้อมูลอย่างเดียว ไม่ execute command
+- `src/public/styles.css`
+  - เพิ่ม layout สำหรับ reference launch evidence, command wrapping และ marker grid
+  - เพิ่ม responsive rule ให้ marker/grid stack เป็นคอลัมน์เดียวบนจอเล็ก
+- `scripts/launchEvidenceCenterRegression.js`
+  - เพิ่ม regression สำหรับ pending, blocked reference master migration readiness, ready evidence, reference master summary, sign-off export, secret masking และ owner/customer guard
+- `scripts/frontendViewportRegression.js`
+  - เพิ่ม marker `reference-master-launch-evidence-markers`
+- `scripts/webAppSmokeRegression.js`
+  - เพิ่ม frontend bundle marker สำหรับ `Reference master launch evidence` และ `data-reference-master-launch-evidence`
+- `README.md`
+  - อธิบายว่า Launch Evidence Center รวม Reference Master freshness/migration readiness แล้ว
+- `docs/WEB_APP_USAGE.md`
+  - เพิ่มรายการ evidence ใหม่, env markers และวิธีใช้หลังรีวิว `reference:freshness` / `reference:migrate -- --dry-run`
+- `docs/CI_QUALITY_GATE.md`
+  - เพิ่ม troubleshooting และ coverage note สำหรับ reference master launch evidence markers
+
+ผลการทดสอบ:
+
+- `node --check src/services/launchEvidenceService.js` ผ่าน
+- `node --check src/public/app.js` ผ่าน
+- `node --check scripts/launchEvidenceCenterRegression.js` ผ่าน
+- `node --check scripts/webAppSmokeRegression.js` ผ่าน
+- `node --check scripts/frontendViewportRegression.js` ผ่าน
+- `npm run test:launch-evidence` ผ่าน
+- `npm run test:frontend-viewport` ผ่าน
+- `npm run test:web-smoke` ผ่าน
+- `npm run ci:quality` ผ่าน
+- `git diff --check` ผ่าน โดยเหลือเฉพาะ warning LF/CRLF จาก Git บน Windows
+
+หมายเหตุ:
+
+- `compare:python` ใน `npm run ci:quality` ยังผ่าน โดย raw rows 108, recommended rows python=108/js=108, formula mismatch 0, sector mismatch 0 และ portfolio report sample mismatch 0
+- T70 เสร็จแล้ว งานที่ยังเหลือใน task list หลักคือ T47 ที่ defer เฉพาะ GitHub force push/history rewrite และ T59 ที่ต้องรอ Browser/in-app browser ใช้งานได้สำหรับ visual QA จริง
+
 ## ผลลัพธ์ T04: Node.js Scaffolding
 
 ไฟล์และโฟลเดอร์ที่เพิ่ม:
@@ -3869,12 +5406,36 @@ Excel report:
 - T56 Done: เพิ่ม Postgres patch write staging validation runbook/CLI dry-run, readiness flags, patch smoke matrix, secret masking, deployment checklist preflight, docs และ CI quality ผ่าน
 - T57 Done: เพิ่ม Postgres patch smoke execution harness แบบ dry-run-first/confirm guard, evidence output, audit hash canary event, regression/docs และ CI quality ผ่าน
 - T58 Done: เพิ่ม owner/admin Launch Evidence Center ใน Business dashboard, API/service helper, secret masking, frontend markers, docs และ CI quality ผ่าน
-- T59 Deferred - Browser Sandbox Blocked: พยายามต่อ Browser/in-app browser แล้วแต่ Windows sandbox ยัง block setup (`windows sandbox failed: spawn setup refresh`) จึงยังไม่ได้ทำ screenshot QA จริง
+- T59 Deferred - Browser Localhost Blocked: Browser runtime เชื่อมได้แล้ว แต่เปิด `localhost`/`127.0.0.1` ของ Web App ถูกบล็อกด้วย `net::ERR_BLOCKED_BY_CLIENT`; PowerShell health check ผ่าน จึงยังไม่ได้ทำ screenshot QA จริง
 - T60 Done: เพิ่ม Launch Evidence Center UI/API guardrail regression, importer dry-run marker visibility, secret masking checks, docs และ CI quality ผ่าน
 - T61 Done: เพิ่ม Launch Evidence JSON/text export/sign-off pack, copy/download action ใน Business dashboard, regression/docs และ CI quality ผ่าน
-- T62 Pending: เพิ่ม audit logged Launch Evidence export trail สำหรับ owner/admin
-- Task list ชุดนี้เหลือ T47 ที่ถูก defer เฉพาะขั้น force push ไป GitHub, T59 ที่ต้องรอ Browser/in-app browser ใช้งานได้ และ T62 ที่เป็นงานต่อยอดใน codebase
-- งานต่อยอดที่แนะนำถ้ายังไม่กลับไปทำ GitHub: ทำ T62 Audit Logged Launch Evidence Export Trail, กลับมาทำ T59 Browser Visual QA เมื่อ Browser พร้อม, ตั้งค่า operational alert webhook ไปยัง Slack/email/APM/uptime monitor จริงใน staging/production, ซ้อม Postgres restore จริงใน staging/production-like environment หรือ run deployment checklist แบบ strict ใน staging ที่ตั้ง env จริง
+- T62 Done: เพิ่ม audit logged Launch Evidence export trail, Recent activity refresh, regression/docs และ CI quality ผ่าน exit code 0
+- T63 Done: แก้ Python comparison reference drift แล้ว โดยทำให้ JS parse missing numeric เป็น `NaN` เหมือน Python, `compare:python` fail เมื่อ mismatch และผลล่าสุด numeric/text/sector mismatch = 0
+- T64 Done: เพิ่ม live market data coverage report, CLI `npm run market:coverage`, regression `npm run test:market-coverage`, endpoint/download link, docs และ CI quality ผ่าน; report ล่าสุดพบ rows 851, complete coverage 57.11%, unknown sectors 18, missing PE 245, ROE 39, Yield 242, D/E 75, missing reference rows 0
+- T65 Done: เพิ่ม production reference master/fundamental enrichment foundation, importer `npm run reference:import`, master-first CSV fallback, metadata, regression และ CI quality ผ่าน; master ล่าสุด rows 851, complete 486, needs review 365
+- T66 Done: เพิ่ม loading/progress UX ตอนกด `Analyze my portfolio`, disable/restore ปุ่ม, success/error state, accessibility markers, docs และ CI quality ผ่าน
+- T67 Done: เพิ่ม owner/admin Reference Master Review UI/API, freshness summary, edit workflow, audit event `reference_master.review`, regression `test:reference-master-admin`, docs และ CI quality ผ่าน
+- T68 Done: เพิ่ม reference master repository/database adapter foundation, Postgres table bootstrap SQL, migration dry-run plan, freshness report CLI `reference:freshness`, fake-client regression `test:reference-master-database`, docs และ CI quality ผ่าน
+- T69 Done: เพิ่ม reference master migration service/CLI `reference:migrate`, dry-run-first/confirm guard, staging/backup/plan-reviewed/production guards, evidence output, secret masking, fake-client regression `test:reference-master-migration`, docs และ CI quality ผ่าน
+- T70 Done: เพิ่ม Reference Master Launch Evidence Integration ให้ owner/admin เห็น readiness ของ reference master freshness/migration ใน Launch Evidence Center โดย frontend ไม่ execute command พร้อม env markers, blocked guard, sign-off export และ regression coverage
+- T71 Done: เพิ่ม beginner guide และ tooltip ในหน้า Screener สำหรับ `Min Score`, `Min RRR`, `Max D/E`, `Sector` และ `Trend` พร้อมค่าแนะนำสำหรับมือใหม่, CSS responsive/accessibility, regression markers, docs และ CI quality ผ่าน
+- T72 Done: เพิ่ม controls ให้ Recommended actions ในหน้า Portfolio สำหรับ filter Symbol/Action/Sector/Trend/Min Score, Order by/direction, field picker, reset view, responsive CSS, regression markers, docs และ CI quality ผ่าน
+- T73 Done: แก้ initialization bug ของ Recommended actions โดยย้าย `recommendedActionFields` และ `recommendedActionSortFields` ไปก่อน `await initialize()` พร้อม regression guard `recommended-actions-initialization-order`
+- T74 Done: เพิ่ม SQLite state adapter foundation แบบ opt-in สำหรับ trial/demo ผ่าน `APP_STATE_REPOSITORY=sqlite` และ `SQLITE_DATABASE_PATH`, default ยังเป็น `local_file`, production ยังแนะนำ `postgres`, regression/docs/CI quality ผ่าน
+- T75 Done: เพิ่ม SQLite trial to Postgres promotion service/CLI `npm run sqlite:promote` แบบ dry-run-first พร้อม backup/review/pg-driver guard, secret masking, fake-client regression, docs และ CI quality ผ่าน
+- T76 Done: เพิ่ม Database Mode Advisor ใน Business dashboard/storage readiness ให้ owner/admin เห็น adapter ปัจจุบัน, production readiness, warning/blocker, recommended action และ command ถัดไปสำหรับ local_file/sqlite/postgres พร้อม regression/docs/CI quality ผ่าน
+- T77 Done: เพิ่ม Production Environment Advisor ใน Business dashboard/business metrics จาก deployment checklist ให้ owner/admin เห็น production env readiness, env groups, blocker/warning, next action และ command list โดยไม่เปิดเผย secret พร้อม regression/docs/CI quality ผ่าน
+- T78 Done: เพิ่ม Download portfolio/watchlist template ในหน้า Run Analysis พร้อม endpoints `/api/analysis/template/portfolio` และ `/api/analysis/template/watchlist`; portfolio template มี header `Symbol`, `Quantity`, `Avg_Price` และไม่มี holding data พร้อม regression/docs/CI quality ผ่าน
+- T79 Done: ปรับ watchlist template ไม่ให้เป็นไฟล์เปล่า โดยใส่คำแนะนำแบบ comment `#`, ตัวอย่างรูปแบบที่ไม่ถูกนำไปวิเคราะห์ และปรับ `parseWatchlistText()` ให้ ignore comment พร้อม regression/docs/CI quality ผ่าน
+- T80 Done: เปลี่ยน public download filename ของ raw CSV จาก `siamchart_raw.csv` เป็น `raw_CSV.csv` ใน `/api/analysis/raw` และ UI link โดยยังคง internal file `siamchart_raw.csv` เพื่อ Python parity/regression compatibility พร้อม web smoke/docs/CI quality ผ่าน
+- T81 Done: sanitize live data coverage report `source.targetFile` ให้แสดง public filename `raw_CSV.csv` และ sanitize `source.fallbackReference` เป็นชื่อไฟล์กลาง ไม่ expose absolute path หรือ internal name `siamchart_raw.csv` พร้อม regenerate output JSON, market coverage/web smoke/docs/CI quality ผ่าน
+- T82 Done: แก้ Portfolio ไม่แสดงข้อมูลจาก zero-row live market fetch โดยห้ามทับ raw/recommended/snapshot เดิมด้วยไฟล์ว่าง, เพิ่ม reference fallback เมื่อ live fetch ล้ม, เพิ่ม Portfolio warning และ regression `test:analysis-portfolio-flow` เข้า CI quality ผ่าน
+- T83 Done: เพิ่ม recovery tool `npm run portfolio:recover-zero-market` แบบ dry-run-first สำหรับ snapshot ที่ market value เป็น 0/No Data, เพิ่ม regression `test:portfolio-recovery`, แก้ regression ไม่ให้ injected-state confirm แตะ `data/app-state.json` จริง, และกู้ demo state จาก clone เก่า/merge audit events แล้ว
+- T84 Done: เพิ่ม Portfolio Data Health สำหรับ owner/admin ใน Business dashboard และ API `GET /api/admin/portfolio-health` แบบ read-only เพื่อดู healthy/repairable/skipped snapshots, command dry-run/confirm, safeguards, owner/customer guard, regression/docs และ CI quality ผ่าน
+- T85 Done: เพิ่ม support context และ CSV export ให้ Portfolio Data Health โดยแสดง customer name/email/workspace/plan, เพิ่ม `GET /api/admin/portfolio-health/export`, audit action `portfolio_health.export`, owner/customer guard, regression/docs และ CI quality ผ่าน
+- T86 Done: เพิ่ม Portfolio Data Health support filters สำหรับค้นหา customer/email/workspace/plan, filter status, order by generated/status/customer/workspace/market value, direction, reset view, frontend markers/docs และ CI quality ผ่าน
+- Task list ชุดนี้เหลือ T47 ที่ถูก defer เฉพาะขั้น force push ไป GitHub และ T59 ที่ต้องรอ Browser/in-app browser ใช้งานได้
+- งานต่อยอดที่แนะนำถ้ายังไม่กลับไปทำ GitHub: กลับมาทำ T59 Browser Visual QA เมื่อ Browser สามารถเปิด localhost ได้, ตั้งค่า operational alert webhook ไปยัง Slack/email/APM/uptime monitor จริงใน staging/production, ซ้อม Postgres restore จริงใน staging/production-like environment หรือ run deployment checklist แบบ strict ใน staging ที่ตั้ง env จริง
 
-ให้เริ่มจากอ่าน plan.md ก่อนเสมอ หากต้องการทำ T47 ต่อ ให้แก้ GitHub auth ก่อนโดยเพิ่ม SSH public key ใน GitHub หรือซ่อม Git HTTPS แล้วเปิด PowerShell ที่ `C:\Users\saraw\AppData\Local\Temp\stockinvestment-commit-f3edadec9fef4a1599330dee2055a890\repo` จากนั้นรัน force push แบบมี lease ตามผลลัพธ์ T47 หากผู้ใช้ยังให้ข้าม GitHub ให้ทำ T62 ต่อเป็นลำดับถัดไป โดยเพิ่ม audit event เมื่อ owner/admin export Launch Evidence sign-off pack, บันทึก format/status/summary แบบ sanitized, ตรวจ customer export guard และ secret masking ใน audit details, ให้ Recent activity หรือ Business dashboard แสดง export activity, อัปเดต docs, รัน targeted regression + `npm run ci:quality` และอัปเดต plan.md ทันทีเมื่อทำงานนั้นเสร็จ หาก Browser/in-app browser กลับมาใช้งานได้ ให้กลับมาทำ T59 โดยเปิด Web App บน localhost, สมัคร owner account แรก, เปิด Business dashboard, ตรวจ Launch Evidence Center ทั้ง desktop/mobile ว่า card, command list, table และ metric ไม่ล้น/ทับกัน, ตรวจ customer access guard, ปรับ CSS/UI หากจำเป็น และบันทึกผลใน plan.md
+ให้เริ่มจากอ่าน plan.md ก่อนเสมอ หากต้องการทดลอง SQLite ให้ตั้ง `APP_STATE_REPOSITORY=sqlite` และ `SQLITE_DATABASE_PATH=data/stockflix.sqlite`; หากต้องการ promote จาก SQLite trial ไป Postgres ให้รัน `npm run sqlite:promote -- --sqlite data/stockflix.sqlite --dry-run --format text` ก่อน แล้วตั้ง `APP_STATE_REPOSITORY=postgres`, `DATABASE_URL`, `SQLITE_TO_POSTGRES_PG_DRIVER_READY=true`, `SQLITE_TO_POSTGRES_BACKUP_EVIDENCE=<snapshot-or-pgdump-id>`, `SQLITE_TO_POSTGRES_PROMOTION_REVIEWED=true` ก่อนใช้ `--confirm`; Business dashboard มี Database Mode Advisor แล้วสำหรับดู adapter ปัจจุบันและคำสั่งถัดไป, Production Environment Advisor สำหรับดู deployment/env readiness และ Portfolio Data Health สำหรับ owner/admin ตรวจ saved portfolio snapshot ที่ healthy/repairable/skipped พร้อม customer name/email/workspace/plan, search/filter/sort/reset controls, API `GET /api/admin/portfolio-health`, CSV export `GET /api/admin/portfolio-health/export`, audit action `portfolio_health.export` และ command dry-run/confirm แบบ read-only บนหน้าเว็บ; หน้า Run Analysis มี Download blank portfolio template และ Download watchlist guide template แล้ว โดย portfolio template ต้องไม่มี holding data แถวตัวอย่าง ส่วน watchlist template มีคำแนะนำแบบ `#` และ parser ต้อง ignore บรรทัด `#`; raw CSV download จากหน้าเว็บต้องได้ชื่อ `raw_CSV.csv` แม้ internal compatibility file ยังชื่อ `siamchart_raw.csv`; coverage report JSON ที่ผู้ใช้ดาวน์โหลดต้องให้ `source.targetFile` เป็น `raw_CSV.csv` และให้ `source.fallbackReference` เป็นชื่อไฟล์กลาง เช่น `market-reference-master.json -> recommended_stocks.csv` โดยห้าม expose absolute path หรือ internal name `siamchart_raw.csv`; analysis run ต้องไม่ทับ raw/recommended/snapshot เดิมถ้า live market fetch ได้ 0 rows และควรใช้ reference fallback เมื่อมี reference row เพื่อไม่ให้หน้า Portfolio กลายเป็นข้อมูลว่าง ให้ตรวจด้วย `npm run test:analysis-portfolio-flow`; ถ้าพบ snapshot เก่าที่ market value เป็น 0/No Data ให้ดู Portfolio Data Health หรือรัน `npm run portfolio:recover-zero-market -- --format text` แบบ dry-run ก่อน และใช้ `--confirm` เฉพาะหลังตรวจผลแล้ว ให้ระวัง regression ที่มี injected state ต้องไม่แตะ `data/app-state.json` จริงและควรตรวจด้วย `npm run test:portfolio-recovery`. หากเป็น production ให้ใช้ `APP_STATE_REPOSITORY=postgres` และตั้ง `DATABASE_URL`/SSL/backup/Stripe/external audit/ops alert ตาม docs. หากต้องการทำ T47 ต่อ ให้แก้ GitHub auth ก่อนโดยเพิ่ม SSH public key ใน GitHub หรือซ่อม Git HTTPS แล้วเปิด PowerShell ที่ `C:\Users\saraw\AppData\Local\Temp\stockinvestment-commit-f3edadec9fef4a1599330dee2055a890\repo` จากนั้นรัน force push แบบมี lease ตามผลลัพธ์ T47 หากผู้ใช้ยังให้ข้าม GitHub ให้ทำงานต่อจาก T59 เมื่อ Browser/in-app browser สามารถเปิด localhost ได้ โดยเปิด Web App บน localhost, สมัคร owner account แรก, เปิด Business dashboard, ตรวจ Database Mode Advisor, Production Environment Advisor, Portfolio Data Health/export/filters, Launch Evidence Center, Reference Master Review และ Reference master launch evidence ทั้ง desktop/mobile ว่า card, table, input, command และ metric ไม่ล้น/ทับกัน, ตรวจปุ่ม Download blank template ในหน้า Run Analysis, ตรวจ customer access guard, ปรับ CSS/UI หากจำเป็น และบันทึกผลใน plan.md ห้าม revert `recommended_stocks.csv`, `siamchart_raw.csv`, `stock_analysis_dashboard.png` หรือ `__pycache__/stock_visualizer.cpython-312.pyc` โดยไม่ขออนุญาต เพราะเป็นไฟล์ modified ที่มีมาก่อนงาน T62/T63
 ```

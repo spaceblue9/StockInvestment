@@ -56,6 +56,11 @@
         <section class="panel">
           <p class="eyebrow">Run Analysis</p>
           <h2>Upload portfolio</h2>
+          <div class="template-downloads" data-template-downloads>
+            <a class="download-link" href="/api/analysis/template/portfolio" data-template-download="portfolio">Download blank portfolio template</a>
+            <a class="download-link" href="/api/analysis/template/watchlist" data-template-download="watchlist">Download watchlist guide template</a>
+            <p class="muted">Portfolio template has only headers: Symbol, Quantity, Avg_Price. Watchlist template includes # instructions and one ticker per line guidance.</p>
+          </div>
           <form id="analysisForm">
             <label>
               Watchlist
@@ -65,9 +70,21 @@
               Portfolio
               <input type="file" name="portfolio" accept=".xlsx,.xls">
             </label>
-            <button type="submit">Analyze my portfolio</button>
+            <button id="analysisSubmitButton" type="submit" data-analysis-submit>Analyze my portfolio</button>
           </form>
-          <p id="runMessage" class="muted">Sign in, upload files, then run your analysis.</p>
+          <div id="analysisStatusPanel" class="analysis-status" data-analysis-progress hidden aria-live="polite" aria-busy="false">
+            <div class="analysis-status-header">
+              <span class="analysis-spinner" aria-hidden="true"></span>
+              <strong id="analysisStatusTitle">Preparing analysis</strong>
+            </div>
+            <p id="analysisStatusText">The app will fetch market data, score stocks, and build your portfolio report.</p>
+            <ol class="analysis-steps" aria-label="Analysis progress">
+              <li data-analysis-step="market">Fetching market data</li>
+              <li data-analysis-step="score">Scoring stocks</li>
+              <li data-analysis-step="report">Building portfolio report</li>
+            </ol>
+          </div>
+          <p id="runMessage" class="muted" aria-live="polite">Sign in, upload files, then run your analysis.</p>
         </section>
 
         <section class="panel pricing-panel">

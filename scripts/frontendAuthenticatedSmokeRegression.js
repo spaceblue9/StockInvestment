@@ -41,7 +41,20 @@ try {
   assertEqual(business.ok, true, "Owner should load business metrics.");
   assert(business.metrics.users >= 1, "Business metrics should count registered users.");
   assert(business.metrics.storageReadiness?.status, "Business metrics should include storage readiness summary.");
+  assert(business.metrics.productionEnvironmentAdvisor?.status, "Business metrics should include production environment advisor.");
+  assert(business.metrics.portfolioDataHealth?.status, "Business metrics should include portfolio data health summary.");
+  assertEqual(business.metrics.portfolioDataHealth.mode, "read_only", "Portfolio data health in metrics should be read-only.");
+  assert(!JSON.stringify(business.metrics.productionEnvironmentAdvisor).includes("super-secret-launch"), "Production environment advisor must not expose database password.");
   assert(business.metrics.paymentGateway?.provider, "Business metrics should include payment gateway summary.");
+
+  const portfolioHealth = await getJson(`${baseUrl}/api/admin/portfolio-health`, ownerCookie);
+  assertEqual(portfolioHealth.ok, true, "Owner should load portfolio data health endpoint.");
+  assertEqual(portfolioHealth.portfolioHealth.mode, "read_only", "Portfolio health endpoint should never perform recovery writes.");
+  assert(Array.isArray(portfolioHealth.portfolioHealth.commands), "Portfolio health endpoint should include CLI command guidance.");
+
+  const portfolioHealthExport = await getTextWithHeaders(`${baseUrl}/api/admin/portfolio-health/export`, ownerCookie);
+  assert((portfolioHealthExport.contentDisposition || "").includes("stockflix-portfolio-health-"), "Portfolio health export should download a dated CSV file.");
+  assert(portfolioHealthExport.text.startsWith("Customer,Email,Workspace,Plan"), "Portfolio health CSV should include support context headers.");
 
   const launchEvidence = await getJson(`${baseUrl}/api/admin/launch-evidence`, ownerCookie);
   assertEqual(launchEvidence.ok, true, "Owner should load launch evidence center.");
@@ -69,6 +82,16 @@ try {
   });
   assertEqual(customerBusiness.status, 403, "Customer should not load Business metrics.");
 
+  const customerPortfolioHealth = await fetch(`${baseUrl}/api/admin/portfolio-health`, {
+    headers: { Cookie: customerCookie },
+  });
+  assertEqual(customerPortfolioHealth.status, 403, "Customer should not load portfolio data health.");
+
+  const customerPortfolioHealthExport = await fetch(`${baseUrl}/api/admin/portfolio-health/export`, {
+    headers: { Cookie: customerCookie },
+  });
+  assertEqual(customerPortfolioHealthExport.status, 403, "Customer should not export portfolio data health.");
+
   const customerLaunchEvidence = await fetch(`${baseUrl}/api/admin/launch-evidence`, {
     headers: { Cookie: customerCookie },
   });
@@ -92,6 +115,8 @@ try {
     customerLogoutClearedSession: true,
     readiness: readiness.readiness.status,
     launchEvidence: launchEvidence.evidence.status,
+    productionEnvironment: business.metrics.productionEnvironmentAdvisor.status,
+    portfolioDataHealth: business.metrics.portfolioDataHealth.status,
     alertCount: readiness.readiness.alerts.length,
   }, null, 2));
 } finally {
@@ -135,6 +160,17 @@ async function getText(url) {
   const response = await fetch(url);
   assert(response.ok, `${url} should return HTTP 2xx, got ${response.status}.`);
   return response.text();
+}
+
+async function getTextWithHeaders(url, cookie = "") {
+  const response = await fetch(url, {
+    headers: cookie ? { Cookie: cookie } : {},
+  });
+  assert(response.ok, `${url} should return HTTP 2xx, got ${response.status}.`);
+  return {
+    text: await response.text(),
+    contentDisposition: response.headers.get("content-disposition") || "",
+  };
 }
 
 function cookieHeader(response) {

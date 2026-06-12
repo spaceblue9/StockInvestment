@@ -19,8 +19,9 @@ export const DEFAULT_SYMBOLS = [
 export function parseWatchlistText(text) {
   return text
     .split(/\r?\n/)
-    .map((line) => line.trim().toUpperCase())
-    .filter(Boolean);
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"))
+    .map((line) => line.toUpperCase());
 }
 
 export async function readWatchlistSymbols(filePath) {
