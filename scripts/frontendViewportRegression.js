@@ -50,6 +50,9 @@ assertIncludes(styles, [
   ".production-environment-advisor",
   ".env-status",
   ".env-group-grid",
+  ".system-admin-panel",
+  ".admin-action-grid",
+  ".user-management-panel",
   "min-height: 44px;",
 ], "Stylesheet should include responsive viewport and tap-target safeguards.");
 
@@ -96,6 +99,11 @@ assertIncludes(appJs, [
   "Production environment advisor",
   "data-production-env-commands",
   "Portfolio Data Health",
+  "System Admin",
+  "data-system-admin-panel",
+  "data-system-admin-actions",
+  "User Management",
+  "data-user-management-panel",
   "data-portfolio-health-controls",
   "data-portfolio-health-filter",
   "attachPortfolioHealthControls",
@@ -127,6 +135,7 @@ console.log(JSON.stringify({
     "database-mode-advisor-markers",
     "production-environment-advisor-markers",
     "portfolio-health-control-markers",
+    "system-admin-management-markers",
   ],
 }, null, 2));
 

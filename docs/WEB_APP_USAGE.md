@@ -288,6 +288,9 @@ npm run portfolio:recover-zero-market -- --confirm --format text
 
 ในหน้า `Business`:
 
+- owner/admin จะเห็น `System Admin` สำหรับภาพรวมการจัดการระบบ เช่น จำนวนผู้ใช้ ลูกค้า advisor/admin, paid/trial, workspace, advisor links, role distribution และ plan distribution
+- owner/admin จะเห็น quick action cards ว่าต้องจัดการ role, advisor assignment, workspace, billing, database readiness และ production guard จากจุดไหน
+- ตารางผู้ใช้ถูกแสดงในส่วน `User Management` เพื่อให้เข้าใจชัดว่าใช้จัดการ user, role, package, workspace และ advisor assignment
 - owner/admin จะเห็นตาราง Team and clients
 - owner เปลี่ยน role ของ user ได้จากตาราง
 - owner/admin assign advisor ให้ customer ได้จากตาราง

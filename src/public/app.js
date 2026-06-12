@@ -1268,6 +1268,7 @@ function renderBusinessView() {
       <div class="guidance-card"><span>Production env</span><strong>${escapeHtml(metrics.productionEnvironmentAdvisor?.nextAction || "Run the deployment checklist before production")}</strong></div>
       <div class="guidance-card"><span>Operational readiness</span><strong>${readiness ? `${readiness.status} · ${readiness.summary?.criticalAlerts || 0} critical · ${readiness.summary?.warningAlerts || 0} warning` : "Loading operational checks"}</strong></div>
     </div>
+    ${renderSystemAdminPanel()}
     ${renderDatabaseModeAdvisor(metrics.databaseModeAdvisor)}
     ${renderProductionEnvironmentAdvisor(metrics.productionEnvironmentAdvisor)}
     ${renderPortfolioDataHealth(metrics.portfolioDataHealth)}
@@ -1299,6 +1300,76 @@ function renderBusinessView() {
   attachApprovalActions();
   attachReferenceMasterActions();
   attachPortfolioHealthControls();
+}
+
+function renderSystemAdminPanel() {
+  const metrics = state.businessMetrics || {};
+  const users = state.teamUsers || [];
+  const organizations = state.organizations.length ? state.organizations : metrics.recentOrganizations || [];
+  const visibleCustomers = users.filter((user) => user.role === "customer");
+  const visibleOperators = users.filter((user) => ["owner", "admin", "advisor"].includes(user.role));
+  const paidUsers = users.filter((user) => user.subscription?.status === "active").length || metrics.paidUsers || 0;
+  const trialUsers = users.filter((user) => user.subscription?.status === "trialing").length || metrics.trials || 0;
+  const unassignedCustomers = visibleCustomers.filter((user) => !user.advisorId).length;
+  const roleSummary = summarizeBy(users, (user) => user.role || "customer");
+  const planSummary = summarizeBy(users, (user) => user.subscription?.plan || "none");
+  const roleCopy = Object.entries(roleSummary).map(([role, count]) => `${role}: ${count}`).join(" · ") || "-";
+  const planCopy = Object.entries(planSummary).map(([plan, count]) => `${plan}: ${count}`).join(" · ") || "-";
+  const isOperator = canViewBusinessMetrics();
+  const title = isOperator ? "System Admin" : "Advisor Workspace";
+  const subtitle = isOperator
+    ? "จัดการผู้ใช้ แพ็กเกจ Workspace และความพร้อมของระบบจากจุดเดียว"
+    : "พื้นที่ดูแลลูกค้าที่ได้รับมอบหมาย พร้อมตรวจ scope ว่าไม่เห็นข้อมูลลูกค้าคนอื่น";
+  const quickActions = isOperator
+    ? [
+      ["User roles", canManageRoles() ? "เปลี่ยน owner/admin/advisor/customer ได้จาก User Management" : "บัญชีนี้ดู role ได้ แต่เปลี่ยน role ไม่ได้"],
+      ["Advisor assignment", canAssignAdvisors() ? "ผูก advisor กับ customer ได้จากคอลัมน์ Advisor" : "ยังไม่มีสิทธิ์ assign advisor"],
+      ["Workspace control", canManageOrganizations() ? "สร้าง workspace และย้าย user ได้จาก Workspace Management" : "ดู workspace ได้ตามสิทธิ์"],
+      ["Billing monitor", "ตรวจ paid/trial/failed payment และ invoice จาก metrics ด้านล่าง"],
+      ["Database readiness", "ดู Database Mode Advisor ก่อนย้ายจาก demo ไป production"],
+      ["Production guard", "ดู Production Environment Advisor และ Launch Evidence ก่อน go-live"],
+    ]
+    : [
+      ["Assigned clients", "เห็นเฉพาะลูกค้าที่ owner/admin assign ให้ดูแล"],
+      ["Approval requests", "สร้างคำขอให้ลูกค้ายืนยัน action สำคัญก่อนดำเนินการ"],
+      ["Client privacy", "ข้อมูล customer ที่ไม่ได้ assign จะไม่แสดงใน workspace นี้"],
+    ];
+
+  return `
+    <section class="chart-panel system-admin-panel" data-system-admin-panel>
+      <div class="section-title">
+        <div>
+          <span class="eyebrow">${isOperator ? "Admin console" : "Advisor console"}</span>
+          <h3>${title}</h3>
+          <p class="muted">${subtitle}</p>
+        </div>
+        <span class="status-pill ${isOperator ? "ready" : "blocked"}">${escapeHtml(state.user?.role || "user")}</span>
+      </div>
+      <div class="metric-grid compact-grid">
+        ${metric("Visible Users", users.length || metrics.users || 0)}
+        ${metric("Customers", visibleCustomers.length || metrics.usersByRole?.customer || 0)}
+        ${metric("Advisors/Admins", visibleOperators.length || (metrics.usersByRole?.advisor || 0) + (metrics.usersByRole?.admin || 0) + (metrics.usersByRole?.owner || 0))}
+        ${metric("Paid Users", paidUsers)}
+        ${metric("Trials", trialUsers)}
+        ${metric("Unassigned Customers", unassignedCustomers)}
+        ${metric("Workspaces", organizations.length || metrics.organizations || 0)}
+        ${metric("Advisor Links", metrics.advisorAssignments || users.filter((user) => user.advisorId).length)}
+      </div>
+      <div class="admin-summary-grid">
+        <div class="guidance-card"><span>Roles</span><strong>${escapeHtml(roleCopy)}</strong></div>
+        <div class="guidance-card"><span>Plans</span><strong>${escapeHtml(planCopy)}</strong></div>
+        <div class="guidance-card"><span>System status</span><strong>${escapeHtml(metrics.productionEnvironmentAdvisor?.nextAction || metrics.databaseModeAdvisor?.recommendedAction || "Review admin controls before production")}</strong></div>
+      </div>
+      <div class="admin-action-grid" data-system-admin-actions>
+        ${quickActions.map(([label, copy]) => `
+          <div class="admin-action-card">
+            <span>${escapeHtml(label)}</span>
+            <strong>${escapeHtml(copy)}</strong>
+          </div>
+        `).join("")}
+      </div>
+    </section>
+  `;
 }
 
 function renderReferenceMasterReview(referenceMaster = state.referenceMaster) {
@@ -2504,7 +2575,12 @@ function renderWorkspaceSummary(organizations = state.organizations) {
 
 function renderTeamWorkspace() {
   if (!state.teamUsers.length) {
-    return `<p class="muted">No team or client records available yet.</p>`;
+    return `
+      <section class="chart-panel user-management-panel" data-user-management-panel>
+        <h3>${canViewBusinessMetrics() ? "User Management" : "Assigned Client Management"}</h3>
+        <p class="muted">No team or client records available yet.</p>
+      </section>
+    `;
   }
 
   const roles = state.policy?.roles || ["owner", "admin", "advisor", "customer"];
@@ -2512,61 +2588,70 @@ function renderTeamWorkspace() {
   const organizations = state.organizations.length ? state.organizations : state.businessMetrics?.recentOrganizations || [];
 
   return `
-    <h3>${canViewBusinessMetrics() ? "Team and clients" : "Assigned clients"}</h3>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Account</th>
-            <th>Role</th>
-            <th>Workspace</th>
-            <th>Plan</th>
-            <th>Advisor</th>
-            <th>Profile</th>
-            <th>Portfolio</th>
-            <th>Revenue</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${state.teamUsers.map((user) => {
-            const roleControl = canManageRoles()
-              ? `<select data-role-user="${escapeHtml(user.id)}">${roles.map((role) => option(role, role, user.role)).join("")}</select>`
-              : escapeHtml(user.role);
-            const advisorControl = canAssignAdvisors() && user.role === "customer"
-              ? `<select data-advisor-user="${escapeHtml(user.id)}">
-                  <option value="">Unassigned</option>
-                  ${advisors.map((advisor) => option(advisor.id, `${advisor.name} (${advisor.role})`, user.advisorId)).join("")}
-                </select>`
-              : escapeHtml(user.advisorName || "-");
-            const organizationControl = canManageOrganizations()
-              ? `<select data-organization-user="${escapeHtml(user.id)}">${organizations.map((organization) => option(organization.id, organization.name, user.organizationId)).join("")}</select>`
-              : `${escapeHtml(user.organizationName || "-")}<br><span class="muted">${escapeHtml(user.organizationType || "-")}</span>`;
-            const portfolioValue = user.portfolioSummary ? money(user.portfolioSummary.marketValue || 0) : "-";
-            const revenue = money(user.billingSummary?.revenueCollected || 0);
+    <section class="chart-panel user-management-panel" data-user-management-panel>
+      <div class="section-title">
+        <div>
+          <span class="eyebrow">${canViewBusinessMetrics() ? "Access control" : "Client scope"}</span>
+          <h3>${canViewBusinessMetrics() ? "User Management" : "Assigned Client Management"}</h3>
+          <p class="muted">${canViewBusinessMetrics() ? "จัดการ role, package, workspace และ advisor assignment ของผู้ใช้ทั้งหมดที่บัญชีนี้มีสิทธิ์ดูแล" : "ดูรายชื่อลูกค้าที่ถูก assign ให้ดูแลเท่านั้น"}</p>
+        </div>
+        <span class="status-pill ready">${formatNumber(state.teamUsers.length)} accounts</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Account</th>
+              <th>Role</th>
+              <th>Workspace</th>
+              <th>Plan</th>
+              <th>Advisor</th>
+              <th>Profile</th>
+              <th>Portfolio</th>
+              <th>Revenue</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${state.teamUsers.map((user) => {
+              const roleControl = canManageRoles()
+                ? `<select data-role-user="${escapeHtml(user.id)}">${roles.map((role) => option(role, role, user.role)).join("")}</select>`
+                : escapeHtml(user.role);
+              const advisorControl = canAssignAdvisors() && user.role === "customer"
+                ? `<select data-advisor-user="${escapeHtml(user.id)}">
+                    <option value="">Unassigned</option>
+                    ${advisors.map((advisor) => option(advisor.id, `${advisor.name} (${advisor.role})`, user.advisorId)).join("")}
+                  </select>`
+                : escapeHtml(user.advisorName || "-");
+              const organizationControl = canManageOrganizations()
+                ? `<select data-organization-user="${escapeHtml(user.id)}">${organizations.map((organization) => option(organization.id, organization.name, user.organizationId)).join("")}</select>`
+                : `${escapeHtml(user.organizationName || "-")}<br><span class="muted">${escapeHtml(user.organizationType || "-")}</span>`;
+              const portfolioValue = user.portfolioSummary ? money(user.portfolioSummary.marketValue || 0) : "-";
+              const revenue = money(user.billingSummary?.revenueCollected || 0);
 
-            return `
-              <tr>
-                <td><strong>${escapeHtml(user.name || "Investor")}</strong><br><span class="muted">${escapeHtml(user.email)}</span></td>
-                <td>${roleControl}</td>
-                <td>${organizationControl}</td>
-                <td>${escapeHtml(user.subscription?.plan || "-")}<br><span class="muted">${escapeHtml(user.subscription?.status || "-")}</span></td>
-                <td>${advisorControl}</td>
-                <td>${user.profileCompleted ? "Complete" : "Missing"}</td>
-                <td>${escapeHtml(portfolioValue)}</td>
-                <td>${escapeHtml(revenue)}</td>
-                <td>
-                  ${canManageRoles() ? `<button class="table-action" type="button" data-save-role="${escapeHtml(user.id)}">Save role</button>` : ""}
-                  ${canManageOrganizations() ? `<button class="table-action" type="button" data-save-organization-user="${escapeHtml(user.id)}">Move workspace</button>` : ""}
-                  ${canAssignAdvisors() && user.role === "customer" ? `<button class="table-action" type="button" data-save-advisor="${escapeHtml(user.id)}">Assign</button>` : ""}
-                </td>
-              </tr>
-            `;
-          }).join("")}
-        </tbody>
-      </table>
-    </div>
-    <p id="teamMessage" class="muted">Role and advisor changes are recorded in the activity timeline.</p>
+              return `
+                <tr>
+                  <td><strong>${escapeHtml(user.name || "Investor")}</strong><br><span class="muted">${escapeHtml(user.email)}</span></td>
+                  <td>${roleControl}</td>
+                  <td>${organizationControl}</td>
+                  <td>${escapeHtml(user.subscription?.plan || "-")}<br><span class="muted">${escapeHtml(user.subscription?.status || "-")}</span></td>
+                  <td>${advisorControl}</td>
+                  <td>${user.profileCompleted ? "Complete" : "Missing"}</td>
+                  <td>${escapeHtml(portfolioValue)}</td>
+                  <td>${escapeHtml(revenue)}</td>
+                  <td>
+                    ${canManageRoles() ? `<button class="table-action" type="button" data-save-role="${escapeHtml(user.id)}">Save role</button>` : ""}
+                    ${canManageOrganizations() ? `<button class="table-action" type="button" data-save-organization-user="${escapeHtml(user.id)}">Move workspace</button>` : ""}
+                    ${canAssignAdvisors() && user.role === "customer" ? `<button class="table-action" type="button" data-save-advisor="${escapeHtml(user.id)}">Assign advisor</button>` : ""}
+                  </td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+      <p id="teamMessage" class="muted">User role, workspace move และ advisor assignment จะถูกบันทึกใน activity timeline.</p>
+    </section>
   `;
 }
 
@@ -3164,6 +3249,15 @@ function breakdownBy(rows, labelGetter, valueGetter, limit) {
   const visible = sorted.slice(0, limit - 1);
   const otherValue = sorted.slice(limit - 1).reduce((total, item) => total + numberValue(item.value), 0);
   return [...visible, { label: "Other", value: otherValue }];
+}
+
+function summarizeBy(rows, labelGetter) {
+  return rows.reduce((totals, row) => {
+    const label = typeof labelGetter === "function" ? labelGetter(row) : row[labelGetter];
+    const key = String(label || "Unknown").trim() || "Unknown";
+    totals[key] = (totals[key] || 0) + 1;
+    return totals;
+  }, {});
 }
 
 function uniqueValues(values) {

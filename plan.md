@@ -1275,6 +1275,53 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - ไม่ stage/commit ไฟล์ `data/app-state*.json` backup/runtime state และเพิ่ม ignore guard ใน `.gitignore`
   - ยังไม่ได้สร้าง Pull Request และยังไม่ได้ merge เข้า `main`
 
+### T88 - System Admin and User Management Surface
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-12 22:22:42 +07:00
+- เสร็จเมื่อ: 2026-06-12 22:27:36 +07:00
+- เหตุผล:
+  - ผู้ใช้พบว่า Web App ไม่มีหน้าจัดการ User หรือหน้าจัดการระบบที่มองเห็นชัดเจน
+  - ระบบมี API/team/workspace/admin readiness อยู่แล้ว แต่ UI รวมอยู่ในหน้า Business ทำให้ไม่ชัดว่าใช้ดูแลระบบอย่างไร
+- งานที่ต้องทำ:
+  - [x] เพิ่ม System Admin overview ในหน้า Business สำหรับ owner/admin/advisor ตามสิทธิ์
+  - [x] แยกส่วน User Management ให้ชัดเจน พร้อมสรุปจำนวน user, role, plan, paid/trial และ advisor assignment
+  - [x] ทำ Quick Actions/Operational controls ให้ owner/admin เข้าใจว่าต้องจัดการ role, workspace, advisor, approval, database และ production readiness ที่ไหน
+  - [x] ปรับตาราง Team and clients ให้สื่อว่าเป็น User Management และอ่านง่ายขึ้น
+  - [x] เพิ่ม marker/UI copy สำหรับ regression test เพื่อยืนยันว่าหน้าจัดการระบบแสดงจริง
+  - [x] อัปเดตเอกสารและ `plan.md` เมื่อเสร็จ
+- ผลลัพธ์:
+  - เพิ่ม `System Admin` panel ในหน้า Business พร้อม metrics ผู้ใช้ ลูกค้า advisor/admin, paid/trial, unassigned customers, workspaces และ advisor links
+  - เพิ่ม quick action cards สำหรับ role, advisor assignment, workspace, billing, database readiness และ production guard
+  - เปลี่ยนตารางทีมให้เป็น `User Management` / `Assigned Client Management` พร้อม marker `data-user-management-panel`
+  - เพิ่ม CSS สำหรับ admin summary/action cards และ responsive guard
+  - อัปเดต `docs/WEB_APP_USAGE.md`
+  - ทดสอบผ่าน: `npm run check`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ แล้วทำ T88 ต่อจาก branch `codex-node-web-app-migration`
+  - เป้าหมายคือทำให้หน้าเว็บมี System Admin/User Management ที่เห็นชัดสำหรับ owner/admin โดยใช้ backend เดิมเป็นหลัก
+  - ตรวจไฟล์หลัก `src/public/app.js`, `src/public/styles.css`, `docs/WEB_APP_USAGE.md`, regression ที่เกี่ยวข้อง เช่น `npm run test:web-smoke` และ `npm run test:frontend-viewport`
+  - ห้ามลบ `plan.md`
+
+### T89 - Commit and Push System Admin Surface
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: 2026-06-12 22:31:31 +07:00
+- เสร็จเมื่อ: -
+- เหตุผล:
+  - T88 ทำเสร็จและ targeted tests ผ่านแล้ว แต่ยังเป็น working tree change
+  - ต้องแพ็กงานเป็น commit แยกบน branch `codex-node-web-app-migration` เพื่อให้ GitHub มีงานล่าสุด
+- งานที่ต้องทำ:
+  - ตรวจ `git status` และ stage เฉพาะไฟล์ที่เกี่ยวกับ T88/T89
+  - ไม่ stage/commit ไฟล์ portfolio ส่วนตัวหรือ runtime state เช่น `data/app-state*.json`
+  - commit ด้วยข้อความสรุป System Admin/User Management surface
+  - push ไป `origin/codex-node-web-app-migration`
+  - อัปเดต `plan.md` พร้อม commit hash และผล push
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - หาก T89 ยัง In Progress ให้ตรวจ `git status`, commit เฉพาะไฟล์ T88/T89 และ push branch `codex-node-web-app-migration`
+  - ห้ามลบ `plan.md` และห้าม commit ไฟล์ข้อมูลส่วนตัว/runtime state
+
 ### T66 - Analysis Run Loading and Progress UX
 
 - สถานะ: Done
@@ -1317,6 +1364,8 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 - 2026-06-12 13:10:34 +07:00 - ทำ T82 เสร็จ: ป้องกัน zero-row market fetch ทับ raw/recommended/snapshot เดิม, เพิ่ม reference fallback เมื่อ live fetch ล้ม, เพิ่ม Portfolio warning และ regression `test:analysis-portfolio-flow`; `npm run ci:quality` ผ่าน
 - 2026-06-12 13:17:04 +07:00 - เริ่ม T83: เพิ่ม zero-market portfolio snapshot recovery tool แบบ dry-run-first เพื่อช่วยซ่อม snapshot ที่ถูก zero-row market fetch ทับก่อน T82
 - 2026-06-12 14:11:23 +07:00 - ทำ T83 เสร็จ: เพิ่ม recovery service/CLI `portfolio:recover-zero-market`, regression `test:portfolio-recovery`, แก้ injected-state confirm ไม่ให้แตะ demo state, กู้ `data/app-state.json` จาก clone เก่าและ merge audit events ปัจจุบัน, dry-run พบไม่มี zero-market snapshot ค้าง, `npm run ci:quality` ผ่าน
+- 2026-06-12 22:22:42 +07:00 - เริ่ม T88: เพิ่ม System Admin/User Management surface ให้หน้า Business เห็นชัดว่าจัดการ user, workspace, advisor assignment และ system readiness ได้จากจุดไหน
+- 2026-06-12 22:27:36 +07:00 - ทำ T88 เสร็จ: เพิ่ม System Admin panel, User Management panel, admin action cards, responsive CSS, docs และ regression markers; `npm run check`, `npm run test:frontend-viewport`, `npm run test:web-smoke` ผ่าน
 - 2026-06-11 14:30:04 +07:00 - เริ่ม T73: แก้ bug `recommendedActionSortFields` ยังไม่ initialize ตอนหน้า Portfolio render หลัง analysis/saved portfolio
 - 2026-06-11 14:33:44 +07:00 - ทำ T73 เสร็จ: ย้าย `recommendedActionFields` และ `recommendedActionSortFields` ไปก่อน `await initialize()`, เพิ่ม regression ตรวจ initialization order และ `npm run ci:quality` ผ่าน
 - 2026-06-11 14:15:49 +07:00 - เริ่ม T72: เพิ่ม filter, field picker และ order by ให้ตาราง Recommended actions ในหน้า Portfolio โดยไม่เปลี่ยนสูตรวิเคราะห์เดิม
@@ -5440,8 +5489,9 @@ Excel report:
 - T85 Done: เพิ่ม support context และ CSV export ให้ Portfolio Data Health โดยแสดง customer name/email/workspace/plan, เพิ่ม `GET /api/admin/portfolio-health/export`, audit action `portfolio_health.export`, owner/customer guard, regression/docs และ CI quality ผ่าน
 - T86 Done: เพิ่ม Portfolio Data Health support filters สำหรับค้นหา customer/email/workspace/plan, filter status, order by generated/status/customer/workspace/market value, direction, reset view, frontend markers/docs และ CI quality ผ่าน
 - T87 Done: commit หลัก `e53eea5 Improve portfolio health support workflows` และ push ไป `origin/codex-node-web-app-migration` สำเร็จแล้ว โดยไม่ commit `data/app-state*.json` backup/runtime state และยังไม่สร้าง PR/merge เข้า main
+- T88 Done: เพิ่ม System Admin panel และ User Management panel ในหน้า Business ให้ owner/admin เห็นการจัดการ user, role, package, workspace, advisor assignment และ system readiness ชัดเจนขึ้น พร้อม docs/regression markers และ targeted tests ผ่าน
 - Task list ชุดนี้เหลือ T47 ที่ถูก defer เฉพาะขั้น force push ไป GitHub และ T59 ที่ต้องรอ Browser/in-app browser ใช้งานได้
 - งานต่อยอดที่แนะนำถ้ายังไม่กลับไปทำ GitHub: กลับมาทำ T59 Browser Visual QA เมื่อ Browser สามารถเปิด localhost ได้, ตั้งค่า operational alert webhook ไปยัง Slack/email/APM/uptime monitor จริงใน staging/production, ซ้อม Postgres restore จริงใน staging/production-like environment หรือ run deployment checklist แบบ strict ใน staging ที่ตั้ง env จริง
 
-ให้เริ่มจากอ่าน plan.md ก่อนเสมอ หากต้องการทดลอง SQLite ให้ตั้ง `APP_STATE_REPOSITORY=sqlite` และ `SQLITE_DATABASE_PATH=data/stockflix.sqlite`; หากต้องการ promote จาก SQLite trial ไป Postgres ให้รัน `npm run sqlite:promote -- --sqlite data/stockflix.sqlite --dry-run --format text` ก่อน แล้วตั้ง `APP_STATE_REPOSITORY=postgres`, `DATABASE_URL`, `SQLITE_TO_POSTGRES_PG_DRIVER_READY=true`, `SQLITE_TO_POSTGRES_BACKUP_EVIDENCE=<snapshot-or-pgdump-id>`, `SQLITE_TO_POSTGRES_PROMOTION_REVIEWED=true` ก่อนใช้ `--confirm`; Business dashboard มี Database Mode Advisor แล้วสำหรับดู adapter ปัจจุบันและคำสั่งถัดไป, Production Environment Advisor สำหรับดู deployment/env readiness และ Portfolio Data Health สำหรับ owner/admin ตรวจ saved portfolio snapshot ที่ healthy/repairable/skipped พร้อม customer name/email/workspace/plan, search/filter/sort/reset controls, API `GET /api/admin/portfolio-health`, CSV export `GET /api/admin/portfolio-health/export`, audit action `portfolio_health.export` และ command dry-run/confirm แบบ read-only บนหน้าเว็บ; หน้า Run Analysis มี Download blank portfolio template และ Download watchlist guide template แล้ว โดย portfolio template ต้องไม่มี holding data แถวตัวอย่าง ส่วน watchlist template มีคำแนะนำแบบ `#` และ parser ต้อง ignore บรรทัด `#`; raw CSV download จากหน้าเว็บต้องได้ชื่อ `raw_CSV.csv` แม้ internal compatibility file ยังชื่อ `siamchart_raw.csv`; coverage report JSON ที่ผู้ใช้ดาวน์โหลดต้องให้ `source.targetFile` เป็น `raw_CSV.csv` และให้ `source.fallbackReference` เป็นชื่อไฟล์กลาง เช่น `market-reference-master.json -> recommended_stocks.csv` โดยห้าม expose absolute path หรือ internal name `siamchart_raw.csv`; analysis run ต้องไม่ทับ raw/recommended/snapshot เดิมถ้า live market fetch ได้ 0 rows และควรใช้ reference fallback เมื่อมี reference row เพื่อไม่ให้หน้า Portfolio กลายเป็นข้อมูลว่าง ให้ตรวจด้วย `npm run test:analysis-portfolio-flow`; ถ้าพบ snapshot เก่าที่ market value เป็น 0/No Data ให้ดู Portfolio Data Health หรือรัน `npm run portfolio:recover-zero-market -- --format text` แบบ dry-run ก่อน และใช้ `--confirm` เฉพาะหลังตรวจผลแล้ว ให้ระวัง regression ที่มี injected state ต้องไม่แตะ `data/app-state.json` จริงและควรตรวจด้วย `npm run test:portfolio-recovery`. commit หลักล่าสุดคือ `e53eea5 Improve portfolio health support workflows` และ push ไป `origin/codex-node-web-app-migration` แล้ว โดยไม่ commit `data/app-state*.json`; ยังไม่ได้สร้าง PR/merge เข้า `main`. หากเป็น production ให้ใช้ `APP_STATE_REPOSITORY=postgres` และตั้ง `DATABASE_URL`/SSL/backup/Stripe/external audit/ops alert ตาม docs. หากต้องการทำ T47 ต่อ ให้แก้ GitHub auth ก่อนโดยเพิ่ม SSH public key ใน GitHub หรือซ่อม Git HTTPS แล้วเปิด PowerShell ที่ `C:\Users\saraw\AppData\Local\Temp\stockinvestment-commit-f3edadec9fef4a1599330dee2055a890\repo` จากนั้นรัน force push แบบมี lease ตามผลลัพธ์ T47 หากผู้ใช้ยังให้ข้าม GitHub ให้ทำงานต่อจาก T59 เมื่อ Browser/in-app browser สามารถเปิด localhost ได้ โดยเปิด Web App บน localhost, สมัคร owner account แรก, เปิด Business dashboard, ตรวจ Database Mode Advisor, Production Environment Advisor, Portfolio Data Health/export/filters, Launch Evidence Center, Reference Master Review และ Reference master launch evidence ทั้ง desktop/mobile ว่า card, table, input, command และ metric ไม่ล้น/ทับกัน, ตรวจปุ่ม Download blank template ในหน้า Run Analysis, ตรวจ customer access guard, ปรับ CSS/UI หากจำเป็น และบันทึกผลใน plan.md ห้าม revert `recommended_stocks.csv`, `siamchart_raw.csv`, `stock_analysis_dashboard.png` หรือ `__pycache__/stock_visualizer.cpython-312.pyc` โดยไม่ขออนุญาต เพราะเป็นไฟล์ modified ที่มีมาก่อนงาน T62/T63
+ให้เริ่มจากอ่าน plan.md ก่อนเสมอ หากต้องการทดลอง SQLite ให้ตั้ง `APP_STATE_REPOSITORY=sqlite` และ `SQLITE_DATABASE_PATH=data/stockflix.sqlite`; หากต้องการ promote จาก SQLite trial ไป Postgres ให้รัน `npm run sqlite:promote -- --sqlite data/stockflix.sqlite --dry-run --format text` ก่อน แล้วตั้ง `APP_STATE_REPOSITORY=postgres`, `DATABASE_URL`, `SQLITE_TO_POSTGRES_PG_DRIVER_READY=true`, `SQLITE_TO_POSTGRES_BACKUP_EVIDENCE=<snapshot-or-pgdump-id>`, `SQLITE_TO_POSTGRES_PROMOTION_REVIEWED=true` ก่อนใช้ `--confirm`; Business dashboard มี System Admin/User Management สำหรับ owner/admin แล้ว โดยแสดง user, role, package, workspace, advisor assignment, quick actions, Database Mode Advisor, Production Environment Advisor และ Portfolio Data Health สำหรับตรวจ saved portfolio snapshot ที่ healthy/repairable/skipped พร้อม customer name/email/workspace/plan, search/filter/sort/reset controls, API `GET /api/admin/portfolio-health`, CSV export `GET /api/admin/portfolio-health/export`, audit action `portfolio_health.export` และ command dry-run/confirm แบบ read-only บนหน้าเว็บ; หน้า Run Analysis มี Download blank portfolio template และ Download watchlist guide template แล้ว โดย portfolio template ต้องไม่มี holding data แถวตัวอย่าง ส่วน watchlist template มีคำแนะนำแบบ `#` และ parser ต้อง ignore บรรทัด `#`; raw CSV download จากหน้าเว็บต้องได้ชื่อ `raw_CSV.csv` แม้ internal compatibility file ยังชื่อ `siamchart_raw.csv`; coverage report JSON ที่ผู้ใช้ดาวน์โหลดต้องให้ `source.targetFile` เป็น `raw_CSV.csv` และให้ `source.fallbackReference` เป็นชื่อไฟล์กลาง เช่น `market-reference-master.json -> recommended_stocks.csv` โดยห้าม expose absolute path หรือ internal name `siamchart_raw.csv`; analysis run ต้องไม่ทับ raw/recommended/snapshot เดิมถ้า live market fetch ได้ 0 rows และควรใช้ reference fallback เมื่อมี reference row เพื่อไม่ให้หน้า Portfolio กลายเป็นข้อมูลว่าง ให้ตรวจด้วย `npm run test:analysis-portfolio-flow`; ถ้าพบ snapshot เก่าที่ market value เป็น 0/No Data ให้ดู Portfolio Data Health หรือรัน `npm run portfolio:recover-zero-market -- --format text` แบบ dry-run ก่อน และใช้ `--confirm` เฉพาะหลังตรวจผลแล้ว ให้ระวัง regression ที่มี injected state ต้องไม่แตะ `data/app-state.json` จริงและควรตรวจด้วย `npm run test:portfolio-recovery`. commit/push ล่าสุดบน GitHub ยังเป็นงาน T87 คือ `e53eea5 Improve portfolio health support workflows`; งาน T88 ยังเป็น working tree change ยังไม่ได้ commit/push. ยังไม่ได้สร้าง PR/merge เข้า `main`. หากเป็น production ให้ใช้ `APP_STATE_REPOSITORY=postgres` และตั้ง `DATABASE_URL`/SSL/backup/Stripe/external audit/ops alert ตาม docs. หากต้องการทำ T47 ต่อ ให้แก้ GitHub auth ก่อนโดยเพิ่ม SSH public key ใน GitHub หรือซ่อม Git HTTPS แล้วเปิด PowerShell ที่ `C:\Users\saraw\AppData\Local\Temp\stockinvestment-commit-f3edadec9fef4a1599330dee2055a890\repo` จากนั้นรัน force push แบบมี lease ตามผลลัพธ์ T47 หากผู้ใช้ยังให้ข้าม GitHub ให้ทำงานต่อจาก T59 เมื่อ Browser/in-app browser สามารถเปิด localhost ได้ โดยเปิด Web App บน localhost, สมัคร owner account แรก, เปิด Business dashboard, ตรวจ System Admin/User Management, Database Mode Advisor, Production Environment Advisor, Portfolio Data Health/export/filters, Launch Evidence Center, Reference Master Review และ Reference master launch evidence ทั้ง desktop/mobile ว่า card, table, input, command และ metric ไม่ล้น/ทับกัน, ตรวจปุ่ม Download blank template ในหน้า Run Analysis, ตรวจ customer access guard, ปรับ CSS/UI หากจำเป็น และบันทึกผลใน plan.md ห้าม revert `recommended_stocks.csv`, `siamchart_raw.csv`, `stock_analysis_dashboard.png` หรือ `__pycache__/stock_visualizer.cpython-312.pyc` โดยไม่ขออนุญาต เพราะเป็นไฟล์ modified ที่มีมาก่อนงาน T62/T63
 ```
