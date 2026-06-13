@@ -898,6 +898,7 @@ function renderRecommendedActionsControls(rows) {
       <div class="control-actions">
         <button type="button" class="ghost-button" data-reset-recommended-actions>Reset view</button>
       </div>
+      <p class="muted visual-filter-hint" data-portfolio-visual-filter-hint>Click Action mix or Score distribution bars to filter this table.</p>
     </section>
   `;
 }
@@ -916,14 +917,30 @@ function attachRecommendedActionsControls(rows) {
   };
 
   panel.querySelectorAll("[data-recommended-action-input], [data-action-field]").forEach((control) => {
-    control.addEventListener("input", renderActions);
-    control.addEventListener("change", renderActions);
+    const handleManualChange = () => {
+      normalizeManualVisualFilters(control, panel);
+      renderActions();
+    };
+    control.addEventListener("input", handleManualChange);
+    control.addEventListener("change", handleManualChange);
   });
   panel.querySelector("[data-reset-recommended-actions]")?.addEventListener("click", () => {
     resetRecommendedActionsControls(panel);
     renderActions();
   });
+  attachPortfolioVisualFilters(panel, renderActions);
   renderActions();
+}
+
+function normalizeManualVisualFilters(control, panel) {
+  if (control.id === "actionGroupFilter") {
+    clearPortfolioVisualSelection("[data-recommended-action-filter]");
+  }
+
+  if (control.id === "actionMinScore") {
+    panel.dataset.scoreBandFilter = "";
+    clearPortfolioVisualSelection("[data-recommended-score-band]");
+  }
 }
 
 function getFilteredRecommendedActions(rows, panel) {
@@ -932,6 +949,7 @@ function getFilteredRecommendedActions(rows, panel) {
   const sectorFilter = panel.querySelector("#actionSectorFilter")?.value || "";
   const trendFilter = panel.querySelector("#actionTrendFilter")?.value || "";
   const minScore = numberValue(panel.querySelector("#actionMinScore")?.value || 0);
+  const scoreBandFilter = panel.dataset.scoreBandFilter || "";
   const sortBy = panel.querySelector("#actionSortBy")?.value || "Total_Score";
   const direction = panel.querySelector("#actionSortDirection")?.value || "desc";
 
@@ -941,6 +959,7 @@ function getFilteredRecommendedActions(rows, panel) {
     .filter((row) => !sectorFilter || (row.Sector || "Unknown") === sectorFilter)
     .filter((row) => !trendFilter || (row.Trend_Status || "Unknown") === trendFilter)
     .filter((row) => numberValue(row.Total_Score) >= minScore)
+    .filter((row) => !scoreBandFilter || matchesScoreBandFilter(row, scoreBandFilter))
     .slice()
     .sort((left, right) => compareRecommendedActionRows(left, right, sortBy, direction));
 }
@@ -951,6 +970,14 @@ function matchesRecommendedActionFilter(row, filterValue) {
   }
 
   return actionGroup(row) === filterValue;
+}
+
+function matchesScoreBandFilter(row, filterValue) {
+  const score = numberValue(row.Total_Score);
+  if (filterValue === "strong") return score >= 70;
+  if (filterValue === "watch") return score >= 45 && score < 70;
+  if (filterValue === "risk") return score < 45;
+  return true;
 }
 
 function compareRecommendedActionRows(left, right, sortBy, direction) {
@@ -978,6 +1005,7 @@ function renderRecommendedActionsOutput(rows, totalRows, selectedColumns, panel)
     panel.querySelector("#actionSectorFilter")?.value ? `sector ${panel.querySelector("#actionSectorFilter").value}` : "",
     panel.querySelector("#actionTrendFilter")?.value ? `trend ${panel.querySelector("#actionTrendFilter").value}` : "",
     numberValue(panel.querySelector("#actionMinScore")?.value || 0) ? `score >= ${formatNumber(panel.querySelector("#actionMinScore").value)}` : "",
+    panel.dataset.scoreBandFilter ? `score band ${scoreBandLabel(panel.dataset.scoreBandFilter)}` : "",
   ].filter(Boolean);
 
   return `
@@ -997,10 +1025,63 @@ function resetRecommendedActionsControls(panel) {
   panel.querySelector("#actionMinScore").value = "0";
   panel.querySelector("#actionSortBy").value = "Total_Score";
   panel.querySelector("#actionSortDirection").value = "desc";
+  panel.dataset.scoreBandFilter = "";
+  clearPortfolioVisualSelection("[data-recommended-action-filter]");
+  clearPortfolioVisualSelection("[data-recommended-score-band]");
   panel.querySelectorAll("[data-action-field]").forEach((input) => {
     const field = recommendedActionFields.find((item) => item.key === input.dataset.actionField);
     input.checked = Boolean(field?.default || field?.required);
   });
+}
+
+function attachPortfolioVisualFilters(panel, renderActions) {
+  document.querySelectorAll("[data-recommended-action-filter]").forEach((button) => {
+    button.addEventListener("click", () => {
+      panel.querySelector("#actionGroupFilter").value = button.dataset.recommendedActionFilter || "";
+      panel.dataset.scoreBandFilter = "";
+      updatePortfolioVisualSelection(button, "[data-recommended-action-filter]");
+      clearPortfolioVisualSelection("[data-recommended-score-band]");
+      renderActions();
+      scrollRecommendedActionsIntoView();
+    });
+  });
+
+  document.querySelectorAll("[data-recommended-score-band]").forEach((button) => {
+    button.addEventListener("click", () => {
+      panel.dataset.scoreBandFilter = button.dataset.recommendedScoreBand || "";
+      panel.querySelector("#actionMinScore").value = "0";
+      updatePortfolioVisualSelection(button, "[data-recommended-score-band]");
+      renderActions();
+      scrollRecommendedActionsIntoView();
+    });
+  });
+}
+
+function updatePortfolioVisualSelection(activeButton, selector) {
+  document.querySelectorAll(selector).forEach((button) => {
+    const selected = button === activeButton;
+    button.classList.toggle("selected", selected);
+    button.setAttribute("aria-pressed", selected ? "true" : "false");
+  });
+}
+
+function clearPortfolioVisualSelection(selector) {
+  document.querySelectorAll(selector).forEach((button) => {
+    button.classList.remove("selected");
+    button.setAttribute("aria-pressed", "false");
+  });
+}
+
+function scrollRecommendedActionsIntoView() {
+  document.querySelector("[data-recommended-actions-status]")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function scoreBandLabel(value) {
+  return {
+    strong: "Strong 70+",
+    watch: "Watch 45-69",
+    risk: "Risk <45",
+  }[value] || value;
 }
 
 function renderBeginnerGuidance({ gainLossPct, urgentRows, avgScore }) {
@@ -2323,9 +2404,9 @@ function renderPortfolioVisuals(rows) {
   const sectorExposure = breakdownBy(rows, (row) => row.Sector || "Unknown", "Market_Value", 6);
   const actionMix = breakdownBy(rows, actionGroup, () => 1, 5);
   const scoreBands = [
-    { label: "Strong 70+", value: rows.filter((row) => numberValue(row.Total_Score) >= 70).length },
-    { label: "Watch 45-69", value: rows.filter((row) => numberValue(row.Total_Score) >= 45 && numberValue(row.Total_Score) < 70).length },
-    { label: "Risk <45", value: rows.filter((row) => numberValue(row.Total_Score) < 45).length },
+    { label: "Strong 70+", value: rows.filter((row) => numberValue(row.Total_Score) >= 70).length, filterValue: "strong" },
+    { label: "Watch 45-69", value: rows.filter((row) => numberValue(row.Total_Score) >= 45 && numberValue(row.Total_Score) < 70).length, filterValue: "watch" },
+    { label: "Risk <45", value: rows.filter((row) => numberValue(row.Total_Score) < 45).length, filterValue: "risk" },
   ];
 
   return `
@@ -2336,11 +2417,11 @@ function renderPortfolioVisuals(rows) {
       </section>
       <section class="chart-panel">
         <h3>Action mix</h3>
-        ${renderBarList(actionMix, { valueFormatter: (value) => `${formatNumber(value)} holdings` })}
+        ${renderBarList(actionMix, { action: "recommended-action-filter", valueFormatter: (value) => `${formatNumber(value)} holdings` })}
       </section>
       <section class="chart-panel">
         <h3>Score distribution</h3>
-        ${renderBarList(scoreBands, { valueFormatter: (value) => `${formatNumber(value)} holdings` })}
+        ${renderBarList(scoreBands, { action: "recommended-score-filter", valueFormatter: (value) => `${formatNumber(value)} holdings` })}
       </section>
     </div>
   `;
@@ -3175,6 +3256,22 @@ function renderBarList(items, options = {}) {
         if (options.action === "sector-filter") {
           return `
             <button class="bar-row bar-row-button ${item.selected ? "selected" : ""}" type="button" data-sector-filter="${escapeHtml(item.label)}" title="Filter sector ${escapeHtml(item.label)}">
+              ${rowContent}
+            </button>
+          `;
+        }
+
+        if (options.action === "recommended-action-filter") {
+          return `
+            <button class="bar-row bar-row-button" type="button" data-recommended-action-filter="${escapeHtml(item.label)}" aria-pressed="false" title="Filter Recommended actions by ${escapeHtml(item.label)}">
+              ${rowContent}
+            </button>
+          `;
+        }
+
+        if (options.action === "recommended-score-filter") {
+          return `
+            <button class="bar-row bar-row-button" type="button" data-recommended-score-band="${escapeHtml(item.filterValue || item.label)}" aria-pressed="false" title="Filter Recommended actions by ${escapeHtml(item.label)}">
               ${rowContent}
             </button>
           `;

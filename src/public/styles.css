@@ -1350,6 +1350,10 @@ td select {
   text-align: right;
 }
 
+.visual-filter-hint {
+  margin: 0;
+}
+
 .inline-form {
   align-items: end;
   grid-template-columns: 1fr 1fr 1fr auto;
