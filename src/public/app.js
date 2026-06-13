@@ -937,6 +937,10 @@ function normalizeManualVisualFilters(control, panel) {
     clearPortfolioVisualSelection("[data-recommended-action-filter]");
   }
 
+  if (control.id === "actionSectorFilter") {
+    clearPortfolioVisualSelection("[data-recommended-sector-filter]");
+  }
+
   if (control.id === "actionMinScore") {
     panel.dataset.scoreBandFilter = "";
     clearPortfolioVisualSelection("[data-recommended-score-band]");
@@ -1027,6 +1031,7 @@ function resetRecommendedActionsControls(panel) {
   panel.querySelector("#actionSortDirection").value = "desc";
   panel.dataset.scoreBandFilter = "";
   clearPortfolioVisualSelection("[data-recommended-action-filter]");
+  clearPortfolioVisualSelection("[data-recommended-sector-filter]");
   clearPortfolioVisualSelection("[data-recommended-score-band]");
   panel.querySelectorAll("[data-action-field]").forEach((input) => {
     const field = recommendedActionFields.find((item) => item.key === input.dataset.actionField);
@@ -1051,6 +1056,15 @@ function attachPortfolioVisualFilters(panel, renderActions) {
       panel.dataset.scoreBandFilter = button.dataset.recommendedScoreBand || "";
       panel.querySelector("#actionMinScore").value = "0";
       updatePortfolioVisualSelection(button, "[data-recommended-score-band]");
+      renderActions();
+      scrollRecommendedActionsIntoView();
+    });
+  });
+
+  document.querySelectorAll("[data-recommended-sector-filter]").forEach((button) => {
+    button.addEventListener("click", () => {
+      panel.querySelector("#actionSectorFilter").value = button.dataset.recommendedSectorFilter || "";
+      updatePortfolioVisualSelection(button, "[data-recommended-sector-filter]");
       renderActions();
       scrollRecommendedActionsIntoView();
     });
@@ -2413,7 +2427,7 @@ function renderPortfolioVisuals(rows) {
     <div class="visual-grid">
       <section class="chart-panel">
         <h3>Sector exposure</h3>
-        ${renderBarList(sectorExposure, { valueFormatter: money })}
+        ${renderBarList(sectorExposure, { action: "recommended-sector-filter", valueFormatter: money })}
       </section>
       <section class="chart-panel">
         <h3>Action mix</h3>
@@ -3264,6 +3278,14 @@ function renderBarList(items, options = {}) {
         if (options.action === "recommended-action-filter") {
           return `
             <button class="bar-row bar-row-button" type="button" data-recommended-action-filter="${escapeHtml(item.label)}" aria-pressed="false" title="Filter Recommended actions by ${escapeHtml(item.label)}">
+              ${rowContent}
+            </button>
+          `;
+        }
+
+        if (options.action === "recommended-sector-filter") {
+          return `
+            <button class="bar-row bar-row-button" type="button" data-recommended-sector-filter="${escapeHtml(item.label)}" aria-pressed="false" title="Filter Recommended actions by sector ${escapeHtml(item.label)}">
               ${rowContent}
             </button>
           `;

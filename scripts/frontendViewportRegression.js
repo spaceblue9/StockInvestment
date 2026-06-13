@@ -79,6 +79,7 @@ assertIncludes(appJs, [
   "data-recommended-actions-controls",
   "data-recommended-field-picker",
   "data-recommended-action-filter",
+  "data-recommended-sector-filter",
   "data-recommended-score-band",
   "attachPortfolioVisualFilters",
   "recommendedActionFields",

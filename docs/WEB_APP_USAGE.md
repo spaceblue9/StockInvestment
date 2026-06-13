@@ -122,7 +122,7 @@ npm run dev
 
 Web App มี visual dashboard ในตัวโดยไม่ต้องติดตั้ง chart library เพิ่ม:
 
-- `My Portfolio`: sector exposure, action mix และ score distribution โดย `Action mix` และ `Score distribution` คลิกเพื่อกรองตาราง Recommended actions ได้ทันที
+- `My Portfolio`: sector exposure, action mix และ score distribution โดย `Sector exposure`, `Action mix` และ `Score distribution` คลิกเพื่อกรองตาราง Recommended actions ได้ทันที
 - `Stock Screener`: quality vs reward scatter, top ideas, sector/trend filter, beginner tooltip สำหรับอธิบายค่า filter และ sector count ที่คลิกเพื่อ drilldown ตารางได้
 - `Sector Analysis`: sector leaders, benchmark และ timing vs quality scatter
 - `Business`: customer funnel และ plan distribution สำหรับ owner account
@@ -136,6 +136,7 @@ Web App มี visual dashboard ในตัวโดยไม่ต้องต
 - ค้นหา Symbol เพื่อดูหุ้นรายตัวเร็วขึ้น
 - กรองตาม Action เช่น `Urgent`, `Exit/Sell`, `Reduce`, `Buy/Accumulate`, `Wait` หรือ `Hold`
 - กรองตาม Sector, Trend และ Min Score
+- คลิก bar ใน `Sector exposure` เพื่อกรองหุ้นตาม sector ที่เลือกจากกราฟได้ทันที
 - คลิก bar ใน `Action mix` เพื่อกรองตามกลุ่ม Action หรือคลิก `Score distribution` เพื่อกรองช่วงคะแนน เช่น `Strong 70+`, `Watch 45-69`, `Risk <45`
 - เลือก `Order by` เพื่อเรียงตาม Score, Market Value, Gain/Loss %, RRR, Price, Symbol หรือ Action Group
 - เปิด `Choose fields to display` เพื่อเพิ่ม/ลดคอลัมน์ที่แสดง เช่น เพิ่ม Market Value, P/E, ROE, D/E, RSI หรือซ่อน field ที่ยังไม่ต้องใช้
