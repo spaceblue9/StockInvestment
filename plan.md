@@ -1353,17 +1353,21 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T91 - Record Sanitized Owner Recovery Plan
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: 2026-06-13 06:58:41 +07:00
-- เสร็จเมื่อ: -
+- เสร็จเมื่อ: 2026-06-13 07:00:51 +07:00
 - เหตุผล:
   - T90 reset owner local สำเร็จแล้ว แต่ `plan.md` ยังเป็น working tree change
   - ต้อง commit เฉพาะแผนที่ sanitize แล้ว โดยไม่ push email/password หรือ runtime state
 - งานที่ต้องทำ:
-  - ตรวจว่า `plan.md` ไม่บันทึก email/password จริงของ owner reset
-  - stage เฉพาะ `plan.md`
-  - commit และ push ไป branch `codex-node-web-app-migration`
-  - ตรวจ `git status` ให้สะอาดหลัง push
+  - [x] ตรวจว่า `plan.md` ไม่บันทึก email/password จริงของ owner reset
+  - [x] stage เฉพาะ `plan.md`
+  - [x] commit และ push ไป branch `codex-node-web-app-migration`
+  - [x] ตรวจ `git status` ให้สะอาดหลัง push
+- ผลลัพธ์:
+  - commit สำเร็จ: `cbb6b04 Record sanitized owner recovery plan`
+  - push สำเร็จไปที่ `origin/codex-node-web-app-migration`
+  - `data/app-state.json` และ backup state ยังถูก ignore และไม่ได้ commit
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนเสมอ
   - หาก T91 ยัง In Progress ให้ commit เฉพาะ `plan.md` ที่ sanitize แล้ว และห้าม commit `data/app-state.json`
