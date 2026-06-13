@@ -1326,6 +1326,48 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - หาก T89 ยัง In Progress ให้ตรวจ `git status`, commit เฉพาะไฟล์ T88/T89 และ push branch `codex-node-web-app-migration`
   - ห้ามลบ `plan.md` และห้าม commit ไฟล์ข้อมูลส่วนตัว/runtime state
 
+### T90 - Local Owner Login Recovery
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-12 22:39:14 +07:00
+- เสร็จเมื่อ: 2026-06-12 22:39:44 +07:00
+- เหตุผล:
+  - ผู้ใช้จำ email/password ของ account แรกที่เป็น owner ไม่ได้ จึงเข้า Business/System Admin ไม่ได้
+  - ระบบเก็บ password เป็น PBKDF2 hash จึงไม่สามารถอ่านรหัสผ่านเดิมกลับมาได้ ต้อง reset password หรือสร้าง owner ใหม่
+- งานที่ต้องทำ:
+  - [x] ตรวจ owner account ใน `data/app-state.json`
+  - [x] สำรอง `data/app-state.json` ก่อนแก้ไข
+  - [x] reset passwordHash ของ owner เป็นรหัสชั่วคราวที่ผู้ใช้ใช้ login ได้
+  - [x] ไม่ commit ไฟล์ `data/app-state.json` หรือ backup state เพราะเป็นข้อมูล runtime/private
+  - [x] อัปเดต `plan.md` พร้อม email owner และแนวทางเข้าใช้งาน
+- ผลลัพธ์:
+  - owner account ถูก reset ใน local state แล้ว และแจ้ง email ให้ผู้ใช้ใน chat เท่านั้น
+  - owner name ถูกตรวจพบและยืนยันใน local state แล้ว
+  - temporary password ถูกแจ้งให้ผู้ใช้ใน chat เท่านั้น ไม่บันทึกลง Git tracked file
+  - backup state ถูกสร้างใน `data/app-state.owner-reset-*.json`
+  - `data/app-state.json` และ backup ถูก ignore โดย `.gitignore` จึงไม่ถูก commit
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - หาก T90 ยัง In Progress ให้ตรวจ `data/app-state.json`, สำรองไฟล์ก่อน reset และอย่า commit runtime state
+  - อธิบายผู้ใช้ว่า password เดิมอ่านกลับไม่ได้เพราะเป็น hash
+
+### T91 - Record Sanitized Owner Recovery Plan
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: 2026-06-13 06:58:41 +07:00
+- เสร็จเมื่อ: -
+- เหตุผล:
+  - T90 reset owner local สำเร็จแล้ว แต่ `plan.md` ยังเป็น working tree change
+  - ต้อง commit เฉพาะแผนที่ sanitize แล้ว โดยไม่ push email/password หรือ runtime state
+- งานที่ต้องทำ:
+  - ตรวจว่า `plan.md` ไม่บันทึก email/password จริงของ owner reset
+  - stage เฉพาะ `plan.md`
+  - commit และ push ไป branch `codex-node-web-app-migration`
+  - ตรวจ `git status` ให้สะอาดหลัง push
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - หาก T91 ยัง In Progress ให้ commit เฉพาะ `plan.md` ที่ sanitize แล้ว และห้าม commit `data/app-state.json`
+
 ### T66 - Analysis Run Loading and Progress UX
 
 - สถานะ: Done
@@ -1372,6 +1414,8 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 - 2026-06-12 22:27:36 +07:00 - ทำ T88 เสร็จ: เพิ่ม System Admin panel, User Management panel, admin action cards, responsive CSS, docs และ regression markers; `npm run check`, `npm run test:frontend-viewport`, `npm run test:web-smoke` ผ่าน
 - 2026-06-12 22:31:31 +07:00 - เริ่ม T89: commit/push งาน System Admin/User Management surface หลัง T88 เสร็จและ targeted tests ผ่าน
 - 2026-06-12 22:33:00 +07:00 - ทำ T89 เสร็จ: commit `5bfc3e9 Add system admin management surface` และ push ไป `origin/codex-node-web-app-migration` สำเร็จ ยังไม่ได้สร้าง PR/merge เข้า `main`
+- 2026-06-12 22:39:14 +07:00 - เริ่ม T90: กู้การเข้าใช้งาน owner ใน local state เพราะ password เดิมอ่านกลับไม่ได้จาก PBKDF2 hash
+- 2026-06-12 22:39:44 +07:00 - ทำ T90 เสร็จ: สำรอง `data/app-state.json`, reset owner local เป็นรหัสชั่วคราวที่แจ้งใน chat เท่านั้น และยืนยันว่า state/backup ถูก ignore ไม่เข้า Git
 - 2026-06-11 14:30:04 +07:00 - เริ่ม T73: แก้ bug `recommendedActionSortFields` ยังไม่ initialize ตอนหน้า Portfolio render หลัง analysis/saved portfolio
 - 2026-06-11 14:33:44 +07:00 - ทำ T73 เสร็จ: ย้าย `recommendedActionFields` และ `recommendedActionSortFields` ไปก่อน `await initialize()`, เพิ่ม regression ตรวจ initialization order และ `npm run ci:quality` ผ่าน
 - 2026-06-11 14:15:49 +07:00 - เริ่ม T72: เพิ่ม filter, field picker และ order by ให้ตาราง Recommended actions ในหน้า Portfolio โดยไม่เปลี่ยนสูตรวิเคราะห์เดิม
