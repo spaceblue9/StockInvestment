@@ -213,12 +213,18 @@ router.post("/simulation/run", async (req, res) => {
     const symbol = String(req.body.symbol || "CPALL").trim().toUpperCase();
     const yearsBack = Math.max(1, Math.min(3, Number(req.body.yearsBack) || 1));
     const initialCapital = Math.max(1000, Number(req.body.initialCapital) || 100000);
+    const buyMode = req.body.buyMode === "split" ? "split" : "lump_sum";
+    const tranches = Math.max(2, Math.min(24, Math.round(Number(req.body.tranches) || 5)));
+    const trancheIntervalDays = Math.max(1, Math.min(252, Math.round(Number(req.body.trancheIntervalDays) || 20)));
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - (365 * yearsBack));
 
     const result = await runStrategySimulation(symbol, {
       startDate,
       initialCapital,
+      buyMode,
+      tranches,
+      trancheIntervalDays,
     });
     await recordAuditEvent({
       actorUserId: currentUser.id,
@@ -228,6 +234,9 @@ router.post("/simulation/run", async (req, res) => {
         symbol,
         yearsBack,
         initialCapital,
+        buyMode,
+        tranches: result.buyPlan?.tranches,
+        trancheIntervalDays: result.buyPlan?.trancheIntervalDays,
         finalValue: Math.round(result.summary?.finalValue || 0),
         trades: result.summary?.totalTrades || 0,
       },

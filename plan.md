@@ -1425,6 +1425,109 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - ถ้า T93 ยัง In Progress ให้แก้ `src/public/app.js`, docs และ regression markers โดย reuse pattern T92
   - ตรวจด้วย `npm run check`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
 
+### T94 - Screener and Sector Chart Row Highlight
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-18 07:55:48 +07:00
+- เสร็จเมื่อ: 2026-06-18 07:59:10 +07:00
+- เหตุผล:
+  - ผู้ใช้ต้องการให้คลิกหุ้นในรูปกราฟของหน้า Screener และ Sector แล้วไป highlight แถวในตารางข้อมูล เพื่อให้ focus อ่านข้อมูลหุ้นตัวนั้นง่ายขึ้น
+  - เป็น UX improvement เท่านั้น ต้องไม่เปลี่ยนสูตรวิเคราะห์ คะแนน หรือข้อมูล output
+- งานที่ต้องทำ:
+  - [x] ตรวจโครงสร้างกราฟและตารางของหน้า Screener และ Sector
+  - [x] ทำให้กราฟหุ้นที่คลิกได้ส่งค่า symbol ไป highlight แถวตารางที่ตรงกัน
+  - [x] เพิ่ม selected/highlight style, focus และ scroll behavior ที่อ่านง่าย
+  - [x] เพิ่ม regression markers/docs ที่เกี่ยวข้อง
+  - [x] ทดสอบด้วย command ที่เหมาะสม
+- ผลลัพธ์:
+  - หน้า `Stock Screener` คลิกหุ้นใน `Quality vs reward` scatter หรือ `Top ideas` bar แล้ว highlight แถวหุ้นนั้นในตาราง
+  - หน้า `Sector Analysis` คลิกหุ้นใน `Sector leaders` bar หรือ `Timing vs quality` scatter แล้ว highlight แถวหุ้นนั้นในตาราง
+  - เพิ่ม keyboard support ด้วย Enter/Space สำหรับ element กราฟที่ focus ได้
+  - เพิ่ม style `table-row-highlight`, `stock-chart-trigger` และ status text สำหรับบอกหุ้นที่ focus อยู่
+  - เพิ่ม docs และ regression markers `data-stock-highlight`, `data-stock-row`, `attachStockHighlightControls`
+  - ทดสอบผ่าน: `npm run check`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - ถ้า T94 ยัง In Progress ให้แก้ `src/public/app.js` และ `src/public/styles.css` โดยเน้น click interaction จากกราฟหุ้นไปยังแถวตาราง ห้ามเปลี่ยนสูตรวิเคราะห์
+  - ตรวจด้วย `npm run check`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+
+### T95 - Screener Top Ideas Green Highlight
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-18 08:07:31 +07:00
+- เสร็จเมื่อ: 2026-06-18 08:10:03 +07:00
+- เหตุผล:
+  - ผู้ใช้ต้องการให้หุ้นใน `Top ideas` หน้า Screener เด่นขึ้นด้วยสีเขียว เพราะเป็นหุ้นที่ระบบ recommend และควร focus อ่านได้ง่าย
+  - ต้องทำเฉพาะ visual emphasis ไม่เปลี่ยนสูตร ranking หรือคะแนน
+- งานที่ต้องทำ:
+  - [x] ระบุ top idea symbols จากข้อมูลเดียวกับ `Top ideas`
+  - [x] ทำให้จุดใน `Quality vs reward` scatter ของหุ้น Top ideas เป็นสีเขียว
+  - [x] ทำให้ bar ใน `Top ideas` ใช้สีเขียว/selected visual ที่ชัดเจน
+  - [x] เพิ่ม regression markers/docs ที่เกี่ยวข้อง
+  - [x] ทดสอบด้วย command ที่เหมาะสม
+- ผลลัพธ์:
+  - หุ้นใน `Top ideas` หน้า Screener ใช้ bar สีเขียวเพื่อสื่อว่าเป็นกลุ่มที่ระบบ recommend
+  - จุดของหุ้น Top ideas ใน `Quality vs reward` scatter เป็นสีเขียวและใหญ่ขึ้นเล็กน้อยเพื่อ focus ง่าย
+  - หุ้นอื่นใน scatter ยังใช้สีเดิม และ hover/selected behavior ยังทำงานร่วมกับ highlight แถวตารางจาก T94
+  - เพิ่ม docs และ regression markers `top-idea-bar`, `top-idea-point`
+  - ทดสอบผ่าน: `npm run check`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - ถ้า T95 ยัง In Progress ให้แก้ `src/public/app.js` และ `src/public/styles.css` เพื่อ highlight หุ้น Top ideas เป็นสีเขียวในหน้า Screener เท่านั้น ห้ามเปลี่ยนสูตรวิเคราะห์
+  - ตรวจด้วย `npm run check`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+
+### T96 - Limit Top Ideas Green to Quality vs Reward Dots
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-18 08:15:13 +07:00
+- เสร็จเมื่อ: 2026-06-18 08:16:59 +07:00
+- เหตุผล:
+  - ผู้ใช้ต้องการให้สีเขียวแสดงเฉพาะจุดวงกลมในกราฟ `Quality vs reward` ที่เป็นหุ้นตัวเดียวกับ `Top ideas`
+  - bar ใน `Top ideas` ไม่ควรเป็นสีเขียว เพื่อไม่ให้ visual emphasis มากเกินไป
+- งานที่ต้องทำ:
+  - [x] เอา green emphasis ออกจาก `Top ideas` bar
+  - [x] คงสีเขียวเฉพาะ scatter point ที่ symbol อยู่ใน Top ideas
+  - [x] ปรับ docs/regression markers ให้ตรงกับ behavior ใหม่
+  - [x] ทดสอบด้วย command ที่เหมาะสม
+- ผลลัพธ์:
+  - `Top ideas` bar กลับไปใช้สีเดิม แต่ยังคลิกเพื่อ highlight แถวตารางได้จาก T94
+  - สีเขียวเหลือเฉพาะจุดวงกลมใน `Quality vs reward` ที่ symbol ตรงกับหุ้นใน `Top ideas`
+  - ลบ/เลิกใช้ marker และ CSS `top-idea-bar`
+  - คง marker และ CSS `top-idea-point`
+  - ทดสอบผ่าน: `npm run check`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - ถ้า T96 ยัง In Progress ให้คง `top-idea-point` สำหรับ scatter เท่านั้น และลบ/เลิกใช้ `top-idea-bar` จาก UI/tests/docs
+  - ตรวจด้วย `npm run check`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+
+### T97 - Simulation Split Buy Tranches
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-18 08:27:10 +07:00
+- เสร็จเมื่อ: 2026-06-18 08:31:09 +07:00
+- เหตุผล:
+  - ผู้ใช้ต้องการให้หน้า Simulation รองรับการแบ่งซื้อเป็นหลายไม้ เพื่อทดสอบแนวคิดการทยอยลงทุนได้ดีกว่าซื้อครั้งเดียว
+  - ต้องคงโหมดซื้อครั้งเดียวเดิมไว้เพื่อเปรียบเทียบ และเพิ่มโหมดแบ่งไม้แบบเข้าใจง่ายสำหรับมือใหม่
+- งานที่ต้องทำ:
+  - [x] ตรวจ route/service/frontend ของ Simulation ปัจจุบัน
+  - [x] เพิ่ม input `Buy mode`, จำนวนไม้ และระยะห่างการซื้อแต่ละไม้ในหน้าเว็บ
+  - [x] เพิ่ม backend simulation แบบ split buy โดยแบ่งเงินเท่าๆ กันต่อไม้และซื้อเป็นรอบตามช่วงวัน trading rows
+  - [x] แสดงผลเพิ่ม เช่น เงินต่อไม้, จำนวนไม้ที่ซื้อจริง, trade schedule และ average cost
+  - [x] เพิ่ม docs/regression tests ที่เกี่ยวข้อง
+  - [x] ทดสอบด้วย command ที่เหมาะสม
+- ผลลัพธ์:
+  - หน้า `Strategy Simulation` มี `Buy Mode` ให้เลือก `Lump Sum` หรือ `Split Buy`
+  - โหมด `Split Buy` ให้กำหนดจำนวนไม้และจำนวน trading days ระหว่างไม้ได้ เช่น 100,000 บาท / 5 ไม้ = 20,000 บาทต่อไม้
+  - backend แบ่งเงินเป็นไม้เท่าๆ กันและปล่อยเงินเข้า simulation ตามรอบ trading rows โดย strategy เดิมยังเป็นคนตัดสินใจซื้อเมื่อเข้าเงื่อนไข
+  - ผลลัพธ์แสดง `Buy Mode`, average cost, completed tranches, deployed capital และ Split Buy Plan
+  - trade history เพิ่ม `Cost` และ portfolio history เพิ่ม `Deployed_Capital`
+  - เพิ่ม regression `scripts/simulationSplitBuyRegression.js`, npm script `test:simulation-split-buy` และผูกเข้า `test-regression`
+  - ทดสอบผ่าน: `npm run check`, `node --check src/public/app.js`, `npm run test:simulation-split-buy`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - ถ้า T97 ยัง In Progress ให้แก้ Simulation โดยเพิ่ม split buy tranches แบบไม่ลบโหมด lump sum เดิม และอย่าเปลี่ยนสูตรวิเคราะห์หุ้นส่วนอื่น
+  - ตรวจด้วย `npm run check`, `node --check src/public/app.js`, และ regression ของ simulation/frontend ที่เกี่ยวข้อง
+
 ### T66 - Analysis Run Loading and Progress UX
 
 - สถานะ: Done
@@ -1478,6 +1581,14 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 - 2026-06-13 07:21:50 +07:00 - เริ่ม T93: เพิ่ม click filter ให้ `Sector exposure` ในหน้า Portfolio เพื่อกรอง Recommended actions ตาม sector ที่เลือก
 - 2026-06-13 07:23:15 +07:00 - ทำ T93 เสร็จ: Sector exposure bar กรอง Recommended actions ได้, reset/manual filter ล้าง selected state ถูกต้อง, docs/regression markers และ targeted tests ผ่าน
 - 2026-06-13 07:27:30 +07:00 - commit/push T93 สำเร็จ: `b4fa2e5 Add portfolio sector visual filter`
+- 2026-06-18 07:55:48 +07:00 - เริ่ม T94: เพิ่ม interaction ให้คลิกหุ้นในกราฟหน้า Screener/Sector แล้ว highlight แถวในตารางข้อมูล
+- 2026-06-18 07:59:10 +07:00 - ทำ T94 เสร็จ: กราฟหุ้นใน Screener/Sector focus แถวตารางได้, เพิ่ม keyboard support, CSS highlight, docs/regression markers และ targeted tests ผ่าน
+- 2026-06-18 08:07:31 +07:00 - เริ่ม T95: ทำให้หุ้นใน `Top ideas` หน้า Screener เด่นด้วยสีเขียวทั้ง bar และจุดใน scatter
+- 2026-06-18 08:10:03 +07:00 - ทำ T95 เสร็จ: Top ideas bar และจุด scatter ของหุ้นที่ recommend เป็นสีเขียว, docs/regression markers และ targeted tests ผ่าน
+- 2026-06-18 08:15:13 +07:00 - เริ่ม T96: จำกัดสีเขียวของ Top ideas ให้แสดงเฉพาะจุดวงกลมในกราฟ `Quality vs reward`
+- 2026-06-18 08:16:59 +07:00 - ทำ T96 เสร็จ: `Top ideas` bar กลับเป็นสีเดิม, สีเขียวเหลือเฉพาะ scatter point ของหุ้นที่อยู่ใน Top ideas, docs/regression markers และ targeted tests ผ่าน
+- 2026-06-18 08:27:10 +07:00 - เริ่ม T97: เพิ่ม Simulation แบบแบ่งซื้อหลายไม้เพื่อเทียบกับซื้อครั้งเดียว
+- 2026-06-18 08:31:09 +07:00 - ทำ T97 เสร็จ: เพิ่ม Buy Mode แบบ Lump Sum/Split Buy, จำนวนไม้, trading-day interval, metrics/trade history เพิ่มเติม, docs/regression และ targeted tests ผ่าน
 - 2026-06-11 14:30:04 +07:00 - เริ่ม T73: แก้ bug `recommendedActionSortFields` ยังไม่ initialize ตอนหน้า Portfolio render หลัง analysis/saved portfolio
 - 2026-06-11 14:33:44 +07:00 - ทำ T73 เสร็จ: ย้าย `recommendedActionFields` และ `recommendedActionSortFields` ไปก่อน `await initialize()`, เพิ่ม regression ตรวจ initialization order และ `npm run ci:quality` ผ่าน
 - 2026-06-11 14:15:49 +07:00 - เริ่ม T72: เพิ่ม filter, field picker และ order by ให้ตาราง Recommended actions ในหน้า Portfolio โดยไม่เปลี่ยนสูตรวิเคราะห์เดิม
@@ -5605,6 +5716,10 @@ Excel report:
 - T89 Done: commit `5bfc3e9 Add system admin management surface` และ push ไป `origin/codex-node-web-app-migration` สำเร็จแล้ว ยังไม่สร้าง PR/merge เข้า main
 - T92 Done: เพิ่ม click filter ให้ `Action mix` และ `Score distribution` ในหน้า Portfolio เพื่อกรอง Recommended actions ตาม action group และ score band พร้อม selected/reset behavior, docs/regression markers, targeted tests ผ่าน และ commit/push `a332b42 Add portfolio visual filters` สำเร็จ
 - T93 Done: เพิ่ม click filter ให้ `Sector exposure` ในหน้า Portfolio เพื่อกรอง Recommended actions ตาม sector พร้อม selected/reset behavior, docs/regression markers และ targeted tests ผ่าน
+- T94 Done: เพิ่ม click highlight ให้กราฟหุ้นในหน้า `Stock Screener` และ `Sector Analysis` โดยคลิกหรือกด Enter/Space ที่หุ้นใน scatter/bar chart แล้ว scroll/focus/highlight แถวหุ้นเดียวกันในตาราง พร้อม docs/regression markers และ targeted tests ผ่าน; งานนี้ยังเป็น working tree change หากยังไม่ได้ commit หลังเวลาจบ 2026-06-18 07:59:10 +07:00
+- T95 Done: เพิ่มสีเขียวให้ `Top ideas` ในหน้า Screener ทั้ง bar และจุดหุ้นเดียวกันใน `Quality vs reward` scatter เพื่อสื่อว่าเป็นหุ้น recommend และ focus ง่ายขึ้น; งานนี้ยังเป็น working tree change หากยังไม่ได้ commit หลังเวลาจบ 2026-06-18 08:10:03 +07:00
+- T96 Done: ปรับ scope สีเขียวของ Top ideas ให้เหลือเฉพาะจุดวงกลมใน `Quality vs reward` ที่เป็นหุ้นตัวเดียวกับ Top ideas; `Top ideas` bar ใช้สีเดิมแต่ยังคลิก highlight ตารางได้; งานนี้ยังเป็น working tree change หากยังไม่ได้ commit หลังเวลาจบ 2026-06-18 08:16:59 +07:00
+- T97 Done: เพิ่ม Simulation แบบแบ่งซื้อหลายไม้ โดยคง Lump Sum เดิม, เพิ่ม Split Buy ที่กำหนดจำนวนไม้/ระยะห่าง trading days, backend ปล่อยเงินแต่ละไม้เข้า strategy, frontend แสดง average cost/completed tranches/deployed capital/Split Buy Plan และเพิ่ม regression `npm run test:simulation-split-buy`; งานนี้ยังเป็น working tree change หากยังไม่ได้ commit หลังเวลาจบ 2026-06-18 08:31:09 +07:00
 - Task list ชุดนี้เหลือ T47 ที่ถูก defer เฉพาะขั้น force push ไป GitHub และ T59 ที่ต้องรอ Browser/in-app browser ใช้งานได้
 - งานต่อยอดที่แนะนำถ้ายังไม่กลับไปทำ GitHub: กลับมาทำ T59 Browser Visual QA เมื่อ Browser สามารถเปิด localhost ได้, ตั้งค่า operational alert webhook ไปยัง Slack/email/APM/uptime monitor จริงใน staging/production, ซ้อม Postgres restore จริงใน staging/production-like environment หรือ run deployment checklist แบบ strict ใน staging ที่ตั้ง env จริง
 

@@ -118,13 +118,22 @@ npm run dev
 
 หมายเหตุ: การวิเคราะห์อาจใช้เวลาหลายวินาทีถึงหลายนาที เพราะระบบต้องดึงข้อมูลหุ้น, คำนวณคะแนน, สร้างรายงานพอร์ต และเตรียมไฟล์ดาวน์โหลด หากเห็น progress panel แสดงอยู่ แปลว่าระบบยังทำงาน ไม่ใช่ error
 
+### Simulation แบบแบ่งไม้
+
+หน้า `Strategy Simulation` รองรับ 2 วิธีซื้อ:
+
+- `Lump Sum`: โหมดเดิม เงินทั้งหมดพร้อมซื้อเมื่อ strategy เจอสัญญาณซื้อ
+- `Split Buy`: แบ่งเงินลงทุนเป็นหลายไม้เท่าๆ กัน เช่น 100,000 บาท แบ่ง 5 ไม้ คือไม้ละ 20,000 บาท แล้วปล่อยเงินแต่ละไม้เข้าระบบตามจำนวน trading days ที่กำหนด
+
+ผลลัพธ์จะแสดงจำนวนไม้ที่ใช้จริง, เงินต่อไม้, เงินที่ deploy แล้ว, average cost และ trade history เพื่อช่วยเทียบว่าการแบ่งไม้ต่างจากซื้อครั้งเดียวอย่างไร
+
 ## Visual Dashboard
 
 Web App มี visual dashboard ในตัวโดยไม่ต้องติดตั้ง chart library เพิ่ม:
 
 - `My Portfolio`: sector exposure, action mix และ score distribution โดย `Sector exposure`, `Action mix` และ `Score distribution` คลิกเพื่อกรองตาราง Recommended actions ได้ทันที
-- `Stock Screener`: quality vs reward scatter, top ideas, sector/trend filter, beginner tooltip สำหรับอธิบายค่า filter และ sector count ที่คลิกเพื่อ drilldown ตารางได้
-- `Sector Analysis`: sector leaders, benchmark และ timing vs quality scatter
+- `Stock Screener`: quality vs reward scatter, top ideas, sector/trend filter, beginner tooltip สำหรับอธิบายค่า filter, sector count ที่คลิกเพื่อ drilldown ตารางได้, จุดวงกลมใน `Quality vs reward` ของหุ้นที่อยู่ใน `Top ideas` แสดงสีเขียวเพื่อเน้นกลุ่มที่ระบบ recommend และคลิกหุ้นในกราฟเพื่อ highlight แถวหุ้นนั้นในตาราง
+- `Sector Analysis`: sector leaders, benchmark และ timing vs quality scatter โดยคลิกหุ้นในกราฟเพื่อ highlight แถวหุ้นนั้นในตาราง
 - `Business`: customer funnel และ plan distribution สำหรับ owner account
 
 กราฟเหล่านี้ช่วยให้ผู้ใช้มือใหม่เห็นภาพรวมก่อนอ่านตารางรายละเอียด และยังคงข้อมูลตารางเดิมไว้สำหรับตรวจสอบเชิงลึก

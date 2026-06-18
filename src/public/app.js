@@ -2266,9 +2266,10 @@ function renderScreenerView() {
       `RRR >= ${formatNumber(minRrr.value)}`,
       `D/E <= ${formatNumber(maxDe.value)}`,
     ].filter(Boolean);
-    filterStatus.textContent = `${formatNumber(rows.length)} stocks match ${activeFilters.join(" · ")}. Click a sector bar to drill down.`;
+    filterStatus.textContent = `${formatNumber(rows.length)} stocks match ${activeFilters.join(" · ")}. Click a stock in the charts to highlight its table row, or click a sector bar to drill down.`;
     document.querySelector("#screenerTable").innerHTML = `
       ${renderScreenerInsights(rows, { selectedSector: sectorFilter.value })}
+      <p class="muted table-focus-status" data-stock-highlight-status>Click a stock in Quality vs reward or Top ideas to focus its table row.</p>
       ${renderTable(rows, [
         "Symbol",
         "Sector",
@@ -2281,7 +2282,7 @@ function renderScreenerView() {
         "DE",
         "RSI",
         "Rationale",
-      ])}
+      ], { stockHighlight: true })}
     `;
     document.querySelectorAll("[data-sector-filter]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -2289,6 +2290,7 @@ function renderScreenerView() {
         renderFiltered();
       });
     });
+    attachStockHighlightControls(document.querySelector("#screenerTable"));
   };
 
   [minScore, minRrr, maxDe].forEach((input) => input.addEventListener("input", renderFiltered));
@@ -2358,8 +2360,10 @@ function renderSectorView() {
         ${metric("Leader", leader ? `${leader.Symbol} (${formatNumber(leader.Total_Score)})` : "-")}
       </div>
       ${renderSectorVisuals(sectorRows, stats)}
-      ${renderTable(sectorRows, ["Symbol", "Price", "Total_Score", "RRR", "Upside_Pct", "Price_Position", "PE", "ROE", "Yield", "DE", "Trend_Status", "Rationale"])}
+      <p class="muted table-focus-status" data-stock-highlight-status>Click a stock in Sector leaders or Timing vs quality to focus its table row.</p>
+      ${renderTable(sectorRows, ["Symbol", "Price", "Total_Score", "RRR", "Upside_Pct", "Price_Position", "PE", "ROE", "Yield", "DE", "Trend_Status", "Rationale"], { stockHighlight: true })}
     `;
+    attachStockHighlightControls(document.querySelector("#sectorDetails"));
   };
 
   sectorSelect.addEventListener("change", renderDetails);
@@ -2372,12 +2376,36 @@ function renderSimulationView() {
       <label>Symbol <input name="symbol" value="CPALL" autocomplete="off"></label>
       <label>Initial Capital <input name="initialCapital" type="number" min="1000" step="1000" value="100000"></label>
       <label>Years Back <input name="yearsBack" type="number" min="1" max="3" value="1"></label>
+      <label>Buy Mode
+        <select name="buyMode" data-simulation-buy-mode>
+          <option value="lump_sum">Lump Sum - buy with full cash when signal appears</option>
+          <option value="split">Split Buy - divide cash into tranches</option>
+        </select>
+      </label>
+      <label>Buy Tranches <input name="tranches" type="number" min="2" max="24" value="5" data-simulation-split-input></label>
+      <label>Trading Days Between Tranches <input name="trancheIntervalDays" type="number" min="1" max="252" value="20" data-simulation-split-input></label>
       <button type="submit">Run Simulation</button>
     </form>
+    <p class="muted simulation-hint" data-simulation-split-hint>Split Buy example: 100,000 THB divided into 5 tranches means 20,000 THB is made available each tranche.</p>
     <div id="simulationOutput" class="simulation-output muted">Enter inputs and run the simulation.</div>
   `;
 
   document.querySelector("#simulationForm").addEventListener("submit", runSimulation);
+  attachSimulationBuyModeControls();
+}
+
+function attachSimulationBuyModeControls() {
+  const buyMode = document.querySelector("[data-simulation-buy-mode]");
+  const splitInputs = [...document.querySelectorAll("[data-simulation-split-input]")];
+  const updateSplitInputs = () => {
+    const isSplit = buyMode?.value === "split";
+    splitInputs.forEach((input) => {
+      input.disabled = !isSplit;
+      input.closest("label")?.classList.toggle("muted-control", !isSplit);
+    });
+  };
+  buyMode?.addEventListener("change", updateSplitInputs);
+  updateSplitInputs();
 }
 
 async function runSimulation(event) {
@@ -2405,13 +2433,41 @@ async function runSimulation(event) {
       ${metric("Strategy ROI", `${formatNumber(data.summary?.roi || 0)}%`)}
       ${metric("Buy & Hold ROI", `${formatNumber(data.summary?.buyHoldRoi || 0)}%`)}
       ${metric("Trades", data.summary?.totalTrades || 0)}
+      ${metric("Buy Mode", simulationBuyModeLabel(data.buyPlan))}
+      ${metric("Avg Cost", money(data.summary?.averageCost || 0))}
+      ${metric("Completed Tranches", `${formatNumber(data.summary?.completedTranches || 0)} / ${formatNumber(data.buyPlan?.tranches || 1)}`)}
+      ${metric("Cash Deployed", money(data.summary?.deployedCapital || 0))}
     </div>
+    ${renderSimulationBuyPlan(data.buyPlan)}
     <h3>Recent Portfolio History</h3>
-    ${renderTable((data.history || []).slice(-20), ["Date", "Price", "Portfolio_Value", "Buy_Hold_Value", "Cash", "Shares", "Action"])}
+    ${renderTable((data.history || []).slice(-20), ["Date", "Price", "Portfolio_Value", "Buy_Hold_Value", "Cash", "Shares", "Deployed_Capital", "Action"])}
     <h3>Trade History</h3>
-    ${renderTable(data.trades || [], ["Date", "Action", "Price", "Shares"])}
+    ${renderTable(data.trades || [], ["Date", "Action", "Price", "Shares", "Cost"])}
   `;
   await loadAuditEvents();
+}
+
+function simulationBuyModeLabel(buyPlan = {}) {
+  return buyPlan.mode === "split" ? `Split Buy (${formatNumber(buyPlan.tranches || 0)} tranches)` : "Lump Sum";
+}
+
+function renderSimulationBuyPlan(buyPlan = {}) {
+  if (!buyPlan || buyPlan.mode !== "split") {
+    return `<p class="muted simulation-plan-note" data-simulation-buy-plan>Lump Sum mode keeps the original strategy behavior: cash is available at the start of the simulation.</p>`;
+  }
+
+  return `
+    <section class="chart-panel simulation-plan-note" data-simulation-buy-plan>
+      <h3>Split Buy Plan</h3>
+      <p class="muted">Capital is divided equally before strategy rules decide whether each tranche should buy.</p>
+      <div class="metric-grid compact-metrics">
+        ${metric("Tranches", formatNumber(buyPlan.tranches || 0))}
+        ${metric("Amount / Tranche", money(buyPlan.amountPerTranche || 0))}
+        ${metric("Trading Days Gap", formatNumber(buyPlan.trancheIntervalDays || 0))}
+        ${metric("Completed", formatNumber(buyPlan.completedTranches || 0))}
+      </div>
+    </section>
+  `;
 }
 
 function renderPortfolioVisuals(rows) {
@@ -2455,6 +2511,7 @@ function renderScreenerInsights(rows, options = {}) {
       value: numberValue(row.Total_Score),
       caption: `RRR ${formatNumber(row.RRR)} · ${row.Sector || "Unknown"}`,
     }));
+  const topIdeaSymbols = new Set(topIdeas.map((item) => item.label));
   const sectorQuality = breakdownBy(rows, (row) => row.Sector || "Unknown", () => 1)
     .map((item) => ({
       ...item,
@@ -2473,11 +2530,14 @@ function renderScreenerInsights(rows, options = {}) {
           yLabel: "Quality score",
           xMax: 5,
           yMax: 100,
+          action: "stock-highlight",
+          highlightLabels: topIdeaSymbols,
+          highlightClass: "top-idea-point",
         })}
       </section>
       <section class="chart-panel">
         <h3>Top ideas</h3>
-        ${renderBarList(topIdeas, { maxValue: 100, valueFormatter: (value) => `${formatNumber(value)} score` })}
+        ${renderBarList(topIdeas, { action: "stock-highlight", maxValue: 100, valueFormatter: (value) => `${formatNumber(value)} score` })}
       </section>
       <section class="chart-panel">
         <h3>Sector count</h3>
@@ -2505,7 +2565,7 @@ function renderSectorVisuals(rows, stats) {
     <div class="visual-grid two-columns">
       <section class="chart-panel">
         <h3>Sector leaders</h3>
-        ${renderBarList(leaders, { maxValue: 100, valueFormatter: (value) => `${formatNumber(value)} score` })}
+        ${renderBarList(leaders, { action: "stock-highlight", maxValue: 100, valueFormatter: (value) => `${formatNumber(value)} score` })}
       </section>
       <section class="chart-panel">
         <h3>Sector benchmark</h3>
@@ -2521,6 +2581,7 @@ function renderSectorVisuals(rows, stats) {
           yLabel: "Quality score",
           xMax: 100,
           yMax: 100,
+          action: "stock-highlight",
         })}
       </section>
     </div>
@@ -3299,13 +3360,21 @@ function renderBarList(items, options = {}) {
           `;
         }
 
+        if (options.action === "stock-highlight") {
+          return `
+            <button class="bar-row bar-row-button" type="button" data-stock-highlight="${escapeHtml(item.label)}" title="Highlight ${escapeHtml(item.label)} in the table">
+              ${rowContent}
+            </button>
+          `;
+        }
+
         return `<div class="bar-row">${rowContent}</div>`;
       }).join("")}
     </div>
   `;
 }
 
-function renderScatterPlot(rows, { xKey, yKey, labelKey, xLabel, yLabel, xMax, yMax }) {
+function renderScatterPlot(rows, { xKey, yKey, labelKey, xLabel, yLabel, xMax, yMax, action, highlightLabels, highlightClass }) {
   const width = 560;
   const height = 260;
   const padding = 34;
@@ -3319,6 +3388,7 @@ function renderScatterPlot(rows, { xKey, yKey, labelKey, xLabel, yLabel, xMax, y
       const yValue = clamp(numberValue(row[yKey]), 0, yMax);
       return {
         label: row[labelKey] || "-",
+        highlighted: highlightLabels?.has(row[labelKey] || "-") || false,
         x: padding + (xValue / xMax) * plotWidth,
         y: height - padding - (yValue / yMax) * plotHeight,
         xValue,
@@ -3337,11 +3407,23 @@ function renderScatterPlot(rows, { xKey, yKey, labelKey, xLabel, yLabel, xMax, y
         <line class="axis-line" x1="${padding}" y1="${padding}" x2="${padding}" y2="${height - padding}"></line>
         <line class="guide-line" x1="${padding}" y1="${height - padding - plotHeight * 0.7}" x2="${width - padding}" y2="${height - padding - plotHeight * 0.7}"></line>
         <line class="guide-line" x1="${padding + plotWidth * 0.4}" y1="${padding}" x2="${padding + plotWidth * 0.4}" y2="${height - padding}"></line>
-        ${points.map((point) => `
-          <circle class="scatter-point" cx="${point.x}" cy="${point.y}" r="5">
-            <title>${escapeHtml(`${point.label}: ${xLabel} ${formatNumber(point.xValue)}, ${yLabel} ${formatNumber(point.yValue)}`)}</title>
-          </circle>
-        `).join("")}
+        ${points.map((point) => {
+          const title = `${point.label}: ${xLabel} ${formatNumber(point.xValue)}, ${yLabel} ${formatNumber(point.yValue)}`;
+          const pointClass = point.highlighted && highlightClass ? ` ${highlightClass}` : "";
+          const circle = `
+            <circle class="scatter-point${pointClass}" cx="${point.x}" cy="${point.y}" r="${point.highlighted ? 6 : 5}">
+              <title>${escapeHtml(title)}</title>
+            </circle>
+          `;
+          if (action === "stock-highlight") {
+            return `
+              <g class="stock-chart-trigger" role="button" tabindex="0" data-stock-highlight="${escapeHtml(point.label)}" aria-label="Highlight ${escapeHtml(point.label)} in the table">
+                ${circle}
+              </g>
+            `;
+          }
+          return circle;
+        }).join("")}
         <text class="axis-text" x="${width / 2}" y="${height - 6}">${escapeHtml(xLabel)}</text>
         <text class="axis-text" x="8" y="18">${escapeHtml(yLabel)}</text>
       </svg>
@@ -3394,7 +3476,7 @@ function actionGroup(row) {
   return "Hold";
 }
 
-function renderTable(rows, columns) {
+function renderTable(rows, columns, options = {}) {
   if (!rows.length) {
     return `<p class="muted">No rows match the current view.</p>`;
   }
@@ -3404,11 +3486,63 @@ function renderTable(rows, columns) {
       <table>
         <thead><tr>${columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}</tr></thead>
         <tbody>
-          ${rows.map((row) => `<tr>${columns.map((column) => `<td>${formatCell(row[column])}</td>`).join("")}</tr>`).join("")}
+          ${rows.map((row) => {
+            const symbol = String(row.Symbol || "").trim();
+            const rowAttributes = options.stockHighlight && symbol
+              ? ` data-stock-row="${escapeHtml(symbol)}" tabindex="-1"`
+              : "";
+            return `<tr${rowAttributes}>${columns.map((column) => `<td>${formatCell(row[column])}</td>`).join("")}</tr>`;
+          }).join("")}
         </tbody>
       </table>
     </div>
   `;
+}
+
+function attachStockHighlightControls(scope = document) {
+  if (!scope) {
+    return;
+  }
+
+  scope.querySelectorAll("[data-stock-highlight]").forEach((control) => {
+    const symbol = control.dataset.stockHighlight || "";
+    control.addEventListener("click", () => highlightStockTableRow(symbol, scope));
+    control.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+      event.preventDefault();
+      highlightStockTableRow(symbol, scope);
+    });
+  });
+}
+
+function highlightStockTableRow(symbol, scope = document) {
+  const normalizedSymbol = String(symbol || "").trim();
+  if (!normalizedSymbol || !scope) {
+    return;
+  }
+
+  const rows = [...scope.querySelectorAll("[data-stock-row]")];
+  const target = rows.find((row) => row.dataset.stockRow === normalizedSymbol);
+  rows.forEach((row) => row.classList.toggle("table-row-highlight", row === target));
+  scope.querySelectorAll("[data-stock-highlight]").forEach((control) => {
+    control.classList.toggle("selected", (control.dataset.stockHighlight || "") === normalizedSymbol);
+  });
+
+  const status = scope.querySelector("[data-stock-highlight-status]");
+  if (!target) {
+    if (status) {
+      status.textContent = `${normalizedSymbol} is not visible in the current table filter.`;
+    }
+    return;
+  }
+
+  if (status) {
+    status.textContent = `Focused ${normalizedSymbol} in the table.`;
+  }
+  target.focus({ preventScroll: true });
+  target.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function metric(label, value) {
