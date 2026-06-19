@@ -4,13 +4,12 @@ import {
   auditIntegritySummary,
   auditTrailSummary,
   businessMetrics,
-  checkoutSubscription,
   clearSessionCookie,
   createApprovalRequest,
   createOrganization,
-  createPaymentSession,
   createUser,
   decideApprovalRequest,
+  deleteUserAccount,
   getAuditEvents,
   getBillingHistory,
   getInvestorProfile,
@@ -28,15 +27,17 @@ import {
   processProviderPaymentWebhook,
   processSignedPaymentWebhook,
   recordAuditEvent,
+  deferredSubscriptionPlans,
+  publicSubscriptionPlans,
   requirePlanEntitlement,
   rolePolicy,
   saveInvestorProfile,
   setSessionCookie,
   storageReadinessSummary,
-  subscriptionPlans,
   tenantAccessSummary,
   updateOrganization,
   updateUserRole,
+  updateUserSubscription,
 } from "../services/authService.js";
 import {
   buildLaunchEvidenceCenter,
@@ -106,7 +107,9 @@ router.post("/auth/logout", async (req, res) => {
 router.get("/subscription/plans", (_req, res) => {
   res.json({
     ok: true,
-    plans: subscriptionPlans(),
+    plans: publicSubscriptionPlans(),
+    deferredPlans: deferredSubscriptionPlans(),
+    launchMode: "starter_pro_manual_ready",
   });
 });
 
@@ -157,22 +160,11 @@ router.post("/subscription/checkout", async (req, res) => {
     return;
   }
 
-  try {
-    const result = await checkoutSubscription(user.id, req.body?.planId);
-    res.json({
-      ok: true,
-      user: result.user,
-      billingEvent: result.billingEvent,
-      paymentSession: result.paymentSession,
-      webhookEvent: result.webhookEvent,
-      duplicate: result.duplicate,
-    });
-  } catch (error) {
-    res.status(400).json({
-      ok: false,
-      message: error.message,
-    });
-  }
+  res.status(409).json({
+    ok: false,
+    launchMode: "manual_admin_assignment",
+    message: "Online checkout is disabled during launch. Please wait for owner/admin to assign Starter or Pro from User Management.",
+  });
 });
 
 router.post("/subscription/payment-session", async (req, res) => {
@@ -185,19 +177,11 @@ router.post("/subscription/payment-session", async (req, res) => {
     return;
   }
 
-  try {
-    const result = await createPaymentSession(user.id, req.body?.planId);
-    res.json({
-      ok: true,
-      user: result.user,
-      paymentSession: result.paymentSession,
-    });
-  } catch (error) {
-    res.status(400).json({
-      ok: false,
-      message: error.message,
-    });
-  }
+  res.status(409).json({
+    ok: false,
+    launchMode: "manual_admin_assignment",
+    message: "Payment sessions are disabled during launch. Owner/admin should update the member package manually from User Management.",
+  });
 });
 
 router.post("/payment/webhook/simulate", async (req, res) => {
@@ -931,6 +915,46 @@ router.post("/admin/users/:userId/role", async (req, res) => {
     res.json({
       ok: true,
       user: await updateUserRole(user.id, req.params.userId, req.body?.role),
+    });
+  } catch (error) {
+    sendAuthError(res, error, 403);
+  }
+});
+
+router.post("/admin/users/:userId/subscription", async (req, res) => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    res.status(401).json({
+      ok: false,
+      message: "Please sign in to update packages.",
+    });
+    return;
+  }
+
+  try {
+    res.json({
+      ok: true,
+      user: await updateUserSubscription(user.id, req.params.userId, req.body || {}),
+    });
+  } catch (error) {
+    sendAuthError(res, error, 403);
+  }
+});
+
+router.delete("/admin/users/:userId", async (req, res) => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    res.status(401).json({
+      ok: false,
+      message: "Please sign in to delete users.",
+    });
+    return;
+  }
+
+  try {
+    res.json({
+      ok: true,
+      deletion: await deleteUserAccount(user.id, req.params.userId, req.body || {}),
     });
   } catch (error) {
     sendAuthError(res, error, 403);

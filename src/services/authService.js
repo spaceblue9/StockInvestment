@@ -37,6 +37,7 @@ const ROLE_POLICIES = {
   customer: ["analysis", "billing", "audit_log", "approval_workflow"],
 };
 const PLAN_TIERS = ["starter", "pro", "advisor"];
+const PUBLIC_LAUNCH_PLAN_IDS = ["starter", "pro"];
 const ACTIVE_SUBSCRIPTION_STATUSES = ["active", "trialing"];
 const FEATURE_POLICIES = {
   "analysis.run": {
@@ -154,7 +155,7 @@ export async function createUser({ name, email, password }) {
     passwordHash: hashPassword(password),
     role,
     organizationId: organization.id,
-    subscription: createTrialSubscription(now),
+    subscription: role === "owner" ? createTrialSubscription(now) : createPendingManualSubscription(now),
     createdAt: now.toISOString(),
     lastLoginAt: now.toISOString(),
   };
@@ -195,7 +196,7 @@ export async function loginUser({ email, password }) {
   const state = await readState();
   const user = state.users.find((candidate) => candidate.email === normalizedEmail);
 
-  if (!user || !verifyPassword(password, user.passwordHash)) {
+  if (!user || isDeletedUser(user) || !verifyPassword(password, user.passwordHash)) {
     throw new Error("Invalid email or password.");
   }
 
@@ -290,17 +291,28 @@ export async function saveCustomerPortfolioSnapshot(userId, snapshot) {
   requirePlanEntitlement(user, "portfolio.snapshot");
 
   const now = new Date().toISOString();
-  const summary = buildPortfolioSummary(snapshot.portfolioRows || []);
   const existing = state.portfolioSnapshots.find((item) => item.userId === userId);
   const organizationId = organizationIdForUser(state, userId);
+  const shouldPreserveExistingPortfolioRows = Boolean(snapshot.preserveExistingPortfolioRows && existing?.portfolioRows?.length);
+  const portfolioRows = shouldPreserveExistingPortfolioRows
+    ? existing.portfolioRows
+    : (snapshot.portfolioRows || []);
+  const summary = buildPortfolioSummary(portfolioRows);
+  const outputs = {
+    ...(shouldPreserveExistingPortfolioRows ? (existing.outputs || {}) : {}),
+    ...(snapshot.outputs || {}),
+  };
+  if (shouldPreserveExistingPortfolioRows && !snapshot.outputs?.portfolioReport && existing.outputs?.portfolioReport) {
+    outputs.portfolioReport = existing.outputs.portfolioReport;
+  }
   const nextSnapshot = {
     userId,
     organizationId,
     generatedAt: now,
     summary,
-    portfolioRows: snapshot.portfolioRows || [],
+    portfolioRows,
     recommendations: (snapshot.recommendations || []).slice(0, 25),
-    outputs: snapshot.outputs || {},
+    outputs,
   };
 
   if (existing) {
@@ -325,6 +337,7 @@ export async function saveCustomerPortfolioSnapshot(userId, snapshot) {
       gainLossPct: Number(summary.gainLossPct.toFixed(2)),
       urgentActions: summary.urgentActions,
       recommendationCount: (snapshot.recommendations || []).length,
+      preservedPortfolioRows: shouldPreserveExistingPortfolioRows,
     },
   });
   return nextSnapshot;
@@ -1258,19 +1271,20 @@ export async function listWorkspaceUsers(viewerUserId) {
   const { state, viewer } = await readScopedStateForViewer(viewerUserId, "workspace_users_read");
 
   const viewerRole = normalizeRole(viewer.role);
+  const activeUsers = state.users.filter((user) => !isDeletedUser(user));
   if (viewerRole === "advisor") {
     requirePlanEntitlement(viewer, "client.workspace");
   }
 
   if (["owner", "admin"].includes(viewerRole)) {
-    return buildWorkspaceUsers(state.users, state);
+    return buildWorkspaceUsers(activeUsers, state);
   }
 
   if (viewerRole === "advisor") {
     const assignedCustomerIds = new Set(state.advisorAssignments
       .filter((assignment) => assignment.advisorId === viewer.id)
       .map((assignment) => assignment.customerId));
-    const users = state.users.filter((user) => user.id === viewer.id || assignedCustomerIds.has(user.id));
+    const users = activeUsers.filter((user) => user.id === viewer.id || assignedCustomerIds.has(user.id));
     return buildWorkspaceUsers(users, state);
   }
 
@@ -1330,6 +1344,171 @@ export async function updateUserRole(actorUserId, targetUserId, nextRole) {
     },
   });
   return buildWorkspaceUsers([target], state)[0];
+}
+
+export async function updateUserSubscription(actorUserId, targetUserId, input = {}) {
+  const state = await readState();
+  const actor = state.users.find((user) => user.id === actorUserId);
+  const target = state.users.find((user) => user.id === targetUserId);
+
+  if (!actor || !["owner", "admin"].includes(normalizeRole(actor.role))) {
+    throw new Error("Only owner or admin can update subscriptions.");
+  }
+  requirePlanEntitlement(actor, "business.metrics");
+
+  if (!target) {
+    throw new Error("Target user not found.");
+  }
+
+  const plan = publicSubscriptionPlans().find((candidate) => candidate.id === String(input.planId || "").trim().toLowerCase());
+  if (!plan) {
+    throw new Error("Manual package update is limited to Starter or Pro during launch.");
+  }
+
+  const status = normalizeManualSubscriptionStatus(input.status);
+  const now = new Date();
+  const expiresAt = manualSubscriptionExpiry(input.expiresAt || input.renewsAt || input.trialEndsAt, status, now);
+  const previousSubscription = normalizeSubscription(target.subscription || {}, target.createdAt);
+  target.subscription = {
+    ...target.subscription,
+    plan: plan.name,
+    planId: plan.id,
+    status,
+    priceThb: plan.priceThb,
+    billing: plan.billing,
+    provider: "manual_admin",
+    trialEndsAt: status === "trialing" ? expiresAt : target.subscription?.trialEndsAt || expiresAt,
+    renewsAt: expiresAt,
+    manuallyManagedAt: now.toISOString(),
+    manuallyManagedBy: actor.id,
+  };
+
+  await patchStateWithAudit(state, [
+    {
+      type: "upsert",
+      collection: "users",
+      record: target,
+    },
+  ], {
+    actorUserId: actor.id,
+    action: "team.subscription_update",
+    targetUserId: target.id,
+    details: {
+      previousPlanId: previousSubscription.planId,
+      previousStatus: previousSubscription.status,
+      nextPlanId: plan.id,
+      nextStatus: status,
+      expiresAt,
+      provider: "manual_admin",
+    },
+  });
+  return buildWorkspaceUsers([target], state)[0];
+}
+
+export async function deleteUserAccount(actorUserId, targetUserId, input = {}) {
+  const state = await readState();
+  const actor = state.users.find((user) => user.id === actorUserId);
+  const target = state.users.find((user) => user.id === targetUserId);
+
+  if (!actor || !["owner", "admin"].includes(normalizeRole(actor.role))) {
+    throw new Error("Only owner or admin can delete users.");
+  }
+  requirePlanEntitlement(actor, "business.metrics");
+
+  if (!target || isDeletedUser(target)) {
+    throw new Error("Target user not found.");
+  }
+
+  if (actor.id === target.id) {
+    throw new Error("You cannot delete your own account.");
+  }
+
+  const ownerCount = state.users.filter((user) => normalizeRole(user.role) === "owner" && !isDeletedUser(user)).length;
+  if (normalizeRole(target.role) === "owner" && ownerCount <= 1) {
+    throw new Error("At least one owner is required.");
+  }
+
+  const now = new Date();
+  const deletedEmail = `deleted-${target.id}@deleted.local`;
+  const previousRole = normalizeRole(target.role);
+  const previousEmail = target.email;
+  const previousPlanId = target.subscription?.planId || "";
+  const targetSessionIds = state.sessions.filter((session) => session.userId === target.id).map((session) => session.id);
+  const removedAssignments = state.advisorAssignments.filter((assignment) => (
+    assignment.customerId === target.id || assignment.advisorId === target.id || assignment.assignedBy === target.id
+  ));
+
+  const deletedUser = {
+    ...target,
+    name: "Deleted user",
+    email: deletedEmail,
+    passwordHash: "",
+    role: "customer",
+    subscription: {
+      ...(target.subscription || {}),
+      plan: "Starter",
+      planId: "starter",
+      status: "inactive",
+      provider: "deleted",
+      renewsAt: now.toISOString(),
+      trialEndsAt: target.subscription?.trialEndsAt || now.toISOString(),
+    },
+    deletedAt: now.toISOString(),
+    deletedBy: actor.id,
+    deleteReason: String(input.reason || "admin_user_management").slice(0, 160),
+  };
+
+  const operations = [
+    {
+      type: "upsert",
+      collection: "users",
+      record: deletedUser,
+    },
+    ...targetSessionIds.map((sessionId) => ({
+      type: "delete",
+      collection: "sessions",
+      key: sessionId,
+    })),
+    {
+      type: "delete",
+      collection: "portfolioSnapshots",
+      key: target.id,
+    },
+    {
+      type: "delete",
+      collection: "investorProfiles",
+      key: target.id,
+    },
+    ...removedAssignments.map((assignment) => ({
+      type: "delete",
+      collection: "advisorAssignments",
+      key: {
+        customerId: assignment.customerId,
+        advisorId: assignment.advisorId,
+      },
+    })),
+  ];
+
+  await patchStateWithAudit(state, operations, {
+    actorUserId: actor.id,
+    action: "team.user_deleted",
+    targetUserId: target.id,
+    details: {
+      previousEmail,
+      previousRole,
+      previousPlanId,
+      removedSessions: targetSessionIds.length,
+      removedAssignments: removedAssignments.length,
+      deletedEmail,
+      mode: "soft_delete",
+    },
+  });
+
+  return {
+    id: target.id,
+    deletedAt: deletedUser.deletedAt,
+    deletedEmail,
+  };
 }
 
 export async function assignAdvisor(actorUserId, customerId, advisorId) {
@@ -1428,22 +1607,23 @@ export async function businessMetrics() {
   const state = await readState();
   const activeSessions = state.sessions.filter((session) => new Date(session.expiresAt) > new Date()).length;
   const plans = subscriptionPlans();
-  const usersByPlan = state.users.reduce((counts, user) => {
+  const activeUsers = state.users.filter((user) => !isDeletedUser(user));
+  const usersByPlan = activeUsers.reduce((counts, user) => {
     const plan = user.subscription?.plan || "Unknown";
     counts[plan] = (counts[plan] || 0) + 1;
     return counts;
   }, {});
-  const usersByRole = state.users.reduce((counts, user) => {
+  const usersByRole = activeUsers.reduce((counts, user) => {
     const role = normalizeRole(user.role);
     counts[role] = (counts[role] || 0) + 1;
     return counts;
   }, {});
-  const paidUsers = state.users.filter((user) => user.subscription?.status === "active").length;
-  const trialUsers = state.users.filter((user) => user.subscription?.status === "trialing").length;
-  const mrrEstimate = state.users
+  const paidUsers = activeUsers.filter((user) => user.subscription?.status === "active").length;
+  const trialUsers = activeUsers.filter((user) => user.subscription?.status === "trialing").length;
+  const mrrEstimate = activeUsers
     .filter((user) => user.subscription?.status === "active")
     .reduce((total, user) => total + numberValue(user.subscription?.priceThb), 0);
-  const trialMrrPotential = state.users
+  const trialMrrPotential = activeUsers
     .filter((user) => user.subscription?.status === "trialing")
     .reduce((total, user) => total + numberValue(user.subscription?.priceThb), 0);
   const revenueCollected = state.billingEvents
@@ -1475,7 +1655,7 @@ export async function businessMetrics() {
   }, {});
 
   return {
-    users: state.users.length,
+    users: activeUsers.length,
     activeSessions,
     paidUsers,
     trials: trialUsers,
@@ -1535,7 +1715,7 @@ export async function businessMetrics() {
     organizations: state.organizations.length,
     organizationsByType,
     customerWorkspaces: organizationSummaries.filter((organization) => ["customer", "client"].includes(organization.type)).length,
-    platformMembers: state.users.filter((user) => user.organizationId === PLATFORM_ORGANIZATION_ID).length,
+    platformMembers: activeUsers.filter((user) => user.organizationId === PLATFORM_ORGANIZATION_ID).length,
     recentOrganizations: organizationSummaries.slice(0, 10),
     advisorAssignments: state.advisorAssignments.length,
     auditEvents: state.auditEvents.length,
@@ -1590,6 +1770,9 @@ export function subscriptionPlans() {
       bestFor: "New investors who need a simple portfolio health check.",
       features: ["Portfolio health check", "Stock screener", "Excel report", "Activity timeline"],
       entitlements: planFeatureIds("starter"),
+      launchStatus: "available",
+      publicLaunch: true,
+      checkoutEnabled: true,
       limits: {
         clientWorkspaces: 0,
         advisorSeats: 0,
@@ -1604,6 +1787,9 @@ export function subscriptionPlans() {
       bestFor: "Active investors who want simulation and sector intelligence.",
       features: ["Everything in Starter", "Strategy simulation", "Sector leaders", "Action plan per holding"],
       entitlements: planFeatureIds("pro"),
+      launchStatus: "available",
+      publicLaunch: true,
+      checkoutEnabled: true,
       limits: {
         clientWorkspaces: 0,
         advisorSeats: 0,
@@ -1617,12 +1803,33 @@ export function subscriptionPlans() {
       bestFor: "Advisors and teams who manage client portfolios.",
       features: ["Everything in Pro", "Client portfolio workspace", "Approval workflow", "Business dashboard", "Production readiness"],
       entitlements: planFeatureIds("advisor"),
+      launchStatus: "coming_soon",
+      publicLaunch: false,
+      checkoutEnabled: false,
       limits: {
         clientWorkspaces: 50,
         advisorSeats: 5,
       },
     },
   ];
+}
+
+export function publicSubscriptionPlans() {
+  return subscriptionPlans().filter((plan) => isPublicCheckoutPlan(plan.id));
+}
+
+export function deferredSubscriptionPlans() {
+  return subscriptionPlans().filter((plan) => !isPublicCheckoutPlan(plan.id));
+}
+
+export function isPublicCheckoutPlan(planId) {
+  const requestedPlanId = String(planId || "").trim().toLowerCase();
+  if (!PUBLIC_LAUNCH_PLAN_IDS.includes(requestedPlanId)) {
+    return false;
+  }
+
+  const plan = subscriptionPlans().find((candidate) => candidate.id === requestedPlanId);
+  return Boolean(plan?.publicLaunch && plan.checkoutEnabled && PUBLIC_LAUNCH_PLAN_IDS.includes(plan.id));
 }
 
 export function rolePolicy(role) {
@@ -1788,6 +1995,37 @@ function normalizeSubscriptionStatus(status) {
   return "trialing";
 }
 
+function normalizeManualSubscriptionStatus(status) {
+  const normalized = String(status || "").trim().toLowerCase();
+  if (["active", "trialing", "past_due", "canceled", "inactive"].includes(normalized)) {
+    return normalized;
+  }
+
+  return "active";
+}
+
+function manualSubscriptionExpiry(inputDate, status, now = new Date()) {
+  if (inputDate) {
+    const parsed = new Date(inputDate);
+    if (!Number.isFinite(parsed.getTime())) {
+      throw new Error("Package expiry date is invalid.");
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(inputDate))) {
+      parsed.setHours(23, 59, 59, 999);
+    }
+    return parsed.toISOString();
+  }
+
+  const fallback = new Date(now);
+  if (status === "trialing") {
+    fallback.setDate(fallback.getDate() + 14);
+  } else if (status === "active") {
+    fallback.setMonth(fallback.getMonth() + 1);
+  }
+
+  return fallback.toISOString();
+}
+
 function normalizeSubscription(subscription = {}, fallbackDate = new Date().toISOString()) {
   const plan = planById(currentSubscriptionPlanId(subscription));
   const baseDate = new Date(fallbackDate || Date.now());
@@ -1795,17 +2033,36 @@ function normalizeSubscription(subscription = {}, fallbackDate = new Date().toIS
   trialEndsAt.setDate(trialEndsAt.getDate() + 14);
   const renewsAt = new Date(baseDate);
   renewsAt.setMonth(renewsAt.getMonth() + 1);
+  const trialEndsAtValue = subscription.trialEndsAt || trialEndsAt.toISOString();
+  const renewsAtValue = subscription.renewsAt || renewsAt.toISOString();
+  const normalizedStatus = normalizeSubscriptionStatus(subscription.status);
 
   return {
     ...subscription,
     plan: plan.name,
     planId: plan.id,
-    status: normalizeSubscriptionStatus(subscription.status),
+    status: effectiveSubscriptionStatus(normalizedStatus, {
+      trialEndsAt: trialEndsAtValue,
+      renewsAt: renewsAtValue,
+    }),
     priceThb: numberValue(subscription.priceThb || plan.priceThb),
     billing: subscription.billing || plan.billing,
-    trialEndsAt: subscription.trialEndsAt || trialEndsAt.toISOString(),
-    renewsAt: subscription.renewsAt || renewsAt.toISOString(),
+    trialEndsAt: trialEndsAtValue,
+    renewsAt: renewsAtValue,
   };
+}
+
+function effectiveSubscriptionStatus(status, subscription = {}, now = new Date()) {
+  if (!ACTIVE_SUBSCRIPTION_STATUSES.includes(status)) {
+    return status;
+  }
+
+  const deadline = status === "trialing" ? subscription.trialEndsAt : subscription.renewsAt;
+  if (deadline && Number.isFinite(new Date(deadline).getTime()) && new Date(deadline) <= now) {
+    return "past_due";
+  }
+
+  return status;
 }
 
 async function createSession(userId) {
@@ -2105,6 +2362,24 @@ function createTrialSubscription(now) {
     billing: plan.billing,
     trialEndsAt: trialEndsAt.toISOString(),
     renewsAt: renewsAt.toISOString(),
+  };
+}
+
+function createPendingManualSubscription(now) {
+  const plan = planById("starter");
+  const renewsAt = new Date(now);
+  renewsAt.setDate(renewsAt.getDate() + 7);
+
+  return {
+    plan: plan.name,
+    planId: plan.id,
+    status: "inactive",
+    priceThb: plan.priceThb,
+    billing: plan.billing,
+    provider: "manual_admin_pending",
+    trialEndsAt: renewsAt.toISOString(),
+    renewsAt: renewsAt.toISOString(),
+    manualReviewRequired: true,
   };
 }
 
@@ -2959,6 +3234,10 @@ function normalizeState(parsed) {
 function normalizeRole(role) {
   const normalized = String(role || "").trim().toLowerCase();
   return ROLES.includes(normalized) ? normalized : "customer";
+}
+
+function isDeletedUser(user) {
+  return Boolean(user?.deletedAt);
 }
 
 function normalizeOrganizationType(type) {

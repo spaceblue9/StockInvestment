@@ -26,7 +26,17 @@ try {
   assertEqual(me.user, null, "Anonymous auth me should not return a user.");
 
   const plans = await getJson(`${baseUrl}/api/subscription/plans`);
-  assert(plans.plans?.length >= 3, "Subscription plans should be available for the pricing panel.");
+  assertEqual(plans.launchMode, "starter_pro_manual_ready", "Public launch should declare Starter/Pro manual-ready mode.");
+  assertEqual(plans.plans?.length, 2, "Public pricing should expose only Starter and Pro for the launch phase.");
+  assertEqual(plans.plans.map((plan) => plan.id).join(","), "starter,pro", "Public checkout plans should be Starter and Pro only.");
+  assert((plans.deferredPlans || []).some((plan) => plan.id === "advisor"), "Advisor should remain deferred for future/manual workflows.");
+
+  const checkoutDisabled = await fetch(`${baseUrl}/api/subscription/checkout`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ planId: "starter" }),
+  });
+  assertEqual(checkoutDisabled.status, 401, "Checkout should still require login before manual package assignment.");
 
   const unauthPolicy = await fetch(`${baseUrl}/api/admin/policy`);
   assertEqual(unauthPolicy.status, 401, "Admin policy should require login.");
@@ -34,9 +44,26 @@ try {
   const unauthOps = await fetch(`${baseUrl}/api/ops/readiness`);
   assertEqual(unauthOps.status, 401, "Operational readiness should require login.");
 
+  const unauthPortfolioTemplate = await fetch(`${baseUrl}/api/analysis/template/portfolio`);
+  assertEqual(unauthPortfolioTemplate.status, 401, "Anonymous users should not download portfolio templates.");
+
+  const unauthWatchlistTemplate = await fetch(`${baseUrl}/api/analysis/template/watchlist`);
+  assertEqual(unauthWatchlistTemplate.status, 401, "Anonymous users should not download watchlist templates.");
+
+  const unauthRawDownload = await fetch(`${baseUrl}/api/analysis/raw`);
+  assertEqual(unauthRawDownload.status, 401, "Anonymous users should not download raw analysis output.");
+
+  const ownerRegister = await postJson(`${baseUrl}/api/auth/register`, {
+    name: "Web Smoke Owner",
+    email: "web-smoke-owner@example.test",
+    password: "password123",
+  });
+  assertEqual(ownerRegister.body.ok, true, "Owner registration should succeed for authenticated downloads.");
+  const ownerCookie = cookieHeader(ownerRegister.response);
+
   await fs.mkdir(path.join(tempRoot, "data", "outputs"), { recursive: true });
   await fs.writeFile(path.join(tempRoot, "data", "outputs", "siamchart_raw.csv"), "Symbol,Price\nPTT,35\n", "utf8");
-  const rawCsvDownload = await getTextWithHeaders(`${baseUrl}/api/analysis/raw`);
+  const rawCsvDownload = await getTextWithHeaders(`${baseUrl}/api/analysis/raw`, ownerCookie);
   assert((rawCsvDownload.contentDisposition || "").includes("raw_CSV.csv"), "Raw CSV public download filename should be raw_CSV.csv.");
   assert(!String(rawCsvDownload.contentDisposition || "").includes("siamchart_raw.csv"), "Raw CSV public download filename should not expose siamchart_raw.csv.");
   assert(rawCsvDownload.text.includes("PTT"), "Raw CSV download should still serve the generated internal raw CSV content.");
@@ -50,12 +77,12 @@ try {
     `${JSON.stringify(coverageReport, null, 2)}\n`,
     "utf8",
   );
-  const coverageDownload = await getTextWithHeaders(`${baseUrl}/api/analysis/coverage`);
+  const coverageDownload = await getTextWithHeaders(`${baseUrl}/api/analysis/coverage`, ownerCookie);
   assert((coverageDownload.contentDisposition || "").includes("live_market_coverage_report.json"), "Coverage report should download as JSON.");
   assert(coverageDownload.text.includes('"targetFile": "raw_CSV.csv"'), "Coverage report should expose raw_CSV.csv in targetFile.");
   assert(!coverageDownload.text.includes("siamchart_raw.csv"), "Coverage report download should not expose the internal raw CSV compatibility filename.");
 
-  const portfolioTemplate = await getBuffer(`${baseUrl}/api/analysis/template/portfolio`);
+  const portfolioTemplate = await getBuffer(`${baseUrl}/api/analysis/template/portfolio`, ownerCookie);
   assert((portfolioTemplate.contentDisposition || "").includes("portfolio_template.xlsx"), "Portfolio template should download as portfolio_template.xlsx.");
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(portfolioTemplate.buffer);
@@ -64,7 +91,7 @@ try {
   assertEqual(portfolioSheet.getRow(1).values.slice(1, 4).join("|"), "Symbol|Quantity|Avg_Price", "Portfolio template should contain the required blank input headers.");
   assertEqual(Boolean(portfolioSheet.getRow(2).hasValues), false, "Portfolio template should not include sample holding data.");
 
-  const watchlistTemplate = await getTextWithHeaders(`${baseUrl}/api/analysis/template/watchlist`);
+  const watchlistTemplate = await getTextWithHeaders(`${baseUrl}/api/analysis/template/watchlist`, ownerCookie);
   assert((watchlistTemplate.contentDisposition || "").includes("watchlist_template.txt"), "Watchlist template should download as watchlist_template.txt.");
   assert(watchlistTemplate.text.includes("วิธีกรอก"), "Watchlist template should include Thai fill instructions.");
   assert(watchlistTemplate.text.includes("# PTT"), "Watchlist template should include commented format examples.");
@@ -75,21 +102,28 @@ try {
   assertIncludes(html, [
     "StockFlix",
     "Portfolio",
-    "Approvals",
     "Screener",
     "Sector",
     "Download blank portfolio template",
     "Download watchlist guide template",
     "data-template-downloads",
+    "Sign in to analyze",
+    "Sign in before downloading templates, browsing files, or running analysis.",
     "Simulation",
   ], "Main HTML should expose the dashboard navigation.");
+  assert(!html.includes('data-view="onboarding"'), "Launch navigation should not expose the hidden Guide view.");
+  assert(!html.includes('data-view="approvals"'), "Launch navigation should not expose the deferred Approvals view.");
 
   const appJs = await getText(`${baseUrl}/app.js`);
   assertIncludes(appJs, [
     "sectorFilter",
     "data-sector-filter",
-    "External Audit",
+    "tableColumnTips",
+    "data-table-header-hint",
+    "ค่าที่น่าเริ่มดู",
+    "Portfolio_Risk",
     "Operational readiness",
+    "data-manual-package-flow",
     "Launch Evidence Center",
     "data-launch-evidence-center",
     "Reference master launch evidence",
@@ -101,6 +135,14 @@ try {
     "Download live data coverage report",
     "/api/analysis/coverage",
     "Download raw_CSV.csv",
+    "syncAnalysisAccess",
+    "Sign in to analyze",
+    "Create an account or sign in before downloading templates",
+    "getAnalysisSelectedFiles",
+    "The selected files could not be attached",
+    "renderUploadSummaryMessages",
+    "Read portfolio file",
+    "Combined unique symbols sent to market data",
     "setAnalysisButtonLoading",
     "startAnalysisProgressTimers",
     "Analysis is running. Please wait until the report links appear here.",
@@ -111,10 +153,15 @@ try {
     "data-recommended-sector-filter",
     "data-recommended-score-band",
     "attachPortfolioVisualFilters",
+    "data-sector-exposure-complete",
+    "ไม่มีการรวมเป็น Other",
     "recommendedActionFields",
     "attachRecommendedActionsControls",
     "Order by",
     "Beginner filter guide",
+    "data-screener-default-all",
+    "stocks shown from the latest analysis",
+    "data-portfolio-quick-guidance",
     "data-screener-tooltip",
     "data-stock-highlight",
     "data-stock-row",
@@ -123,7 +170,26 @@ try {
     "data-simulation-buy-mode",
     "data-simulation-split-input",
     "data-simulation-buy-plan",
+    "data-simulation-growth-chart",
+    "data-simulation-chart-guide",
+    "strategy-line",
+    "buy-hold-line",
+    "Portfolio Growth: Strategy vs Buy & Hold",
+    "วิธีอ่านกราฟนี้",
     "Split Buy",
+    "data-sector-pro-intelligence",
+    "data-sector-default-all",
+    "All sectors overview",
+    "ค่าเริ่มต้นแสดงทุกหุ้นในทุก sector",
+    "data-sector-beginner-summary",
+    "data-sector-advanced-table",
+    "data-sector-ranking-panel",
+    "data-sector-risk-panel",
+    "data-sector-rotation-panel",
+    "กลุ่มไหนน่าศึกษา",
+    "พอร์ตกระจุกตรงไหน",
+    "สัญญาณกลุ่มแบบอ่านง่าย",
+    "ดูตารางตัวเลขขั้นสูง",
     "Score 60+",
     "RRR 1.5+",
     "D/E <= 1.0",
@@ -140,11 +206,23 @@ try {
     "data-production-environment-advisor",
     "data-production-env-commands",
     "Portfolio Data Health",
+    "data-business-admin-cockpit",
+    "data-business-section-tabs",
+    "data-business-section-default",
+    "Member Management",
+    "data-member-management-focus",
+    "data-business-advanced-ops",
+    "data-member-management-row",
     "System Admin",
     "data-system-admin-panel",
     "data-system-admin-actions",
     "User Management",
     "data-user-management-panel",
+    "data-admin-package-management",
+    "data-delete-user",
+    "deleteManagedUser",
+    "Delete user",
+    "team.user_deleted",
     "renderPortfolioDataHealth",
     "data-portfolio-health-panel",
     "data-portfolio-health-commands",
@@ -160,7 +238,6 @@ try {
     "portfolio_health.export",
     "Customer",
     "Workspace",
-    "renderApprovalsView",
   ], "Frontend bundle should include recent SaaS interaction markers.");
 
   const styles = await getText(`${baseUrl}/styles.css`);
@@ -177,9 +254,19 @@ try {
     ".screener-beginner-guide",
     ".tooltip-trigger",
     ".tooltip-card",
+    ".table-header-help",
+    ".table-tooltip-card",
+    ".simulation-growth-panel",
+    ".simulation-chart-frame",
+    ".chart-reading-guide",
     ".stock-chart-trigger",
     ".table-row-highlight",
     ".top-idea-point",
+    ".sector-pro-panel",
+    ".sector-beginner-summary",
+    ".advanced-sector-details",
+    ".sector-signal-grid",
+    ".sector-signal-card",
     ".reference-master-panel",
     ".reference-master-table",
     ".database-mode-advisor",
@@ -189,9 +276,11 @@ try {
     ".env-status",
     ".env-group-grid",
     ".portfolio-health-panel",
+    ".business-section-tabs",
     ".system-admin-panel",
     ".admin-action-grid",
     ".user-management-panel",
+    ".danger-action",
     ".portfolio-health-command-list",
     "bar-row-button",
     "ops-alert-card",
@@ -205,12 +294,15 @@ try {
       "subscription-plans",
       "admin-auth-guard",
       "ops-auth-guard",
+      "anonymous-analysis-download-guard",
+      "authenticated-analysis-downloads",
       "raw-csv-public-filename",
       "coverage-report-public-target-file",
       "blank-template-downloads",
       "main-html",
       "frontend-markers",
       "stylesheet-markers",
+      "admin-user-delete-markers",
     ],
   }, null, 2));
 } finally {
@@ -239,8 +331,25 @@ async function getText(url) {
   return response.text();
 }
 
-async function getTextWithHeaders(url) {
-  const response = await fetch(url);
+async function postJson(url, body, cookie = "") {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(cookie ? { Cookie: cookie } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  return {
+    response,
+    body: await response.json(),
+  };
+}
+
+async function getTextWithHeaders(url, cookie = "") {
+  const response = await fetch(url, {
+    headers: cookie ? { Cookie: cookie } : {},
+  });
   assert(response.ok, `${url} should return HTTP 2xx, got ${response.status}.`);
   return {
     text: await response.text(),
@@ -248,13 +357,20 @@ async function getTextWithHeaders(url) {
   };
 }
 
-async function getBuffer(url) {
-  const response = await fetch(url);
+async function getBuffer(url, cookie = "") {
+  const response = await fetch(url, {
+    headers: cookie ? { Cookie: cookie } : {},
+  });
   assert(response.ok, `${url} should return HTTP 2xx, got ${response.status}.`);
   return {
     buffer: Buffer.from(await response.arrayBuffer()),
     contentDisposition: response.headers.get("content-disposition") || "",
   };
+}
+
+function cookieHeader(response) {
+  const setCookie = response.headers.get("set-cookie") || "";
+  return setCookie.split(";")[0];
 }
 
 function closeServer(targetServer) {

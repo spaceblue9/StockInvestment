@@ -16,6 +16,7 @@ try {
   const { applyStatePatch, statePatchCapabilities } = patchService;
   const { patchAppState, readAppState, stateRepositoryInfo, writeAppState } = repository;
   const {
+    checkoutSubscription,
     createApprovalRequest,
     createPaymentSession,
     createUser,
@@ -238,6 +239,7 @@ try {
     email: "snapshot-customer@example.test",
     password: "password123",
   });
+  await checkoutSubscription(accountCustomer.user.id, "starter");
   const storedAfterRegistrationPatch = await readAppState();
   const platformOrganization = storedAfterRegistrationPatch.organizations.find((organization) => organization.id === "org_platform");
   const customerOrganization = storedAfterRegistrationPatch.organizations.find((organization) => organization.ownerUserId === accountCustomer.user.id);
@@ -269,13 +271,28 @@ try {
 
   const firstSnapshot = await saveCustomerPortfolioSnapshot(accountCustomer.user.id, samplePortfolioSnapshot("AOT", 72000, 65000, 7000, 78, "Hold"));
   const secondSnapshot = await saveCustomerPortfolioSnapshot(accountCustomer.user.id, samplePortfolioSnapshot("PTT", 54000, 60000, -6000, 54, "Reduce 50%"));
+  const watchlistOnlySnapshot = await saveCustomerPortfolioSnapshot(accountCustomer.user.id, {
+    portfolioRows: [],
+    recommendations: [{ Symbol: "BDMS", Total_Score: 82 }],
+    preserveExistingPortfolioRows: true,
+    outputs: {
+      raw: "raw_CSV.csv",
+      recommended: "recommended_stocks.csv",
+      coverageReport: "live_market_coverage_report.json",
+      portfolioReport: null,
+    },
+  });
   const storedAfterAccountPatchFlows = await readAppState();
   const accountAuditActions = storedAfterAccountPatchFlows.auditEvents.map((event) => event.action);
 
   assertEqual(firstSnapshot.summary.marketValue, 72000, "Portfolio snapshot patch flow should return the first summary.");
   assertEqual(secondSnapshot.summary.marketValue, 54000, "Portfolio snapshot patch flow should return the updated summary.");
+  assertEqual(watchlistOnlySnapshot.portfolioRows.length, 1, "Watchlist-only analysis should preserve existing portfolio holdings.");
+  assertEqual(watchlistOnlySnapshot.portfolioRows[0].Symbol, "PTT", "Watchlist-only analysis should not replace existing holding rows.");
+  assertEqual(watchlistOnlySnapshot.recommendations[0].Symbol, "BDMS", "Watchlist-only analysis should still update recommendations.");
   assertEqual(storedAfterAccountPatchFlows.portfolioSnapshots.length, 1, "Portfolio snapshot patch flow should upsert by userId.");
   assertEqual(storedAfterAccountPatchFlows.portfolioSnapshots[0].summary.marketValue, 54000, "Portfolio snapshot patch flow should persist the latest snapshot.");
+  assertEqual(storedAfterAccountPatchFlows.portfolioSnapshots[0].portfolioRows[0].Symbol, "PTT", "Persisted snapshot should preserve existing holdings after watchlist-only analysis.");
   assert(accountAuditActions.includes("auth.register"), "Account registration patch flow should append auth.register audit events.");
   assert(accountAuditActions.includes("analysis.snapshot_saved"), "Portfolio snapshot patch flow should append snapshot audit events.");
 
@@ -304,6 +321,7 @@ try {
       accountOwner: accountOwner.user.id,
       accountCustomer: accountCustomer.user.id,
       portfolioSnapshot: storedAfterAccountPatchFlows.portfolioSnapshots[0].userId,
+      preservedWatchlistOnlyHolding: watchlistOnlySnapshot.portfolioRows[0].Symbol,
     },
   }, null, 2));
 } finally {

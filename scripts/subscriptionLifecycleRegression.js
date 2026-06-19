@@ -23,6 +23,7 @@ try {
     processPaymentWebhook,
     processSignedPaymentWebhook,
     subscriptionPlans,
+    updateUserSubscription,
   } = auth;
 
   const owner = await createAccount(createUser, "Owner", "owner@example.test");
@@ -32,7 +33,8 @@ try {
   const proPlan = plans.find((plan) => plan.id === "pro");
 
   assert(starterPlan && proPlan, "Starter and Pro plans should exist.");
-  assertEqual(customer.subscription.status, "trialing", "New customers should start in trial.");
+  assertEqual(customer.subscription.status, "inactive", "New customers should wait for manual admin package assignment.");
+  assertEqual(customer.subscription.provider, "manual_admin_pending", "New customers should be marked as pending manual admin review.");
 
   const failedSession = await createPaymentSession(customer.id, "starter");
   const failedWebhook = await processPaymentWebhook(customer.id, {
@@ -43,7 +45,7 @@ try {
   });
   assertEqual(failedWebhook.paymentSession.status, "failed", "Failed webhook should mark session failed.");
   assertEqual(failedWebhook.billingEvent, null, "Failed webhook should not create a billing event.");
-  assertEqual(failedWebhook.user.subscription.status, "trialing", "Failed payment should not activate subscription.");
+  assertEqual(failedWebhook.user.subscription.status, "inactive", "Failed payment should not activate subscription.");
   assertEqual((await getBillingHistory(customer.id)).length, 0, "No invoice should exist after failed payment only.");
 
   const signedSession = await createPaymentSession(customer.id, "pro");
@@ -145,6 +147,15 @@ try {
   assertEqual(sessionById.get(staleSession.paymentSession.id).status, "pending", "Stale signature should leave session pending.");
   assertEqual(sessionById.get(missingSession.paymentSession.id).status, "pending", "Missing signature should leave session pending.");
 
+  const manualSubscription = await updateUserSubscription(owner.id, customer.id, {
+    planId: "starter",
+    status: "active",
+    expiresAt: "2099-12-31",
+  });
+  assertEqual(manualSubscription.subscription.planId, "starter", "Owner should manually update customer to Starter during launch.");
+  assertEqual(manualSubscription.subscription.status, "active", "Manual package update should keep active status before expiry.");
+  assertEqual(manualSubscription.subscription.provider, "manual_admin", "Manual package update should record manual provider.");
+
   const metrics = await businessMetrics();
   assertEqual(metrics.paidUsers, 1, "Metrics should count one paid customer.");
   assertEqual(metrics.failedPaymentSessions, 1, "Metrics should count one failed payment session.");
@@ -160,6 +171,7 @@ try {
   assertEqual(rejectedAuditEvents.length, 4, "Rejected webhook attempts should be audited.");
   assert(auditEvents.some((event) => event.action === "payment.webhook_succeeded"), "Payment success should be audited.");
   assert(auditEvents.some((event) => event.action === "payment.webhook_failed"), "Payment failure should be audited.");
+  assert(auditEvents.some((event) => event.action === "team.subscription_update"), "Manual subscription update should be audited.");
 
   const integrity = await auditIntegritySummary(owner.id);
   assertEqual(integrity.status, "verified", "Owner audit integrity summary should be verified.");
@@ -182,6 +194,7 @@ try {
       verifiedWebhookEvents: metrics.verifiedWebhookEvents,
       rejectedWebhookEvents: metrics.rejectedWebhookEvents,
       revenueCollected: metrics.revenueCollected,
+      manualPlan: manualSubscription.subscription.planId,
       auditIntegrity: integrity.status,
     },
   };

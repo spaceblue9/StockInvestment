@@ -75,7 +75,53 @@ try {
   });
   assertEqual(customerRegister.body.ok, true, "Customer registration should succeed.");
   assertEqual(customerRegister.body.user.role, "customer", "Second user should become customer.");
+  assertEqual(customerRegister.body.user.subscription.status, "inactive", "New customer should wait for admin package assignment.");
+  assertEqual(customerRegister.body.user.subscription.provider, "manual_admin_pending", "New customer should be marked pending manual package review.");
   const customerCookie = cookieHeader(customerRegister.response);
+
+  const ownerPackageUpdate = await postJson(`${baseUrl}/api/admin/users/${encodeURIComponent(customerRegister.body.user.id)}/subscription`, {
+    planId: "pro",
+    status: "active",
+    expiresAt: "2026-12-31",
+  }, ownerCookie);
+  assertEqual(ownerPackageUpdate.response.status, 200, "Owner should update customer package from admin API.");
+  assertEqual(ownerPackageUpdate.body.ok, true, "Owner package update should return ok.");
+  assertEqual(ownerPackageUpdate.body.user.subscription.planId, "pro", "Owner package update should set Pro package.");
+  assertEqual(ownerPackageUpdate.body.user.subscription.status, "active", "Owner package update should activate subscription.");
+
+  const customerPackageUpdate = await postJson(`${baseUrl}/api/admin/users/${encodeURIComponent(customerRegister.body.user.id)}/subscription`, {
+    planId: "starter",
+    status: "active",
+    expiresAt: "2026-12-31",
+  }, customerCookie);
+  assertEqual(customerPackageUpdate.response.status, 403, "Customer should not update own package via admin API.");
+
+  const deleteTargetRegister = await postJson(`${baseUrl}/api/auth/register`, {
+    name: "Delete Me Customer",
+    email: "delete-me@example.test",
+    password: "password123",
+  });
+  assertEqual(deleteTargetRegister.body.ok, true, "Delete target registration should succeed.");
+  const deleteTargetCookie = cookieHeader(deleteTargetRegister.response);
+
+  const customerDeleteAttempt = await deleteJson(`${baseUrl}/api/admin/users/${encodeURIComponent(deleteTargetRegister.body.user.id)}`, customerCookie);
+  assertEqual(customerDeleteAttempt.response.status, 403, "Customer should not delete users via admin API.");
+
+  const ownerDeleteUser = await deleteJson(`${baseUrl}/api/admin/users/${encodeURIComponent(deleteTargetRegister.body.user.id)}`, ownerCookie);
+  assertEqual(ownerDeleteUser.response.status, 200, "Owner should delete user from admin API.");
+  assertEqual(ownerDeleteUser.body.ok, true, "Owner delete user should return ok.");
+  assert(ownerDeleteUser.body.deletion.deletedAt, "Delete response should include deletedAt.");
+
+  const deletedUserAfterDelete = await getJson(`${baseUrl}/api/auth/me`, deleteTargetCookie);
+  assertEqual(deletedUserAfterDelete.user, null, "Deleted user's active session should be removed.");
+  const deletedUserLogin = await postJson(`${baseUrl}/api/auth/login`, {
+    email: "delete-me@example.test",
+    password: "password123",
+  });
+  assertEqual(deletedUserLogin.response.status, 401, "Deleted user should not be able to login again.");
+
+  const usersAfterDelete = await getJson(`${baseUrl}/api/admin/users`, ownerCookie);
+  assert(!usersAfterDelete.users.some((user) => user.id === deleteTargetRegister.body.user.id), "Deleted user should be hidden from admin user list.");
 
   const customerBusiness = await fetch(`${baseUrl}/api/admin/metrics`, {
     headers: { Cookie: customerCookie },
@@ -117,6 +163,8 @@ try {
     launchEvidence: launchEvidence.evidence.status,
     productionEnvironment: business.metrics.productionEnvironmentAdvisor.status,
     portfolioDataHealth: business.metrics.portfolioDataHealth.status,
+    ownerUpdatedCustomerPackage: ownerPackageUpdate.body.user.subscription.planId,
+    ownerDeletedUser: ownerDeleteUser.body.deletion.id,
     alertCount: readiness.readiness.alerts.length,
   }, null, 2));
 } finally {
@@ -141,6 +189,21 @@ async function postJson(url, body, cookie = "") {
       ...(cookie ? { Cookie: cookie } : {}),
     },
     body: JSON.stringify(body),
+  });
+  return {
+    response,
+    body: await response.json(),
+  };
+}
+
+async function deleteJson(url, cookie = "") {
+  const response = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      ...(cookie ? { Cookie: cookie } : {}),
+    },
+    body: JSON.stringify({ reason: "frontend_auth_regression" }),
   });
   return {
     response,

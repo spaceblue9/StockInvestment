@@ -26,7 +26,7 @@
         <section id="authPanel" class="panel auth-panel">
           <p class="eyebrow">Member Access</p>
           <h2>เข้าสู่ระบบเพื่อเริ่มดูแลพอร์ต</h2>
-          <p class="muted">ออกแบบสำหรับผู้เริ่มต้นลงทุน ให้เห็นภาพรวม ความเสี่ยง และแผนปฏิบัติแบบอ่านง่าย</p>
+          <p class="muted">สมัครบัญชีไว้ก่อน แล้ว admin จะเปิด Package ให้ใช้งานตามแผน Starter หรือ Pro ที่ตกลงกัน</p>
           <form id="authForm">
             <label id="nameField">
               Name
@@ -57,20 +57,20 @@
           <p class="eyebrow">Run Analysis</p>
           <h2>Upload portfolio</h2>
           <div class="template-downloads" data-template-downloads>
-            <a class="download-link" href="/api/analysis/template/portfolio" data-template-download="portfolio">Download blank portfolio template</a>
-            <a class="download-link" href="/api/analysis/template/watchlist" data-template-download="watchlist">Download watchlist guide template</a>
+            <a class="download-link disabled" data-download-href="/api/analysis/template/portfolio" data-template-download="portfolio" aria-disabled="true" tabindex="-1">Download blank portfolio template</a>
+            <a class="download-link disabled" data-download-href="/api/analysis/template/watchlist" data-template-download="watchlist" aria-disabled="true" tabindex="-1">Download watchlist guide template</a>
             <p class="muted">Portfolio template has only headers: Symbol, Quantity, Avg_Price. Watchlist template includes # instructions and one ticker per line guidance.</p>
           </div>
           <form id="analysisForm">
             <label>
               Watchlist
-              <input type="file" name="watchlist" accept=".txt">
+              <input type="file" name="watchlist" accept=".txt" disabled>
             </label>
             <label>
               Portfolio
-              <input type="file" name="portfolio" accept=".xlsx,.xls">
+              <input type="file" name="portfolio" accept=".xlsx,.xls" disabled>
             </label>
-            <button id="analysisSubmitButton" type="submit" data-analysis-submit>Analyze my portfolio</button>
+            <button id="analysisSubmitButton" type="submit" data-analysis-submit disabled>Sign in to analyze</button>
           </form>
           <div id="analysisStatusPanel" class="analysis-status" data-analysis-progress hidden aria-live="polite" aria-busy="false">
             <div class="analysis-status-header">
@@ -84,7 +84,7 @@
               <li data-analysis-step="report">Building portfolio report</li>
             </ol>
           </div>
-          <p id="runMessage" class="muted" aria-live="polite">Sign in, upload files, then run your analysis.</p>
+          <p id="runMessage" class="muted" aria-live="polite">Sign in before downloading templates, browsing files, or running analysis.</p>
         </section>
 
         <section class="panel pricing-panel">
@@ -114,8 +114,6 @@
             </div>
             <div class="view-grid">
               <button type="button" data-view="portfolio">Portfolio</button>
-              <button type="button" data-view="onboarding">Guide</button>
-              <button type="button" data-view="approvals">Approvals</button>
               <button type="button" data-view="screener">Screener</button>
               <button type="button" data-view="sector">Sector</button>
               <button type="button" data-view="simulation">Simulation</button>

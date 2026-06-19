@@ -1,7 +1,7 @@
 import express from "express";
 import multer from "multer";
 import path from "path";
-import { collectSymbolsFromFiles } from "../services/inputService.js";
+import { collectInputSymbolsFromFiles } from "../services/inputService.js";
 import { buildBlankPortfolioTemplateBuffer, buildBlankWatchlistTemplateText } from "../services/inputTemplateService.js";
 import { getUserFromRequest, recordAuditEvent, requirePlanEntitlement, saveCustomerPortfolioSnapshot } from "../services/authService.js";
 import { fetchThaiMarketData } from "../services/marketDataService.js";
@@ -36,10 +36,24 @@ router.post("/analysis/run", upload.fields([
 
     requirePlanEntitlement(currentUser, "analysis.run");
 
-    const watchlistPath = req.files?.watchlist?.[0]?.path;
+    const watchlistFile = req.files?.watchlist?.[0];
+    const watchlistPath = watchlistFile?.path;
     const portfolioFile = req.files?.portfolio?.[0];
     const portfolioPath = portfolioFile?.path;
-    const symbols = await collectSymbolsFromFiles({ watchlistPath, portfolioPath });
+    const inputSymbols = await collectInputSymbolsFromFiles({ watchlistPath, portfolioPath });
+    const symbols = inputSymbols.symbols;
+    if (!watchlistPath && !portfolioPath) {
+      throw httpError(
+        "Please choose a watchlist or portfolio file before running analysis.",
+        400,
+      );
+    }
+    if (portfolioPath && inputSymbols.portfolioSymbols.length === 0) {
+      throw httpError(
+        "The uploaded portfolio file was received, but no Symbol values were found. Please check that the first sheet has a Symbol column with at least one ticker.",
+        400,
+      );
+    }
     if (symbols.length === 0) {
       throw httpError(
         "No stock symbols were found. Please fill the Symbol column in the portfolio template or add one ticker per line in the watchlist template.",
@@ -70,6 +84,12 @@ router.post("/analysis/run", upload.fields([
     });
     let portfolioReport = null;
     let portfolioRows = [];
+    const uploadSummary = {
+      watchlist: uploadedFileSummary(watchlistFile, inputSymbols.watchlistSymbols),
+      portfolio: uploadedFileSummary(portfolioFile, inputSymbols.portfolioSymbols),
+      combinedSymbols: symbols.length,
+      sampleSymbols: symbols.slice(0, 12),
+    };
 
     if (portfolioPath) {
       const reportFileName = `${safeBaseName(portfolioFile.originalname)}_analysis_report.xlsx`;
@@ -77,6 +97,7 @@ router.post("/analysis/run", upload.fields([
       portfolioRows = await analyzePortfolio(portfolioPath, recommendations, {
         outputFile: reportOutput,
       });
+      uploadSummary.portfolio.holdings = portfolioRows.length;
       portfolioReport = {
         count: portfolioRows.length,
         fileName: reportFileName,
@@ -88,6 +109,7 @@ router.post("/analysis/run", upload.fields([
     const customerSnapshot = await saveCustomerPortfolioSnapshot(currentUser.id, {
       portfolioRows,
       recommendations,
+      preserveExistingPortfolioRows: !portfolioPath,
       outputs: {
         raw: rawOutput,
         recommended: recommendedOutput,
@@ -95,6 +117,14 @@ router.post("/analysis/run", upload.fields([
         portfolioReport: portfolioReport?.output || null,
       },
     });
+    const responsePortfolioRows = customerSnapshot?.portfolioRows || portfolioRows;
+    const responsePortfolioReport = portfolioReport || preservedPortfolioReport(customerSnapshot);
+    const responseOutputs = customerSnapshot?.outputs || {
+      raw: rawOutput,
+      recommended: recommendedOutput,
+      coverageReport: coverageOutput,
+      portfolioReport: portfolioReport?.output || null,
+    };
     await recordAuditEvent({
       actorUserId: currentUser.id,
       action: "analysis.run",
@@ -105,6 +135,7 @@ router.post("/analysis/run", upload.fields([
         recommendationCount: recommendations.length,
         portfolioRows: portfolioRows.length,
         hasPortfolio: Boolean(portfolioPath),
+        uploadSummary,
       },
     });
 
@@ -114,28 +145,53 @@ router.post("/analysis/run", upload.fields([
       symbols,
       count: rows.length,
       recommendationCount: recommendations.length,
-      outputs: {
-        raw: rawOutput,
-        recommended: recommendedOutput,
-        coverageReport: coverageOutput,
-        portfolioReport: portfolioReport?.output || null,
-      },
-      portfolioReport,
+      outputs: responseOutputs,
+      portfolioReport: responsePortfolioReport,
       marketCoverage,
+      uploadSummary,
       customerSnapshot,
       recommendations,
-      portfolioRows,
+      portfolioRows: responsePortfolioRows,
       logs,
       message: portfolioReport
         ? "Market data, stock scoring, and portfolio report were generated."
-        : "Market data and stock scoring were generated. Upload a portfolio to generate a report.",
+        : responsePortfolioRows.length
+          ? "Market data and stock scoring were generated. Existing portfolio holdings were kept because no new portfolio file was uploaded."
+          : "Market data and stock scoring were generated. Upload a portfolio to generate a report.",
     });
   } catch (error) {
     sendAnalysisError(res, error);
   }
 });
 
-router.get("/analysis/raw", (_req, res) => {
+function preservedPortfolioReport(snapshot) {
+  const reportOutput = snapshot?.outputs?.portfolioReport;
+  if (!reportOutput) {
+    return null;
+  }
+  const fileName = path.basename(reportOutput);
+  return {
+    count: snapshot.portfolioRows?.length || 0,
+    fileName,
+    output: reportOutput,
+    downloadUrl: `/api/analysis/report/${encodeURIComponent(fileName)}`,
+    preserved: true,
+  };
+}
+
+function uploadedFileSummary(file, symbols = []) {
+  if (!file) {
+    return null;
+  }
+  return {
+    fileName: file.originalname || "uploaded-file",
+    sizeBytes: file.size || 0,
+    parsedSymbols: symbols.length,
+    sampleSymbols: symbols.slice(0, 12),
+  };
+}
+
+router.get("/analysis/raw", requireSignedInForAnalysisFiles, (_req, res) => {
   res.download(outputPath("siamchart_raw.csv"), "raw_CSV.csv", (error) => {
     if (error && !res.headersSent) {
       res.status(404).json({
@@ -146,7 +202,7 @@ router.get("/analysis/raw", (_req, res) => {
   });
 });
 
-router.get("/analysis/recommended", (_req, res) => {
+router.get("/analysis/recommended", requireSignedInForAnalysisFiles, (_req, res) => {
   res.download(outputPath("recommended_stocks.csv"), "recommended_stocks.csv", (error) => {
     if (error && !res.headersSent) {
       res.status(404).json({
@@ -157,7 +213,7 @@ router.get("/analysis/recommended", (_req, res) => {
   });
 });
 
-router.get("/analysis/coverage", (_req, res) => {
+router.get("/analysis/coverage", requireSignedInForAnalysisFiles, (_req, res) => {
   res.download(outputPath("live_market_coverage_report.json"), "live_market_coverage_report.json", (error) => {
     if (error && !res.headersSent) {
       res.status(404).json({
@@ -168,7 +224,7 @@ router.get("/analysis/coverage", (_req, res) => {
   });
 });
 
-router.get("/analysis/template/portfolio", async (_req, res) => {
+router.get("/analysis/template/portfolio", requireSignedInForAnalysisFiles, async (_req, res) => {
   try {
     const buffer = await buildBlankPortfolioTemplateBuffer();
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
@@ -179,13 +235,13 @@ router.get("/analysis/template/portfolio", async (_req, res) => {
   }
 });
 
-router.get("/analysis/template/watchlist", (_req, res) => {
+router.get("/analysis/template/watchlist", requireSignedInForAnalysisFiles, (_req, res) => {
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
   res.setHeader("Content-Disposition", 'attachment; filename="watchlist_template.txt"');
   res.send(buildBlankWatchlistTemplateText());
 });
 
-router.get("/analysis/report/:fileName", (req, res) => {
+router.get("/analysis/report/:fileName", requireSignedInForAnalysisFiles, (req, res) => {
   const fileName = path.basename(req.params.fileName);
   res.download(outputPath(fileName), fileName, (error) => {
     if (error && !res.headersSent) {
@@ -196,6 +252,22 @@ router.get("/analysis/report/:fileName", (req, res) => {
     }
   });
 });
+
+async function requireSignedInForAnalysisFiles(req, res, next) {
+  try {
+    const currentUser = await getUserFromRequest(req);
+    if (!currentUser) {
+      res.status(401).json({
+        ok: false,
+        message: "Please sign in before downloading analysis files.",
+      });
+      return;
+    }
+    next();
+  } catch (error) {
+    sendAnalysisError(res, error);
+  }
+}
 
 router.post("/simulation/run", async (req, res) => {
   try {

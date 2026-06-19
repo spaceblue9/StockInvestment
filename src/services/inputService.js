@@ -75,7 +75,7 @@ export async function readPortfolioSymbols(filePath) {
   return symbols;
 }
 
-export async function collectSymbolsFromFiles({ watchlistPath, portfolioPath }) {
+export async function collectInputSymbolsFromFiles({ watchlistPath, portfolioPath }) {
   const watchlistSymbols = await readWatchlistSymbols(watchlistPath);
   const portfolioSymbols = await readPortfolioSymbols(portfolioPath);
   const combined = [...watchlistSymbols, ...portfolioSymbols];
@@ -85,7 +85,20 @@ export async function collectSymbolsFromFiles({ watchlistPath, portfolioPath }) 
     .filter((symbol) => symbol && !EXCLUDE_SYMBOLS.has(symbol))
     .sort();
 
-  return symbols.length > 0 ? symbols : DEFAULT_SYMBOLS;
+  return {
+    symbols,
+    watchlistSymbols,
+    portfolioSymbols,
+  };
+}
+
+export async function collectSymbolsFromFiles({ watchlistPath, portfolioPath }, options = {}) {
+  const result = await collectInputSymbolsFromFiles({ watchlistPath, portfolioPath });
+  if (result.symbols.length > 0) {
+    return result.symbols;
+  }
+
+  return options.useDefaultSymbols === false ? [] : DEFAULT_SYMBOLS;
 }
 
 export function normalizeExcelValue(value) {

@@ -41,6 +41,9 @@ try {
   assertEqual(analysis.data.ok, true, "Analysis should succeed with an uploaded portfolio workbook.");
   assertEqual(analysis.data.portfolioRows.length, 2, "Analysis response should include two portfolio rows.");
   assertEqual(analysis.data.portfolioReport.count, 2, "Portfolio report metadata should count two rows.");
+  assertEqual(analysis.data.uploadSummary.portfolio.fileName, "my_renamed_portfolio.xlsx", "Analysis response should report the uploaded portfolio filename.");
+  assertEqual(analysis.data.uploadSummary.portfolio.parsedSymbols, 2, "Analysis response should report parsed portfolio symbols.");
+  assertEqual(analysis.data.uploadSummary.portfolio.holdings, 2, "Analysis response should report analyzed portfolio holdings.");
   assertEqual(analysis.data.customerSnapshot.portfolioRows.length, 2, "Saved snapshot should preserve portfolio rows.");
   assertEqual(analysis.data.customerSnapshot.summary.holdings, 2, "Saved snapshot summary should count holdings.");
   assertEqual(analysis.data.portfolioRows.map((row) => row.Symbol).sort().join("|"), "AOT|PTT", "Portfolio rows should preserve uploaded symbols.");
@@ -51,6 +54,30 @@ try {
   const savedPortfolio = await getJson(`${baseUrl}/api/customer/portfolio`, cookie);
   assertEqual(savedPortfolio.ok, true, "Saved portfolio endpoint should be available after analysis.");
   assertEqual(savedPortfolio.snapshot.portfolioRows.length, 2, "Saved portfolio endpoint should return portfolio rows for frontend render.");
+
+  const secondPortfolioBuffer = await buildPortfolioWorkbookBuffer([
+    { Symbol: "PTT", Quantity: 300, Avg_Price: 30 },
+  ]);
+  globalThis.fetch = fakeYahooFetch;
+  const changedPortfolioAnalysis = await postForm(`${baseUrl}/api/analysis/run`, buildPortfolioForm(secondPortfolioBuffer, "second_portfolio.xlsx"), cookie);
+  globalThis.fetch = nativeFetch;
+  assertEqual(changedPortfolioAnalysis.data.ok, true, "Analysis should succeed with a different uploaded portfolio workbook.");
+  assertEqual(changedPortfolioAnalysis.data.portfolioRows.length, 1, "Different portfolio upload should change the portfolio row count.");
+  assertEqual(changedPortfolioAnalysis.data.portfolioRows[0].Symbol, "PTT", "Different portfolio upload should use the new file's holding symbol.");
+  assertEqual(changedPortfolioAnalysis.data.uploadSummary.portfolio.fileName, "second_portfolio.xlsx", "Upload summary should identify the second portfolio filename.");
+
+  const emptyPortfolioAnalysis = await postForm(`${baseUrl}/api/analysis/run`, buildPortfolioForm(await buildPortfolioWorkbookBuffer([]), "empty_portfolio.xlsx"), cookie);
+  assertEqual(emptyPortfolioAnalysis.response.status, 400, "Empty portfolio upload should fail instead of silently using default symbols.");
+  assert((emptyPortfolioAnalysis.data.message || "").includes("no Symbol values were found"), "Empty portfolio error should explain that no Symbol values were found.");
+
+  const watchlistOnlyAnalysis = await postForm(`${baseUrl}/api/analysis/run`, buildWatchlistForm("PTT\nAOT\n"), cookie);
+  assertEqual(watchlistOnlyAnalysis.data.ok, true, "Watchlist-only analysis should succeed after a portfolio snapshot exists.");
+  assertEqual(watchlistOnlyAnalysis.data.uploadSummary.watchlist.fileName, "watchlist.txt", "Watchlist-only response should report the uploaded watchlist filename.");
+  assertEqual(watchlistOnlyAnalysis.data.uploadSummary.watchlist.parsedSymbols, 2, "Watchlist-only response should report parsed watchlist symbols.");
+  assertEqual(watchlistOnlyAnalysis.data.portfolioRows.length, 1, "Watchlist-only response should return preserved portfolio rows for frontend state.");
+  assertEqual(watchlistOnlyAnalysis.data.customerSnapshot.portfolioRows.length, 1, "Watchlist-only snapshot should preserve existing portfolio rows.");
+  assertEqual(watchlistOnlyAnalysis.data.portfolioReport.preserved, true, "Watchlist-only response should expose the preserved portfolio report metadata.");
+  assert((watchlistOnlyAnalysis.data.message || "").includes("Existing portfolio holdings were kept"), "Watchlist-only response should explain that existing holdings were kept.");
 
   const internalRawPath = path.join(tempRoot, "data", "outputs", "siamchart_raw.csv");
   const recommendedPath = path.join(tempRoot, "data", "outputs", "recommended_stocks.csv");
@@ -70,7 +97,7 @@ try {
   assertEqual(await fs.readFile(recommendedPath, "utf8"), recommendedBeforeFailure, "Failed zero-row fetch must not overwrite recommendations.");
 
   const savedAfterFailure = await getJson(`${baseUrl}/api/customer/portfolio`, cookie);
-  assertEqual(savedAfterFailure.snapshot.portfolioRows.length, 2, "Failed zero-row fetch must not replace the saved portfolio snapshot.");
+  assertEqual(savedAfterFailure.snapshot.portfolioRows.length, 1, "Failed zero-row fetch must not replace the saved portfolio snapshot.");
 
   await fs.writeFile(path.join(tempRoot, "recommended_stocks.csv"), referenceCsv(), "utf8");
   globalThis.fetch = fakeYahooFailureFetch;
@@ -88,6 +115,9 @@ try {
       "renamed-portfolio-workbook-upload",
       "portfolio-rows-response",
       "portfolio-snapshot-persistence",
+      "different-portfolio-upload-changes-response",
+      "empty-portfolio-no-default-fallback",
+      "watchlist-only-preserves-portfolio-response",
       "internal-raw-file-compatibility",
       "public-raw-download-filename",
       "zero-row-fetch-rejects",
@@ -123,11 +153,19 @@ async function buildPortfolioWorkbookBuffer(rows) {
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
-function buildPortfolioForm(portfolioBuffer) {
+function buildPortfolioForm(portfolioBuffer, fileName = "my_renamed_portfolio.xlsx") {
   const formData = new FormData();
   formData.append("portfolio", new Blob([portfolioBuffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  }), "my_renamed_portfolio.xlsx");
+  }), fileName);
+  return formData;
+}
+
+function buildWatchlistForm(text) {
+  const formData = new FormData();
+  formData.append("watchlist", new Blob([text], {
+    type: "text/plain",
+  }), "watchlist.txt");
   return formData;
 }
 

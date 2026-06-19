@@ -16,11 +16,14 @@ const analysisStatusPanel = document.querySelector("#analysisStatusPanel");
 const analysisStatusTitle = document.querySelector("#analysisStatusTitle");
 const analysisStatusText = document.querySelector("#analysisStatusText");
 const analysisStepItems = [...document.querySelectorAll("[data-analysis-step]")];
+const templateDownloadLinks = [...document.querySelectorAll("[data-template-download]")];
+const analysisFileInputs = [...document.querySelectorAll("#analysisForm input[type='file']")];
 const runMessage = document.querySelector("#runMessage");
 const viewOutput = document.querySelector("#viewOutput");
 const customerSnapshot = document.querySelector("#customerSnapshot");
 const plansList = document.querySelector("#plansList");
 const businessViewButton = document.querySelector("[data-view='business']");
+const publicLaunchMode = "starter_pro_manual_ready";
 
 const state = {
   user: null,
@@ -30,7 +33,8 @@ const state = {
   activeView: "portfolio",
   savedSnapshot: null,
   plans: [],
-  profile: null,
+  deferredPlans: [],
+  launchMode: "",
   businessMetrics: null,
   billingEvents: [],
   paymentSessions: [],
@@ -51,6 +55,7 @@ const state = {
     orderBy: "generatedAt",
     direction: "desc",
   },
+  businessSection: "packages",
   analysisRunning: false,
   entitlementErrors: {},
 };
@@ -85,6 +90,165 @@ const recommendedActionSortFields = [
   { key: "Symbol", label: "Symbol" },
   { key: "Action_Group", label: "Action Group" },
 ];
+
+const tableColumnTips = {
+  Symbol: {
+    title: "Symbol",
+    meaning: "ชื่อย่อหุ้น ใช้ค้นหาหรือเทียบกับข้อมูลจากตลาดหลักทรัพย์",
+    goodValue: "ควรตรวจว่าเป็นหุ้นตัวเดียวกับที่ต้องการจริงก่อนตัดสินใจ",
+    caution: "ชื่อย่อคล้ายกันอาจทำให้เลือกผิดตัวได้",
+  },
+  Sector: {
+    title: "Sector",
+    meaning: "กลุ่มธุรกิจของหุ้น เช่น พลังงาน ธนาคาร ค้าปลีก",
+    goodValue: "ควรกระจายหลาย sector และเริ่มจากกลุ่มที่เข้าใจ",
+    caution: "ถือหุ้นหลายตัวแต่เป็น sector เดียวกัน ยังถือว่ากระจุกความเสี่ยง",
+  },
+  Price: {
+    title: "Price",
+    meaning: "ราคาหุ้นล่าสุดที่ระบบใช้วิเคราะห์",
+    goodValue: "ใช้เทียบกับ Entry Zone, Stop Loss และ Upside ไม่ควรดูราคาอย่างเดียว",
+    caution: "ราคาถูกไม่ได้แปลว่าคุ้ม ต้องดูคุณภาพและความเสี่ยงร่วมด้วย",
+  },
+  Total_Score: {
+    title: "Total Score",
+    meaning: "คะแนนรวมจากพื้นฐาน ความคุ้มค่า ความเสี่ยง และจังหวะราคา ยิ่งสูงยิ่งผ่านเกณฑ์มากขึ้น",
+    goodValue: "60+ เริ่มน่าสนใจ, 70+ คัดเข้มขึ้น, 80+ ถือว่าเด่นมากแต่ยังต้องตรวจข่าวและความเสี่ยง",
+    caution: "คะแนนสูงไม่ใช่คำสั่งซื้ออัตโนมัติ ให้ดู RRR, D/E และ trend ประกอบ",
+  },
+  Sector_Score: {
+    title: "Sector Score",
+    meaning: "คะแนนภาพรวมของกลุ่มธุรกิจ คิดจาก score เฉลี่ย, RRR, upside, ROE, D/E และ momentum",
+    goodValue: "60+ เริ่มน่าสนใจ, 70+ กลุ่มแข็งแรง ควรดูหุ้นนำในกลุ่มต่อ",
+    caution: "เป็นคะแนนระดับกลุ่ม ไม่ได้แปลว่าหุ้นทุกตัวในกลุ่มดี",
+  },
+  Avg_Score: {
+    title: "Avg Score",
+    meaning: "คะแนนเฉลี่ยของหุ้นในกลุ่มนั้น",
+    goodValue: "60+ แปลว่าหุ้นในกลุ่มโดยรวมเริ่มแข็งแรง",
+    caution: "ค่าเฉลี่ยอาจถูกดันโดยหุ้นดีไม่กี่ตัว ควรดูจำนวน Top Ideas ด้วย",
+  },
+  RRR: {
+    title: "RRR",
+    meaning: "Reward/Risk Ratio คือกำไรที่คาดหวังเทียบกับความเสี่ยงขาดทุน",
+    goodValue: "1.5+ เริ่มน่าสนใจ, 2.0+ เผื่อความเสี่ยงได้ดีขึ้น",
+    caution: "ต่ำกว่า 1.0 มักไม่คุ้มเสี่ยง เพราะ upside น้อยกว่า downside",
+  },
+  Avg_RRR: {
+    title: "Avg RRR",
+    meaning: "ค่า RRR เฉลี่ยของหุ้นใน sector นั้น",
+    goodValue: "1.5+ แปลว่ากลุ่มนั้นมี reward/risk เริ่มน่าสนใจ",
+    caution: "ควรดูหุ้นรายตัวอีกครั้ง เพราะค่าเฉลี่ยอาจซ่อนหุ้นเสี่ยงสูง",
+  },
+  Upside_Pct: {
+    title: "Upside %",
+    meaning: "เปอร์เซ็นต์โอกาสขึ้นจากราคาปัจจุบันไปยังโซนเป้าหมายตามสูตรของระบบ",
+    goodValue: "10%+ เริ่มมีพื้นที่กำไร, 20%+ น่าสนใจขึ้นถ้าความเสี่ยงไม่สูง",
+    caution: "Upside สูงอาจมาพร้อมความผันผวนสูง ให้ดู RRR และ Stop Loss ด้วย",
+  },
+  Avg_Upside_Pct: {
+    title: "Avg Upside %",
+    meaning: "Upside เฉลี่ยของหุ้นใน sector นั้น",
+    goodValue: "10%+ แปลว่ากลุ่มยังมีพื้นที่ให้ศึกษา",
+    caution: "อย่าใช้ค่าเฉลี่ยแทนการดูหุ้นรายตัว",
+  },
+  PE: {
+    title: "P/E",
+    meaning: "ราคาเทียบกำไร ยิ่งต่ำมักดูถูกกว่า แต่ต้องเทียบกับ sector เดียวกัน",
+    goodValue: "โดยทั่วไปต่ำกว่า 15-20 อาจเริ่มน่าสนใจ ถ้ากำไรไม่ถดถอย",
+    caution: "P/E ต่ำมากอาจเป็นหุ้นมีปัญหา ไม่ใช่ถูกเสมอไป",
+  },
+  Median_PE: {
+    title: "Median P/E",
+    meaning: "ค่า P/E กึ่งกลางของหุ้นใน sector ใช้ดู valuation ของกลุ่ม",
+    goodValue: "ต่ำกว่ากลุ่มอื่นอาจถูกกว่า แต่ต้องดูคุณภาพและ trend ร่วมด้วย",
+    caution: "sector ต่างกันมี P/E ปกติไม่เท่ากัน อย่าเทียบข้ามกลุ่มแบบตรงๆ",
+  },
+  ROE: {
+    title: "ROE",
+    meaning: "ผลตอบแทนต่อส่วนผู้ถือหุ้น บอกว่าบริษัทใช้ทุนสร้างกำไรได้ดีแค่ไหน",
+    goodValue: "10%+ เริ่มดี, 15%+ แข็งแรงขึ้น ถ้าหนี้ไม่สูงเกินไป",
+    caution: "ROE สูงเพราะหนี้สูงอาจเสี่ยง ต้องดู D/E คู่กัน",
+  },
+  Median_ROE: {
+    title: "Median ROE",
+    meaning: "ค่า ROE กึ่งกลางของ sector ใช้ดูคุณภาพกำไรของกลุ่ม",
+    goodValue: "10%+ ถือว่ากลุ่มเริ่มมีคุณภาพกำไรดี",
+    caution: "ต้องดู D/E และความสม่ำเสมอของกำไรประกอบ",
+  },
+  Yield: {
+    title: "Dividend Yield",
+    meaning: "เงินปันผลเทียบราคาหุ้น เป็นเปอร์เซ็นต์ผลตอบแทนจากปันผล",
+    goodValue: "3%+ เริ่มน่าสนใจสำหรับสายปันผล ถ้าธุรกิจยังมั่นคง",
+    caution: "Yield สูงผิดปกติอาจเกิดจากราคาหุ้นตกแรง หรือปันผลไม่ยั่งยืน",
+  },
+  Median_Yield: {
+    title: "Median Yield",
+    meaning: "ค่า Yield กึ่งกลางของ sector",
+    goodValue: "ช่วยดูว่า sector นี้เหมาะกับสายปันผลหรือไม่",
+    caution: "อย่าดู Yield อย่างเดียว ต้องดูความยั่งยืนของกำไร",
+  },
+  DE: {
+    title: "D/E",
+    meaning: "หนี้สินเทียบทุน ยิ่งต่ำมักเสี่ยงเรื่องหนี้น้อยกว่า",
+    goodValue: "<= 1.0 เหมาะกับมือใหม่, <= 0.7 ระวังหนี้มากขึ้น",
+    caution: "ธนาคารและไฟแนนซ์มัก D/E สูงตามธรรมชาติ ต้องเทียบกับ sector เดียวกัน",
+  },
+  RSI: {
+    title: "RSI",
+    meaning: "ตัวชี้วัดจังหวะราคา ใช้ดูว่าหุ้นอาจร้อนแรงหรืออ่อนตัวเกินไป",
+    goodValue: "ประมาณ 40-60 มักเป็นโซนกลาง, ต่ำกว่า 35 อาจเริ่ม oversold, สูงกว่า 70 อาจเริ่มร้อนแรง",
+    caution: "RSI ไม่ใช่สัญญาณซื้อขายเดี่ยวๆ ต้องดู trend และพื้นฐานด้วย",
+  },
+  Price_Position: {
+    title: "Price Position",
+    meaning: "ตำแหน่งราคาปัจจุบันในกรอบ 52 สัปดาห์ 0 คือใกล้ต่ำสุด 100 คือใกล้สูงสุด",
+    goodValue: "ค่าต่ำถึงกลางอาจมี margin of safety มากกว่า ถ้าพื้นฐานยังดี",
+    caution: "ราคาต่ำอาจต่ำเพราะธุรกิจแย่ ต้องดู score และ trend ด้วย",
+  },
+  Trend_Status: {
+    title: "Trend",
+    meaning: "ทิศทางราคาจากข้อมูลเทคนิค เช่น Bullish, Bearish หรือ Sideways",
+    goodValue: "Bullish/Uptrend อ่านง่ายกว่า สำหรับมือใหม่ควรระวัง Bearish",
+    caution: "Trend เปลี่ยนเร็ว และไม่รับประกันผลตอบแทน",
+  },
+  Rationale: {
+    title: "Rationale",
+    meaning: "เหตุผลสั้นๆ ว่าทำไมหุ้นนี้ได้คะแนนหรือคำแนะนำแบบนั้น",
+    goodValue: "ควรเห็นเหตุผลหลายด้าน เช่น ถูกกว่ากลุ่ม, ROE ดี, หนี้ต่ำ, อยู่ใน entry zone",
+    caution: "เป็นคำอธิบายจากสูตร ไม่ใช่คำแนะนำส่วนบุคคล",
+  },
+  Portfolio_Exposure_Pct: {
+    title: "Portfolio Exposure %",
+    meaning: "สัดส่วนเงินในพอร์ตที่อยู่ใน sector นั้น",
+    goodValue: "โดยทั่วไปไม่ควรกระจุก sector เดียวสูงเกินไป มือใหม่อาจเริ่มระวังเมื่อเกิน 30-35%",
+    caution: "ถ้ากระจุก sector เดียว พอร์ตจะเสี่ยงกับข่าวหรือวัฏจักรของกลุ่มนั้นมากขึ้น",
+  },
+  Portfolio_Risk: {
+    title: "Portfolio Risk",
+    meaning: "สรุปความเสี่ยงจากการถือ sector นั้นในพอร์ตของคุณ",
+    goodValue: "Balanced คือสัดส่วนดูสมดุล, Possible underweight คือกลุ่มแข็งแรงแต่ถืออยู่น้อย",
+    caution: "Overexposed หรือ Concentration risk ควรเปิดดูหุ้นรายตัวและสัดส่วนพอร์ต",
+  },
+  Rotation_Signal: {
+    title: "Rotation Signal",
+    meaning: "คำอ่านง่ายๆ ว่า sector นี้น่าศึกษาต่อ หรือควรระวัง",
+    goodValue: "Strong Sector หรือ Accumulation Watch คือควรศึกษาเพิ่ม",
+    caution: "เป็นสัญญาณระดับ sector ไม่ใช่คำสั่งซื้อหุ้นทุกตัวในกลุ่ม",
+  },
+  Top_Ideas: {
+    title: "Top Ideas",
+    meaning: "จำนวนหุ้นใน sector ที่คะแนนถึงเกณฑ์เด่นของระบบ",
+    goodValue: "จำนวนมากขึ้นแปลว่ากลุ่มนั้นมีตัวเลือกน่าสนใจมากขึ้น",
+    caution: "ควรดูคุณภาพรายตัว ไม่ใช่ซื้อทุกตัวในกลุ่ม",
+  },
+  Leader: {
+    title: "Leader",
+    meaning: "หุ้นที่คะแนนสูงสุดใน sector นั้น",
+    goodValue: "ใช้เป็นตัวเริ่มศึกษาก่อน ไม่ใช่แปลว่าต้องซื้อทันที",
+    caution: "ควรตรวจราคา, RRR, D/E และข่าวล่าสุดก่อนตัดสินใจ",
+  },
+};
 
 authForm.addEventListener("submit", submitAuth);
 authModeButton.addEventListener("click", toggleAuthMode);
@@ -121,7 +285,7 @@ async function initialize() {
   renderAuthState();
   renderPlans();
   if (state.user) {
-    await Promise.all([loadSavedPortfolio(), loadInvestorProfile(), loadBillingHistory(), loadPaymentSessions(), loadBusinessMetrics(), loadTeamUsers(), loadOrganizations(), loadAuditEvents(), loadApprovalRequests(), loadTenantScope()]);
+    await Promise.all([loadSavedPortfolio(), loadBillingHistory(), loadPaymentSessions(), loadBusinessMetrics(), loadTeamUsers(), loadOrganizations(), loadAuditEvents(), loadTenantScope()]);
     renderAuthState();
   }
   renderActiveView();
@@ -142,6 +306,8 @@ async function loadPlans() {
   const response = await fetch("/api/subscription/plans");
   const data = await response.json();
   state.plans = data.plans || [];
+  state.deferredPlans = data.deferredPlans || [];
+  state.launchMode = data.launchMode || publicLaunchMode;
 }
 
 async function loadCurrentUser() {
@@ -159,14 +325,6 @@ async function loadSavedPortfolio() {
     state.recommendations = data.snapshot.recommendations || [];
   }
   renderSnapshot();
-}
-
-async function loadInvestorProfile() {
-  const response = await fetch("/api/customer/profile");
-  const data = await response.json();
-  if (data.ok) {
-    state.profile = data.profile;
-  }
 }
 
 async function loadBusinessMetrics() {
@@ -381,7 +539,7 @@ async function submitAuth(event) {
   authMessage.textContent = "";
   renderAuthState();
   renderPlans();
-  await Promise.all([loadSavedPortfolio(), loadInvestorProfile(), loadBillingHistory(), loadPaymentSessions(), loadBusinessMetrics(), loadTeamUsers(), loadOrganizations(), loadAuditEvents(), loadApprovalRequests(), loadTenantScope()]);
+  await Promise.all([loadSavedPortfolio(), loadBillingHistory(), loadPaymentSessions(), loadBusinessMetrics(), loadTeamUsers(), loadOrganizations(), loadAuditEvents(), loadTenantScope()]);
   renderAuthState();
   renderActiveView();
 }
@@ -390,7 +548,6 @@ async function logout() {
   await fetch("/api/auth/logout", { method: "POST" });
   state.user = null;
   state.savedSnapshot = null;
-  state.profile = null;
   state.businessMetrics = null;
   state.referenceMaster = null;
   state.portfolioDataHealth = null;
@@ -428,6 +585,7 @@ function renderAuthState() {
   authModeButton.textContent = state.authMode === "register"
     ? "I already have an account"
     : "Create a new account";
+  syncAnalysisAccess();
 
   if (!signedIn) {
     return;
@@ -438,12 +596,14 @@ function renderAuthState() {
   const latestBillingEvent = state.billingEvents[0];
   const latestPaymentSession = state.paymentSessions[0];
   const tenantScope = state.tenantScope;
-  const pendingApprovalCount = state.approvalRequests.filter((request) => request.status === "pending").length;
+  const isPendingManualPackage = subscription.status === "inactive" && subscription.provider === "manual_admin_pending";
   accountName.textContent = state.user.name || "Investor";
-  subscriptionBadge.textContent = `${subscription.plan || "Pro"} ${subscription.status || "active"}`;
+  subscriptionBadge.textContent = isPendingManualPackage
+    ? "Waiting for admin package"
+    : `${subscription.plan || "Pro"} ${subscription.status || "active"}`;
   subscriptionDetails.innerHTML = `
     <span>Role: ${escapeHtml(state.user.role || "customer")}</span>
-    ${pendingApprovalCount ? `<span>Approvals pending: ${formatNumber(pendingApprovalCount)}</span>` : ""}
+    ${isPendingManualPackage ? `<span>Package: รอ admin กำหนด Starter หรือ Pro</span>` : ""}
     ${tenantScope ? `<span>Scope: ${formatNumber(tenantScope.visibleOrganizationCount || 0)} workspace(s), ${formatNumber(tenantScope.visibleUserCount || 0)} user(s)</span>` : ""}
     <span>${money(subscription.priceThb || 0)} / month</span>
     <span>Plan access: ${formatNumber((entitlements.effectiveFeatures || []).length)} feature(s)</span>
@@ -457,10 +617,8 @@ function renderAuthState() {
 }
 
 function renderPlans() {
-  const currentPlanId = getCurrentPlanId();
-  const subscriptionStatus = state.user?.subscription?.status || "";
   plansList.innerHTML = state.plans.map((plan) => `
-    <div class="plan-card ${plan.highlighted ? "highlighted" : ""}">
+    <div class="plan-card ${plan.highlighted ? "highlighted" : ""}" data-public-launch-plan="${escapeHtml(plan.id)}">
       <strong>${escapeHtml(plan.name)} · ${money(plan.priceThb)} / month</strong>
       <span class="muted">${escapeHtml(plan.billing)}</span>
       <p class="plan-meta">${escapeHtml(plan.bestFor || "")}</p>
@@ -469,21 +627,33 @@ function renderPlans() {
         <span>${formatNumber(plan.limits?.clientWorkspaces || 0)} client workspaces</span>
       </div>
       <ul>${(plan.features || []).map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}</ul>
-      <button class="plan-action" type="button" data-plan-id="${escapeHtml(plan.id)}"${state.user && currentPlanId === plan.id && subscriptionStatus === "active" ? " disabled" : ""}>
-        ${!state.user ? "Sign in to subscribe" : currentPlanId === plan.id && subscriptionStatus === "active" ? "Current plan" : currentPlanId === plan.id ? `Activate ${escapeHtml(plan.name)}` : `Switch to ${escapeHtml(plan.name)}`}
+      <button class="plan-action" type="button" disabled>
+        ${state.user ? "Admin assigns this package" : "Create account first"}
       </button>
     </div>
   `).join("");
-  plansList.insertAdjacentHTML("afterbegin", `<p id="billingMessage" class="muted">Choose a monthly plan to create a payment session. Local mode completes instantly; external providers return a checkout link.</p>`);
-  plansList.querySelectorAll("[data-plan-id]").forEach((button) => {
-    button.addEventListener("click", () => checkoutPlan(button.dataset.planId));
-  });
+  const deferredPlanNames = state.deferredPlans.map((plan) => plan.name).join(", ");
+  if (deferredPlanNames) {
+    plansList.insertAdjacentHTML("beforeend", `
+      <div class="plan-card deferred-plan" data-advisor-coming-soon>
+        <strong>${escapeHtml(deferredPlanNames)} · Coming soon</strong>
+        <p class="plan-meta">ช่วงเปิดตัวจะขายเฉพาะ Starter และ Pro ก่อน เพื่อลดความซับซ้อนในการใช้งานจริง ส่วนงาน advisor/team workflow ยังเก็บไว้เป็น internal prototype สำหรับอนาคต</p>
+        <span class="status-pill warning">Manual contact only</span>
+      </div>
+    `);
+  }
+  plansList.insertAdjacentHTML("afterbegin", `<p id="billingMessage" class="muted" data-launch-plan-note data-manual-package-flow>Launch phase: สมัครบัญชีไว้ก่อน แล้ว owner/admin จะกำหนด Starter หรือ Pro ให้จาก Business > User Management. ยังไม่รับชำระผ่านหน้าเว็บในรอบนี้.</p>`);
 }
 
 async function checkoutPlan(planId) {
   const billingMessage = document.querySelector("#billingMessage");
   if (!state.user) {
     billingMessage.textContent = "Please sign in before choosing a plan.";
+    return;
+  }
+
+  if (!isPublicLaunchPlan(planId)) {
+    billingMessage.textContent = "This package is not open for public checkout yet. Please choose Starter or Pro.";
     return;
   }
 
@@ -518,12 +688,10 @@ async function checkoutPlan(planId) {
       ? `Payment webhook was already processed for ${data.user.subscription?.plan || "plan"}.`
       : `Payment succeeded via local gateway. Subscribed to ${data.user.subscription?.plan || "plan"}.`;
   }
-  await Promise.all([loadBillingHistory(), loadPaymentSessions(), loadBusinessMetrics(), loadAuditEvents(), loadApprovalRequests(), loadTenantScope()]);
+  await Promise.all([loadBillingHistory(), loadPaymentSessions(), loadBusinessMetrics(), loadAuditEvents(), loadTenantScope()]);
   renderAuthState();
   if (state.activeView === "business") {
     renderBusinessView();
-  } else if (state.activeView === "approvals") {
-    renderApprovalsView();
   } else {
     renderActiveView();
   }
@@ -546,6 +714,32 @@ async function runAnalysis(event) {
     return;
   }
 
+  const selectedFiles = getAnalysisSelectedFiles();
+  if (!selectedFiles.length) {
+    showAnalysisStatus("error", {
+      title: "Analysis needs attention",
+      text: "Please choose a watchlist or portfolio file before running analysis.",
+      activeStep: null,
+    });
+    runMessage.textContent = "Please choose a watchlist or portfolio file before running analysis.";
+    return;
+  }
+
+  const formData = new FormData(analysisForm);
+  const requestHasUpload = ["watchlist", "portfolio"].some((fieldName) => {
+    const value = formData.get(fieldName);
+    return value instanceof File && value.size > 0;
+  });
+  if (!requestHasUpload) {
+    showAnalysisStatus("error", {
+      title: "Analysis needs attention",
+      text: "The selected files could not be attached. Please choose the files again and run analysis.",
+      activeStep: null,
+    });
+    runMessage.textContent = "The selected files could not be attached. Please choose the files again and run analysis.";
+    return;
+  }
+
   state.analysisRunning = true;
   setAnalysisButtonLoading(true);
   showAnalysisStatus("loading", {
@@ -557,7 +751,6 @@ async function runAnalysis(event) {
   const progressTimers = startAnalysisProgressTimers();
 
   try {
-    const formData = new FormData(analysisForm);
     const response = await fetch("/api/analysis/run", {
       method: "POST",
       body: formData,
@@ -574,6 +767,7 @@ async function runAnalysis(event) {
     }
 
     const messages = [
+      ...renderUploadSummaryMessages(data.uploadSummary),
       `Fetched ${data.count} stocks from ${data.symbols.length} symbols.`,
       `Generated ${data.recommendationCount} scored rows.`,
       `<a href="/api/analysis/raw">Download raw_CSV.csv</a>`,
@@ -607,7 +801,7 @@ async function runAnalysis(event) {
     state.recommendations = data.recommendations || [];
     state.portfolioRows = data.portfolioRows || [];
     state.savedSnapshot = data.customerSnapshot || null;
-    await Promise.all([loadBusinessMetrics(), loadAuditEvents(), loadApprovalRequests(), loadTenantScope()]);
+    await Promise.all([loadBusinessMetrics(), loadAuditEvents(), loadTenantScope()]);
     renderAuthState();
     state.activeView = state.portfolioRows.length ? "portfolio" : "screener";
     renderSnapshot();
@@ -625,13 +819,82 @@ async function runAnalysis(event) {
   }
 }
 
+function getAnalysisSelectedFiles() {
+  return analysisFileInputs.flatMap((input) => [...(input.files || [])]);
+}
+
+function renderUploadSummaryMessages(uploadSummary = {}) {
+  const messages = [];
+  if (uploadSummary.watchlist) {
+    messages.push(`Read watchlist file "${escapeHtml(uploadSummary.watchlist.fileName)}": ${formatNumber(uploadSummary.watchlist.parsedSymbols || 0)} symbol(s).`);
+  }
+  if (uploadSummary.portfolio) {
+    const holdingText = Number.isFinite(Number(uploadSummary.portfolio.holdings))
+      ? `, ${formatNumber(uploadSummary.portfolio.holdings)} holding row(s)`
+      : "";
+    messages.push(`Read portfolio file "${escapeHtml(uploadSummary.portfolio.fileName)}": ${formatNumber(uploadSummary.portfolio.parsedSymbols || 0)} symbol(s)${holdingText}.`);
+  }
+  if (uploadSummary.combinedSymbols !== undefined) {
+    messages.push(`Combined unique symbols sent to market data: ${formatNumber(uploadSummary.combinedSymbols || 0)}.`);
+  }
+  return messages;
+}
+
 function setAnalysisButtonLoading(isLoading) {
   if (!analysisSubmitButton) {
     return;
   }
 
-  analysisSubmitButton.disabled = isLoading;
-  analysisSubmitButton.textContent = isLoading ? "Analyzing..." : "Analyze my portfolio";
+  const signedIn = Boolean(state.user);
+  analysisSubmitButton.disabled = isLoading || !signedIn;
+  analysisSubmitButton.textContent = !signedIn
+    ? "Sign in to analyze"
+    : isLoading
+      ? "Analyzing..."
+      : "Analyze my portfolio";
+  analysisFileInputs.forEach((input) => {
+    input.disabled = isLoading || !signedIn;
+  });
+}
+
+function syncAnalysisAccess() {
+  const signedIn = Boolean(state.user);
+  templateDownloadLinks.forEach((link) => {
+    if (!link.dataset.downloadHref) {
+      link.dataset.downloadHref = link.getAttribute("href") || "";
+    }
+    if (signedIn) {
+      if (link.dataset.downloadHref) {
+        link.setAttribute("href", link.dataset.downloadHref);
+      }
+      link.removeAttribute("aria-disabled");
+      link.tabIndex = 0;
+    } else {
+      link.removeAttribute("href");
+      link.setAttribute("aria-disabled", "true");
+      link.tabIndex = -1;
+    }
+    link.classList.toggle("disabled", !signedIn);
+  });
+
+  const templatePanel = document.querySelector("[data-template-downloads]");
+  templatePanel?.classList.toggle("locked", !signedIn);
+  setAnalysisButtonLoading(state.analysisRunning);
+
+  if (!signedIn) {
+    showAnalysisStatus("error", {
+      title: "Sign in required",
+      text: "Create an account or sign in before downloading templates, browsing files, or running portfolio analysis.",
+      activeStep: null,
+    });
+    runMessage.textContent = "Sign in before downloading templates, browsing files, or running analysis.";
+    return;
+  }
+
+  if (analysisStatusTitle?.textContent === "Sign in required") {
+    analysisStatusPanel.hidden = true;
+    runMessage.textContent = "Upload files, then run your analysis.";
+  }
 }
 
 function showAnalysisStatus(status, options = {}) {
@@ -749,16 +1012,6 @@ function renderActiveView() {
     return;
   }
 
-  if (state.activeView === "approvals") {
-    if (["owner", "admin", "advisor"].includes(state.user?.role) && !hasEntitlement("approval.workflow")) {
-      viewOutput.innerHTML = renderLockedFeature("approval.workflow");
-      return;
-    }
-
-    renderApprovalsView();
-    return;
-  }
-
   if (state.activeView === "sector") {
     if (!hasEntitlement("sector.analysis")) {
       viewOutput.innerHTML = renderLockedFeature("sector.analysis");
@@ -766,11 +1019,6 @@ function renderActiveView() {
     }
 
     renderSectorView();
-    return;
-  }
-
-  if (state.activeView === "onboarding") {
-    renderOnboardingView();
     return;
   }
 
@@ -795,7 +1043,14 @@ function renderActiveView() {
 
 function renderPortfolioView() {
   if (!state.portfolioRows.length) {
-    viewOutput.innerHTML = `<p class="muted">Upload a portfolio and run analysis to see your personalized action plan.</p>`;
+    viewOutput.innerHTML = `
+      <section class="portfolio-data-warning" data-portfolio-empty-holdings>
+        <strong>No portfolio holdings loaded yet.</strong>
+        <span>${state.recommendations.length
+          ? `The latest analysis has ${formatNumber(state.recommendations.length)} stock recommendation(s), but no portfolio file was uploaded. Open Screener to review the watchlist results, or upload a portfolio Excel file to see holding-level actions.`
+          : "Upload a portfolio Excel file and run analysis to see holding-level actions."}</span>
+      </section>
+    `;
     return;
   }
 
@@ -816,7 +1071,7 @@ function renderPortfolioView() {
       ${metric("Avg Score", formatNumber(average(rows, "Total_Score")))}
     </div>
     ${renderPortfolioDataWarning(rows)}
-    ${renderBeginnerGuidance({ gainLossPct, urgentRows, avgScore: average(rows, "Total_Score") })}
+    ${renderPortfolioQuickGuidance({ gainLossPct, urgentRows, avgScore: average(rows, "Total_Score") })}
     ${renderPortfolioVisuals(rows)}
     <h3>Recommended actions</h3>
     ${renderRecommendedActionsControls(rows)}
@@ -1098,137 +1353,25 @@ function scoreBandLabel(value) {
   }[value] || value;
 }
 
-function renderBeginnerGuidance({ gainLossPct, urgentRows, avgScore }) {
-  const profile = state.profile || {};
-  const riskText = {
-    low: "เน้นลดความเสี่ยงก่อนเพิ่มผลตอบแทน",
-    medium: "บาลานซ์โอกาสและการป้องกันเงินต้น",
-    high: "รับความผันผวนได้ แต่ต้องมีจุดตัดขาดทุน",
-  }[profile.riskLevel] || "ตั้งค่าระดับความเสี่ยงในหน้า Guide";
+function renderPortfolioQuickGuidance({ gainLossPct, urgentRows, avgScore }) {
   const health = avgScore >= 70 ? "พอร์ตโดยรวมดูแข็งแรง" : avgScore >= 50 ? "พอร์ตยังพอไปต่อได้ แต่ควรคัดหุ้นอ่อนออก" : "พอร์ตมีความเสี่ยงสูง ควรลดหุ้นคะแนนต่ำ";
   const action = urgentRows.length
     ? `มี ${urgentRows.length} รายการที่ควรตรวจทันที เช่น Reduce, Sell หรือ Exit`
     : "ยังไม่มีสัญญาณเร่งด่วน ให้ติดตามโซนซื้อขายและถือวินัย";
 
   return `
-    <div class="guidance-grid">
+    <section class="portfolio-summary-strip" data-portfolio-quick-guidance>
       <div class="guidance-card"><span>Portfolio health</span><strong>${escapeHtml(health)}</strong></div>
-      <div class="guidance-card"><span>Risk style</span><strong>${escapeHtml(riskText)}</strong></div>
       <div class="guidance-card"><span>Next action</span><strong>${escapeHtml(action)}</strong></div>
       <div class="guidance-card"><span>P/L context</span><strong>${gainLossPct >= 0 ? "กำไรอยู่ ให้เน้นปกป้องกำไร" : "ขาดทุนอยู่ ให้ดู Recovery % และ Stop Loss"}</strong></div>
-    </div>
+    </section>
   `;
-}
-
-function renderOnboardingView() {
-  const profile = state.profile || {
-    goal: "wealth",
-    experience: "beginner",
-    riskLevel: "medium",
-    monthlyBudget: 5000,
-    horizonYears: 5,
-  };
-  const goalLabels = {
-    wealth: "สร้างความมั่งคั่งระยะยาว",
-    income: "สร้างกระแสเงินสดจากปันผล",
-    retirement: "เตรียมเงินเกษียณ",
-    learning: "เรียนรู้ก่อนลงทุนจริงจัง",
-  };
-  const experienceLabels = {
-    beginner: "มือใหม่ ต้องการคำอธิบายง่าย",
-    intermediate: "พอเข้าใจพื้นฐานและอ่านงบได้บ้าง",
-    advanced: "ลงทุนมานาน ต้องการเครื่องมือคัดกรองเร็ว",
-  };
-  const riskLabels = {
-    low: "ระวังเงินต้นเป็นหลัก",
-    medium: "รับความผันผวนได้ระดับกลาง",
-    high: "รับความเสี่ยงสูงเพื่อโอกาสเติบโต",
-  };
-  const profileSaved = Boolean(state.profile);
-
-  viewOutput.innerHTML = `
-    <div class="metric-grid">
-      ${metric("Goal", goalLabels[profile.goal] || "-")}
-      ${metric("Experience", experienceLabels[profile.experience] || "-")}
-      ${metric("Risk", riskLabels[profile.riskLevel] || "-")}
-      ${metric("Monthly Budget", money(profile.monthlyBudget || 0))}
-    </div>
-    <div class="guidance-grid">
-      <div class="guidance-card"><span>Recommended pace</span><strong>${profile.riskLevel === "low" ? "ทยอยลงทุนและถือเงินสดสำรองมากขึ้น" : profile.riskLevel === "high" ? "ลงทุนได้เชิงรุก แต่ต้องใช้ Stop Loss ทุกครั้ง" : "แบ่งเงินลงทุนเป็นรอบและติดตามคะแนนพอร์ต"}</strong></div>
-      <div class="guidance-card"><span>Learning mode</span><strong>${profile.experience === "beginner" ? "ระบบจะเน้นภาษาง่ายและ action ที่ชัดเจน" : "ใช้ Screener และ Sector เพื่อค้นหาโอกาสเพิ่ม"}</strong></div>
-      <div class="guidance-card"><span>Time horizon</span><strong>${formatNumber(profile.horizonYears || 0)} years · ${profile.horizonYears >= 5 ? "เหมาะกับการเน้นคุณภาพกิจการ" : "ควรระวังหุ้นผันผวนสูง"}</strong></div>
-      <div class="guidance-card"><span>Status</span><strong>${profileSaved ? `Updated ${formatDate(profile.updatedAt)}` : "Save this profile before your next analysis"}</strong></div>
-    </div>
-    <form id="profileForm" class="profile-form">
-      <label>
-        Investment goal
-        <select name="goal">
-          ${option("wealth", goalLabels.wealth, profile.goal)}
-          ${option("income", goalLabels.income, profile.goal)}
-          ${option("retirement", goalLabels.retirement, profile.goal)}
-          ${option("learning", goalLabels.learning, profile.goal)}
-        </select>
-      </label>
-      <label>
-        Experience
-        <select name="experience">
-          ${option("beginner", experienceLabels.beginner, profile.experience)}
-          ${option("intermediate", experienceLabels.intermediate, profile.experience)}
-          ${option("advanced", experienceLabels.advanced, profile.experience)}
-        </select>
-      </label>
-      <label>
-        Risk level
-        <select name="riskLevel">
-          ${option("low", riskLabels.low, profile.riskLevel)}
-          ${option("medium", riskLabels.medium, profile.riskLevel)}
-          ${option("high", riskLabels.high, profile.riskLevel)}
-        </select>
-      </label>
-      <label>
-        Monthly budget
-        <input name="monthlyBudget" type="number" min="0" step="500" value="${numberValue(profile.monthlyBudget)}">
-      </label>
-      <label>
-        Holding horizon
-        <input name="horizonYears" type="number" min="1" max="50" value="${numberValue(profile.horizonYears)}">
-      </label>
-      <button type="submit">Save guide profile</button>
-    </form>
-    <p id="profileMessage" class="muted">${profileSaved ? "Profile saved. Portfolio guidance will use this context." : "Tell StockFlix how you invest so the guidance can speak your language."}</p>
-  `;
-
-  document.querySelector("#profileForm").addEventListener("submit", saveProfile);
-}
-
-async function saveProfile(event) {
-  event.preventDefault();
-  const profileMessage = document.querySelector("#profileMessage");
-  profileMessage.textContent = "Saving investor profile...";
-  const payload = Object.fromEntries(new FormData(event.target).entries());
-
-  const response = await fetch("/api/customer/profile", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const data = await response.json();
-
-  if (!data.ok) {
-    profileMessage.textContent = data.message || "Profile could not be saved.";
-    return;
-  }
-
-  state.profile = data.profile;
-  await Promise.all([loadBusinessMetrics(), loadAuditEvents(), loadApprovalRequests(), loadTenantScope()]);
-  renderAuthState();
-  renderOnboardingView();
 }
 
 function renderBusinessView() {
   if (canViewBusinessMetrics() && !state.businessMetrics) {
     viewOutput.innerHTML = `<p class="muted">Loading business metrics...</p>`;
-    Promise.all([loadBusinessMetrics(), loadTeamUsers(), loadOrganizations(), loadApprovalRequests()])
+    Promise.all([loadBusinessMetrics(), loadTeamUsers(), loadOrganizations()])
       .then(renderBusinessView)
       .catch(() => {
         viewOutput.innerHTML = `<p class="muted">Business metrics are not available for this account.</p>`;
@@ -1242,12 +1385,10 @@ function renderBusinessView() {
         ${metric("Workspace", "Advisor Clients")}
         ${metric("Assigned Clients", state.teamUsers.filter((user) => user.role === "customer").length)}
         ${metric("Visible Workspaces", state.organizations.length)}
-        ${metric("Completed Profiles", state.teamUsers.filter((user) => user.profileCompleted).length)}
         ${metric("Saved Portfolios", state.teamUsers.filter((user) => user.portfolioSummary).length)}
       </div>
       ${renderTenantScopeSummary()}
       ${renderWorkspaceSummary()}
-      ${renderApprovalWorkspace()}
       ${renderTeamWorkspace()}
       <h3>Recent payments</h3>
       ${renderPaymentSessions()}
@@ -1256,7 +1397,6 @@ function renderBusinessView() {
     `;
     attachTeamActions();
     attachOrganizationActions();
-    attachApprovalActions();
     return;
   }
 
@@ -1301,100 +1441,156 @@ function renderBusinessView() {
     Billing: plan.billing,
     Focus: (plan.features || []).slice(0, 2).join(", "),
   }));
-  const profileCompletionPct = metrics.users ? (metrics.completedProfiles / metrics.users) * 100 : 0;
   const portfolioAttachPct = metrics.users ? (metrics.savedPortfolios / metrics.users) * 100 : 0;
+  const pendingPackageAssignments = state.teamUsers.filter((user) => user.subscription?.status === "inactive").length;
+  const selectedSection = state.businessSection || "members";
 
   viewOutput.innerHTML = `
-    <div class="metric-grid">
-      ${metric("Users", metrics.users || 0)}
-      ${metric("Paid Users", metrics.paidUsers || 0)}
-      ${metric("MRR Estimate", money(metrics.mrrEstimate || 0))}
-      ${metric("Revenue Collected", money(metrics.revenueCollected || 0))}
-      ${metric("Trials", metrics.trials || 0)}
-      ${metric("Trial Potential", money(metrics.trialMrrPotential || 0))}
-      ${metric("ARPU", money(metrics.arpu || 0))}
-      ${metric("Saved Portfolios", metrics.savedPortfolios || 0)}
-      ${metric("Portfolio Health", portfolioHealthStatusLabel(metrics.portfolioDataHealth?.status))}
-      ${metric("Recovery Ready", metrics.portfolioDataHealth?.repairableSnapshots || 0)}
-      ${metric("Advisor Assignments", metrics.advisorAssignments || 0)}
-      ${metric("Activity Events", metrics.auditEvents || state.auditEvents.length)}
-      ${metric("Workspaces", metrics.organizations || state.organizations.length)}
-      ${metric("Customer Workspaces", metrics.customerWorkspaces || 0)}
-      ${metric("Platform Members", metrics.platformMembers || 0)}
-      ${metric("Pending Payments", metrics.pendingPaymentSessions || 0)}
-      ${metric("Failed Payments", metrics.failedPaymentSessions || 0)}
-      ${metric("Pending Approvals", metrics.pendingApprovalRequests || 0)}
-      ${metric("Approved Approvals", metrics.approvedApprovalRequests || 0)}
-      ${metric("Rejected Approvals", metrics.rejectedApprovalRequests || 0)}
-      ${metric("Webhook Events", metrics.webhookEvents || 0)}
-      ${metric("Verified Signatures", metrics.verifiedWebhookEvents || 0)}
-      ${metric("Rejected Webhooks", metrics.rejectedWebhookEvents || 0)}
-      ${metric("Webhook Tolerance", `${metrics.webhookSecurity?.toleranceSeconds || 0}s`)}
-      ${metric("Audit Integrity", metrics.auditIntegrity?.status || "verified")}
-      ${metric("Audit Hash Gaps", metrics.auditIntegrity?.invalidEvents || 0)}
-      ${metric("Last Audit Hash", metrics.auditIntegrity?.lastHashPreview || "-")}
-      ${metric("Audit Mirror", metrics.auditTrail?.status || "synced")}
-      ${metric("Audit Mirror Gaps", metrics.auditTrail?.missingFromTrailCount || 0)}
-      ${metric("External Audit", metrics.auditTrail?.external?.status || "disabled")}
-      ${metric("External Audit Gaps", metrics.auditTrail?.external?.missingFromExternalCount || 0)}
-      ${metric("Ops Readiness", readiness?.status || "loading")}
-      ${metric("Ops Alerts", readiness?.alerts?.length || 0)}
-      ${metric("DB Readiness", metrics.storageReadiness?.status || "ready")}
-      ${metric("DB Blockers", metrics.storageReadiness?.blockerCount || 0)}
-      ${metric("DB Store", metrics.databaseModeAdvisor?.label || "-")}
-      ${metric("DB Mode", databaseModeStatusLabel(metrics.databaseModeAdvisor?.status))}
-      ${metric("Production Env", productionEnvironmentStatusLabel(metrics.productionEnvironmentAdvisor?.status))}
-      ${metric("Env Blockers", metrics.productionEnvironmentAdvisor?.summary?.blockers || 0)}
-      ${metric("Schema Version", metrics.storageReadiness?.schemaVersion || "-")}
-    </div>
-    <div class="guidance-grid">
-      <div class="guidance-card"><span>Activation</span><strong>${formatNumber(profileCompletionPct)}% completed investor profile</strong></div>
-      <div class="guidance-card"><span>Portfolio attach</span><strong>${formatNumber(portfolioAttachPct)}% saved at least one portfolio</strong></div>
-      <div class="guidance-card"><span>Portfolio data health</span><strong>${escapeHtml(metrics.portfolioDataHealth?.plainLanguageSummary || "Portfolio snapshot health is loading")}</strong></div>
-      <div class="guidance-card"><span>Live usage</span><strong>${metrics.activeSessions || 0} active sessions</strong></div>
-      <div class="guidance-card"><span>Workspace model</span><strong>${metrics.tenantMetadata?.totalMissingOrganizationId ? "Some records still need workspace metadata" : "Tenant metadata is attached to critical records"}</strong></div>
-      <div class="guidance-card"><span>Webhook security</span><strong>${metrics.webhookSecurity?.secretConfigured ? "Production secret configured" : "Using local demo secret for signed webhook tests"}</strong></div>
-      <div class="guidance-card"><span>Payment gateway</span><strong>${metrics.paymentGateway?.provider || "local_gateway"} · ${metrics.paymentGateway?.configured ? "configured" : "needs config"}</strong></div>
-      <div class="guidance-card"><span>Audit trail</span><strong>${metrics.auditIntegrity?.status === "verified" ? "Activity timeline hash chain is verified" : "Audit hash chain needs review"}</strong></div>
-      <div class="guidance-card"><span>Audit mirror</span><strong>${metrics.auditTrail?.status === "synced" ? "Append-only audit mirror is synced" : "Audit mirror needs review"}</strong></div>
-      <div class="guidance-card"><span>External audit</span><strong>${metrics.auditTrail?.external?.enabled ? `Provider ${metrics.auditTrail.external.provider} is ${metrics.auditTrail.external.status}` : "External immutable provider is disabled until configured"}</strong></div>
-      <div class="guidance-card"><span>Database migration</span><strong>${metrics.storageReadiness?.status === "ready" ? "Local state is ready for database mapping" : "Storage readiness needs review before migration"}</strong></div>
-      <div class="guidance-card"><span>Database mode</span><strong>${escapeHtml(metrics.databaseModeAdvisor?.recommendedAction || "Check storage adapter before production")}</strong></div>
-      <div class="guidance-card"><span>Production env</span><strong>${escapeHtml(metrics.productionEnvironmentAdvisor?.nextAction || "Run the deployment checklist before production")}</strong></div>
-      <div class="guidance-card"><span>Operational readiness</span><strong>${readiness ? `${readiness.status} · ${readiness.summary?.criticalAlerts || 0} critical · ${readiness.summary?.warningAlerts || 0} warning` : "Loading operational checks"}</strong></div>
-    </div>
-    ${renderSystemAdminPanel()}
-    ${renderDatabaseModeAdvisor(metrics.databaseModeAdvisor)}
-    ${renderProductionEnvironmentAdvisor(metrics.productionEnvironmentAdvisor)}
-    ${renderPortfolioDataHealth(metrics.portfolioDataHealth)}
-    ${renderOperationalReadiness(readiness)}
-    ${renderLaunchEvidenceCenter(state.launchEvidence)}
-    ${renderReferenceMasterReview(state.referenceMaster)}
-    ${renderBusinessFunnel(metrics, profileCompletionPct, portfolioAttachPct)}
-    ${renderTenantScopeSummary()}
-    ${renderWorkspaceSummary(metrics.recentOrganizations || state.organizations)}
-    ${renderApprovalWorkspace(metrics.recentApprovalRequests || state.approvalRequests)}
-    <h3>Recent activity</h3>
-    ${renderActivityTimeline(state.auditEvents.length ? state.auditEvents : metrics.recentAuditEvents || [])}
-    <h3>Users by plan</h3>
-    ${renderTable(planRows, ["Plan", "Users", "Share_Pct"])}
-    <h3>Users by role</h3>
-    ${renderTable(roleRows, ["Role", "Users", "Share_Pct"])}
-    ${renderTeamWorkspace()}
-    <h3>Recent payments</h3>
-    ${renderTable(paymentRows, ["Created", "Plan", "Amount_THB", "Status", "Provider", "Webhooks"])}
-    <h3>Recent gateway webhooks</h3>
-    ${renderTable(webhookRows, ["Created", "Event", "Status", "Source", "Verified", "Message"])}
-    <h3>Recent billing</h3>
-    ${renderTable(billingRows, ["Invoice", "Plan", "Amount_THB", "Status", "Date"])}
-    <h3>Pricing catalog</h3>
-    ${renderTable(pricingRows, ["Plan", "Price_THB", "Billing", "Focus"])}
+    <section class="business-admin-cockpit" data-business-admin-cockpit>
+      <div class="section-title compact-title">
+        <div>
+          <span class="eyebrow">Admin cockpit</span>
+          <h3>Member Control Center</h3>
+          <p class="muted">หน้าหลักสำหรับ owner: ตรวจสมาชิกใหม่ เลือก Starter/Pro ตั้งวันหมดอายุ และลบ user ที่ไม่ต้องการใช้งาน</p>
+        </div>
+        <span class="status-pill ready">${escapeHtml(state.user?.role || "admin")}</span>
+      </div>
+      <div class="metric-grid compact-grid business-kpi-strip">
+        ${metric("Waiting Package", pendingPackageAssignments)}
+        ${metric("Users", metrics.users || 0)}
+        ${metric("Active Paid", metrics.paidUsers || 0)}
+        ${metric("MRR", money(metrics.mrrEstimate || 0))}
+        ${metric("Portfolios", metrics.savedPortfolios || 0)}
+        ${metric("System", productionEnvironmentStatusLabel(metrics.productionEnvironmentAdvisor?.status))}
+      </div>
+      ${renderBusinessSectionTabs(selectedSection)}
+      <div class="business-section-body" data-business-section-body>
+        ${renderBusinessSectionContent(selectedSection, {
+          metrics,
+          readiness,
+          portfolioAttachPct,
+          planRows,
+          roleRows,
+          billingRows,
+          paymentRows,
+          webhookRows,
+          pricingRows,
+        })}
+      </div>
+    </section>
   `;
+  attachBusinessSectionControls();
   attachTeamActions();
   attachOrganizationActions();
-  attachApprovalActions();
   attachReferenceMasterActions();
   attachPortfolioHealthControls();
+}
+
+function renderBusinessSectionTabs(selectedSection = state.businessSection) {
+  const sections = [
+    ["members", "Members", "package, expiry, delete"],
+    ["advanced", "Advanced Ops", "database, readiness, audit"],
+  ];
+
+  return `
+    <div class="business-section-tabs" data-business-section-tabs>
+      ${sections.map(([id, label, hint]) => `
+        <button class="${selectedSection === id ? "active" : ""}" type="button" data-business-section="${id}" aria-pressed="${selectedSection === id ? "true" : "false"}">
+          <span>${escapeHtml(label)}</span>
+          <small>${escapeHtml(hint)}</small>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderBusinessSectionContent(section, context) {
+  const {
+    metrics,
+    readiness,
+    portfolioAttachPct,
+    planRows,
+    roleRows,
+    billingRows,
+    paymentRows,
+    webhookRows,
+    pricingRows,
+  } = context;
+
+  if (section === "advanced") {
+    return `
+      <section class="chart-panel advanced-ops-panel" data-business-advanced-ops>
+        <div class="section-title compact-title">
+          <div>
+            <span class="eyebrow">Advanced Ops</span>
+            <h3>System checks for deployment</h3>
+            <p class="muted">ส่วนนี้เก็บข้อมูลหลังบ้านที่ไม่ต้องใช้ทุกวัน เช่น database, production readiness, audit และ billing evidence</p>
+          </div>
+        </div>
+        <details open>
+          <summary>System admin and workspace</summary>
+          ${renderSystemAdminPanel()}
+          ${renderTenantScopeSummary()}
+          ${renderWorkspaceSummary(metrics.recentOrganizations || state.organizations)}
+          ${renderBusinessFunnel(metrics, portfolioAttachPct)}
+          <h3>Users by plan</h3>
+          ${renderTable(planRows, ["Plan", "Users", "Share_Pct"])}
+          <h3>Users by role</h3>
+          ${renderTable(roleRows, ["Role", "Users", "Share_Pct"])}
+          <h3>Recent activity</h3>
+          ${renderActivityTimeline(state.auditEvents.length ? state.auditEvents : metrics.recentAuditEvents || [])}
+        </details>
+        <details>
+          <summary>Data health and reference data</summary>
+          ${renderPortfolioDataHealth(metrics.portfolioDataHealth)}
+          ${renderDatabaseModeAdvisor(metrics.databaseModeAdvisor)}
+          ${renderReferenceMasterReview(state.referenceMaster)}
+        </details>
+        <details>
+          <summary>Go-live readiness and billing evidence</summary>
+          ${renderProductionEnvironmentAdvisor(metrics.productionEnvironmentAdvisor)}
+          ${renderOperationalReadiness(readiness)}
+          ${renderLaunchEvidenceCenter(state.launchEvidence)}
+          <h3>Recent payments</h3>
+          ${renderTable(paymentRows, ["Created", "Plan", "Amount_THB", "Status", "Provider", "Webhooks"])}
+          <h3>Recent gateway webhooks</h3>
+          ${renderTable(webhookRows, ["Created", "Event", "Status", "Source", "Verified", "Message"])}
+          <h3>Recent billing</h3>
+          ${renderTable(billingRows, ["Invoice", "Plan", "Amount_THB", "Status", "Date"])}
+          <h3>Pricing catalog</h3>
+          ${renderTable(pricingRows, ["Plan", "Price_THB", "Billing", "Focus"])}
+        </details>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="chart-panel business-package-focus" data-business-section-default="members" data-member-management-focus>
+      <div class="section-title compact-title">
+        <div>
+          <span class="eyebrow">Start here</span>
+          <h3>Member Management</h3>
+          <p class="muted">งานหลักช่วงเปิดตัวคือเปิดแพ็กเกจให้สมาชิกใหม่ เลือก Starter/Pro, ตั้งสถานะ, กำหนดวันหมดอายุ และลบ user ที่ไม่ต้องการ</p>
+        </div>
+        <span class="status-pill warning">${formatNumber(state.teamUsers.filter((user) => user.subscription?.status === "inactive").length)} waiting</span>
+      </div>
+      <div class="guidance-grid">
+        <div class="guidance-card"><span>1. ตรวจสมาชิกใหม่</span><strong>ดูแถวที่มีสถานะ Waiting admin</strong></div>
+        <div class="guidance-card"><span>2. เลือกแพ็กเกจ</span><strong>Starter สำหรับเริ่มต้น, Pro สำหรับ Sector และ Simulation</strong></div>
+        <div class="guidance-card"><span>3. เปิดสิทธิ์</span><strong>ตั้ง status เป็น Active หรือ Trialing แล้วกด Save package</strong></div>
+      </div>
+    </section>
+    ${renderTeamWorkspace({ compactAdmin: true })}
+  `;
+}
+
+function attachBusinessSectionControls() {
+  document.querySelectorAll("[data-business-section]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.businessSection = button.dataset.businessSection || "packages";
+      renderBusinessView();
+    });
+  });
 }
 
 function renderSystemAdminPanel() {
@@ -2191,10 +2387,10 @@ function renderScreenerView() {
   const sectors = uniqueValues(state.recommendations.map((row) => row.Sector || "Unknown"));
   const trends = uniqueValues(state.recommendations.map((row) => row.Trend_Status || "Unknown"));
   viewOutput.innerHTML = `
-    <section class="screener-beginner-guide" data-screener-beginner-guidance>
+    <section class="screener-beginner-guide" data-screener-beginner-guidance data-screener-default-all>
       <div>
         <strong>Beginner filter guide</strong>
-        <span>เริ่มแบบอ่านง่าย: Score 60+, RRR 1.5+, D/E <= 1.0. ถ้าต้องการคัดเข้มขึ้นให้ใช้ Score 70+, RRR 2.0+, D/E <= 0.7.</span>
+        <span>ค่าเริ่มต้นจะแสดงทุกหุ้นก่อน เพื่อให้เห็นภาพรวมครบ แล้วค่อยคัดกรองเอง เช่น Score 60+, RRR 1.5+, D/E <= 1.0.</span>
       </div>
       <span>กดเครื่องหมาย ? เพื่อดูความหมายและข้อควรระวังของแต่ละ filter</span>
     </section>
@@ -2211,14 +2407,14 @@ function renderScreenerView() {
         label: "Min RRR",
         tipKey: "minRrr",
         hint: "มือใหม่ลอง 1.5 ก่อน ถ้าต้องการเผื่อความเสี่ยงมากขึ้นใช้ 2.0",
-        controlHtml: '<input id="minRrr" type="number" min="0" step="0.1" value="0" aria-describedby="screener-tip-minRrr minRrrHint">',
+        controlHtml: '<input id="minRrr" type="number" min="-10" step="0.1" value="-10" aria-describedby="screener-tip-minRrr minRrrHint">',
       })}
       ${renderScreenerFilterField({
         id: "maxDe",
         label: "Max D/E",
         tipKey: "maxDe",
         hint: "มือใหม่ลองไม่เกิน 1.0 ถ้าระวังหนี้มากให้ใช้ 0.7",
-        controlHtml: '<input id="maxDe" type="number" min="0" step="0.1" value="10" aria-describedby="screener-tip-maxDe maxDeHint">',
+        controlHtml: '<input id="maxDe" type="number" min="0" step="0.1" value="99" aria-describedby="screener-tip-maxDe maxDeHint">',
       })}
       ${renderScreenerFilterField({
         id: "sectorFilter",
@@ -2262,11 +2458,13 @@ function renderScreenerView() {
     const activeFilters = [
       sectorFilter.value ? `sector ${sectorFilter.value}` : "",
       trendFilter.value ? `trend ${trendFilter.value}` : "",
-      `score >= ${formatNumber(minScore.value)}`,
-      `RRR >= ${formatNumber(minRrr.value)}`,
-      `D/E <= ${formatNumber(maxDe.value)}`,
+      numberValue(minScore.value) > 0 ? `score >= ${formatNumber(minScore.value)}` : "",
+      numberValue(minRrr.value) > -10 ? `RRR >= ${formatNumber(minRrr.value)}` : "",
+      numberValue(maxDe.value) < 99 ? `D/E <= ${formatNumber(maxDe.value)}` : "",
     ].filter(Boolean);
-    filterStatus.textContent = `${formatNumber(rows.length)} stocks match ${activeFilters.join(" · ")}. Click a stock in the charts to highlight its table row, or click a sector bar to drill down.`;
+    filterStatus.textContent = activeFilters.length
+      ? `${formatNumber(rows.length)} stocks match ${activeFilters.join(" · ")}. Click a stock in the charts to highlight its table row, or click a sector bar to drill down.`
+      : `${formatNumber(rows.length)} stocks shown from the latest analysis. Add filters only when you want to narrow the list.`;
     document.querySelector("#screenerTable").innerHTML = `
       ${renderScreenerInsights(rows, { selectedSector: sectorFilter.value })}
       <p class="muted table-focus-status" data-stock-highlight-status>Click a stock in Quality vs reward or Top ideas to focus its table row.</p>
@@ -2310,60 +2508,62 @@ function renderSectorView() {
     if (right === "Unknown") return -1;
     return left.localeCompare(right);
   });
-  const defaultSector = sectorNames[0];
-  const rows = sectorNames
-    .map((sector) => {
-      const sectorRows = sectors[sector];
-      const leader = sectorRows.slice().sort((left, right) => numberValue(right.Total_Score) - numberValue(left.Total_Score))[0];
-      const stats = getSectorStats(sectorRows);
-      return {
-        Sector: sector,
-        Count: sectorRows.length,
-        Median_PE: stats.pe,
-        Median_ROE: stats.roe,
-        Median_Yield: stats.yield,
-        Avg_Score: average(sectorRows, "Total_Score"),
-        Leader: leader?.Symbol || "-",
-        Leader_Score: leader?.Total_Score || 0,
-      };
-    })
-    .sort((left, right) => numberValue(right.Leader_Score) - numberValue(left.Leader_Score));
+  const sectorInsights = buildSectorInsights(sectors, state.portfolioRows);
 
   viewOutput.innerHTML = `
+    <section class="sector-pro-panel" data-sector-pro-intelligence data-sector-default-all>
+      <div>
+        <span class="eyebrow">Pro Sector Intelligence</span>
+        <h3>เริ่มจากภาพรวมทุกกลุ่ม ก่อนเลือกหุ้นรายตัว</h3>
+        <p class="muted">ค่าเริ่มต้นแสดงทุกหุ้นในทุก sector เพื่อไม่ให้เข้าใจผิดว่าข้อมูลเหลือหุ้นตัวเดียว แล้วค่อยเลือก sector ที่ต้องการเจาะลึก</p>
+      </div>
+    </section>
     <div class="filter-bar">
       <label>
         Sector
         <select id="sectorSelect">
-          ${sectorNames.map((sector) => `<option value="${escapeHtml(sector)}"${sector === defaultSector ? " selected" : ""}>${escapeHtml(sector)}</option>`).join("")}
+          <option value="__all" selected>All sectors overview</option>
+          ${sectorNames.map((sector) => `<option value="${escapeHtml(sector)}">${escapeHtml(sector)}</option>`).join("")}
         </select>
       </label>
     </div>
     <div id="sectorDetails"></div>
-    <h3>Sector Summary</h3>
-    ${renderTable(rows, ["Sector", "Count", "Median_PE", "Median_ROE", "Median_Yield", "Avg_Score", "Leader", "Leader_Score"])}
+    <details class="advanced-sector-details" data-sector-advanced-table>
+      <summary>ดูตารางตัวเลขขั้นสูงของทุก Sector</summary>
+      ${renderTable(sectorInsights, ["Rank", "Sector", "Sector_Score", "Rotation_Signal", "Portfolio_Exposure_Pct", "Portfolio_Risk", "Avg_Score", "Avg_RRR", "Top_Ideas", "Leader"])}
+    </details>
   `;
 
   const sectorSelect = document.querySelector("#sectorSelect");
   const renderDetails = () => {
     const selectedSector = sectorSelect.value;
-    const sectorRows = sectors[selectedSector]
+    const isAllSectors = selectedSector === "__all";
+    const sectorRows = (isAllSectors ? state.recommendations : (sectors[selectedSector] || []))
       .slice()
       .sort((left, right) => numberValue(right.Total_Score) - numberValue(left.Total_Score));
     const leader = sectorRows[0];
     const stats = getSectorStats(sectorRows);
+    const insight = isAllSectors
+      ? { ...(sectorInsights[0] || {}), Sector: "All sectors overview", Rotation_Signal: "Neutral", Portfolio_Risk: "No holding" }
+      : sectorInsights.find((item) => item.Sector === selectedSector) || sectorInsights[0];
     document.querySelector("#sectorDetails").innerHTML = `
+      ${renderSectorBeginnerSummary(sectorInsights, insight)}
       <div class="metric-grid">
-        ${metric("Sector", selectedSector)}
-        ${metric("Stocks", sectorRows.length)}
-        ${metric("Median PE", formatNumber(stats.pe))}
-        ${metric("Median ROE", formatNumber(stats.roe))}
+        ${metric("Sector", isAllSectors ? "All sectors" : selectedSector)}
+        ${metric(isAllSectors ? "หุ้นที่แสดง" : "คะแนนกลุ่ม", isAllSectors ? `${formatNumber(sectorRows.length)} stocks` : `${formatNumber(insight?.Sector_Score || 0)} / 100`)}
+        ${metric("สัญญาณ", isAllSectors ? "ดูภาพรวมก่อน" : beginnerSignalText(insight?.Rotation_Signal))}
+        ${metric("ความเสี่ยงพอร์ต", isAllSectors ? "เลือก sector เพื่อดูรายกลุ่ม" : beginnerRiskText(insight?.Portfolio_Risk))}
+        ${metric("สัดส่วนในพอร์ต", isAllSectors ? "ทุกกลุ่ม" : `${formatNumber(insight?.Portfolio_Exposure_Pct || 0)}%`)}
         ${metric("Leader", leader ? `${leader.Symbol} (${formatNumber(leader.Total_Score)})` : "-")}
       </div>
+      ${isAllSectors ? `<p class="muted">ตอนนี้แสดงหุ้นทั้งหมดจาก analysis ล่าสุด หากต้องการดูหุ้นในกลุ่มเดียว ให้เลือก sector จาก dropdown หรือกดการ์ด sector ด้านล่าง</p>` : ""}
+      ${renderSectorProInsights(sectorInsights, insight)}
       ${renderSectorVisuals(sectorRows, stats)}
       <p class="muted table-focus-status" data-stock-highlight-status>Click a stock in Sector leaders or Timing vs quality to focus its table row.</p>
       ${renderTable(sectorRows, ["Symbol", "Price", "Total_Score", "RRR", "Upside_Pct", "Price_Position", "PE", "ROE", "Yield", "DE", "Trend_Status", "Rationale"], { stockHighlight: true })}
     `;
     attachStockHighlightControls(document.querySelector("#sectorDetails"));
+    attachSectorSelectionControls(sectorSelect, renderDetails);
   };
 
   sectorSelect.addEventListener("change", renderDetails);
@@ -2439,6 +2639,7 @@ async function runSimulation(event) {
       ${metric("Cash Deployed", money(data.summary?.deployedCapital || 0))}
     </div>
     ${renderSimulationBuyPlan(data.buyPlan)}
+    ${renderSimulationGrowthChart(data.history || [], data.symbol)}
     <h3>Recent Portfolio History</h3>
     ${renderTable((data.history || []).slice(-20), ["Date", "Price", "Portfolio_Value", "Buy_Hold_Value", "Cash", "Shares", "Deployed_Capital", "Action"])}
     <h3>Trade History</h3>
@@ -2470,8 +2671,117 @@ function renderSimulationBuyPlan(buyPlan = {}) {
   `;
 }
 
+function renderSimulationGrowthChart(history = [], symbol = "") {
+  const rows = history
+    .filter((row) => numberValue(row.Portfolio_Value) || numberValue(row.Buy_Hold_Value))
+    .slice(-260);
+  if (rows.length < 2) {
+    return `
+      <section class="chart-panel simulation-growth-panel" data-simulation-growth-chart>
+        <h3>Portfolio Growth: Strategy vs Buy & Hold</h3>
+        <p class="muted">Run a longer simulation to show the growth chart.</p>
+      </section>
+    `;
+  }
+
+  const width = 920;
+  const height = 330;
+  const padding = { top: 28, right: 144, bottom: 44, left: 72 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  const values = rows.flatMap((row) => [numberValue(row.Portfolio_Value), numberValue(row.Buy_Hold_Value)]);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const valueRange = Math.max(maxValue - minValue, 1);
+  const yMin = Math.max(0, minValue - valueRange * 0.08);
+  const yMax = maxValue + valueRange * 0.08;
+  const yRange = Math.max(yMax - yMin, 1);
+  const xFor = (index) => padding.left + (index / Math.max(rows.length - 1, 1)) * chartWidth;
+  const yFor = (value) => padding.top + (1 - ((numberValue(value) - yMin) / yRange)) * chartHeight;
+  const strategyPoints = rows.map((row, index) => `${xFor(index)},${yFor(row.Portfolio_Value)}`).join(" ");
+  const buyHoldPoints = rows.map((row, index) => `${xFor(index)},${yFor(row.Buy_Hold_Value)}`).join(" ");
+  const yTicks = Array.from({ length: 5 }, (_, index) => yMin + (yRange / 4) * index);
+  const xTicks = pickChartTicks(rows, 5);
+  const lastStrategy = numberValue(rows.at(-1)?.Portfolio_Value);
+  const lastBuyHold = numberValue(rows.at(-1)?.Buy_Hold_Value);
+  const winner = lastStrategy >= lastBuyHold ? "Strategy" : "Buy & Hold";
+
+  return `
+    <section class="chart-panel simulation-growth-panel" data-simulation-growth-chart>
+      <div class="simulation-chart-heading">
+        <div>
+          <h3>Portfolio Growth: Strategy vs Buy & Hold</h3>
+          <p class="muted">Backtest Result: ${escapeHtml(symbol || "-")}</p>
+        </div>
+        <div class="simulation-chart-winner" data-simulation-chart-winner>
+          <span>Better in this run</span>
+          <strong>${escapeHtml(winner)}</strong>
+        </div>
+      </div>
+      <div class="simulation-chart-frame">
+        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Portfolio growth strategy versus buy and hold">
+          ${yTicks.map((tick) => {
+            const y = yFor(tick);
+            return `
+              <line class="simulation-grid-line" x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}"></line>
+              <text class="axis-text" x="12" y="${y + 4}">${escapeHtml(compactMoney(tick))}</text>
+            `;
+          }).join("")}
+          ${xTicks.map(({ row, index }) => `
+            <text class="axis-text" x="${xFor(index) - 26}" y="${height - 12}">${escapeHtml(shortMonth(row.Date))}</text>
+          `).join("")}
+          <line class="axis-line" x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}"></line>
+          <line class="axis-line" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}"></line>
+          <polyline class="simulation-line strategy-line" points="${strategyPoints}"></polyline>
+          <polyline class="simulation-line buy-hold-line" points="${buyHoldPoints}"></polyline>
+          <circle class="simulation-end-point strategy-point" cx="${xFor(rows.length - 1)}" cy="${yFor(lastStrategy)}" r="4"></circle>
+          <circle class="simulation-end-point buy-hold-point" cx="${xFor(rows.length - 1)}" cy="${yFor(lastBuyHold)}" r="4"></circle>
+          <g class="simulation-legend" transform="translate(${width - padding.right + 18}, ${padding.top + 10})">
+            <line class="simulation-line strategy-line" x1="0" y1="0" x2="26" y2="0"></line>
+            <text class="axis-text" x="34" y="4">Strategy</text>
+            <line class="simulation-line buy-hold-line" x1="0" y1="26" x2="26" y2="26"></line>
+            <text class="axis-text" x="34" y="30">Buy & Hold</text>
+          </g>
+          <text class="axis-text" x="${width / 2 - 22}" y="${height - 2}">Time</text>
+          <text class="axis-text" x="12" y="18">Capital</text>
+        </svg>
+      </div>
+      <details class="chart-reading-guide" data-simulation-chart-guide open>
+        <summary>วิธีอ่านกราฟนี้</summary>
+        <ul>
+          <li><strong>เส้น Strategy</strong> คือมูลค่าพอร์ตตามกฎซื้อ/ขายของระบบ รวมเงินสดและหุ้นที่ถืออยู่</li>
+          <li><strong>เส้น Buy & Hold</strong> คือถ้าเอาเงินทั้งหมดซื้อครั้งเดียวแล้วถือยาว ไม่ปรับพอร์ต</li>
+          <li>ถ้าเส้น Strategy อยู่เหนือ Buy & Hold แปลว่ากลยุทธ์ในรอบนี้ทำได้ดีกว่าการซื้อถือเฉยๆ</li>
+          <li>ถ้าเส้นแกว่งแรง ให้ดู Trade History ประกอบว่าเกิดจากซื้อเพิ่ม, take profit หรือ stop loss</li>
+        </ul>
+      </details>
+    </section>
+  `;
+}
+
+function pickChartTicks(rows, count) {
+  if (!rows.length) return [];
+  const maxIndex = rows.length - 1;
+  return Array.from({ length: count }, (_, tickIndex) => {
+    const index = Math.round((tickIndex / Math.max(count - 1, 1)) * maxIndex);
+    return { row: rows[index], index };
+  }).filter((item, index, list) => list.findIndex((candidate) => candidate.index === item.index) === index);
+}
+
+function shortMonth(value) {
+  if (!value) return "-";
+  return new Date(value).toLocaleDateString(undefined, { month: "short", year: "numeric" });
+}
+
+function compactMoney(value) {
+  const number = numberValue(value);
+  if (Math.abs(number) >= 1000000) return `${formatNumber(number / 1000000)}m`;
+  if (Math.abs(number) >= 1000) return `${formatNumber(number / 1000)}k`;
+  return formatNumber(number);
+}
+
 function renderPortfolioVisuals(rows) {
-  const sectorExposure = breakdownBy(rows, (row) => row.Sector || "Unknown", "Market_Value", 6);
+  const sectorExposure = breakdownBy(rows, (row) => row.Sector || "Unknown", "Market_Value");
   const actionMix = breakdownBy(rows, actionGroup, () => 1, 5);
   const scoreBands = [
     { label: "Strong 70+", value: rows.filter((row) => numberValue(row.Total_Score) >= 70).length, filterValue: "strong" },
@@ -2483,6 +2793,7 @@ function renderPortfolioVisuals(rows) {
     <div class="visual-grid">
       <section class="chart-panel">
         <h3>Sector exposure</h3>
+        <p class="muted visual-filter-hint" data-sector-exposure-complete>แสดง sector จริงทั้งหมดในพอร์ต ไม่มีการรวมเป็น Other</p>
         ${renderBarList(sectorExposure, { action: "recommended-sector-filter", valueFormatter: money })}
       </section>
       <section class="chart-panel">
@@ -2588,10 +2899,9 @@ function renderSectorVisuals(rows, stats) {
   `;
 }
 
-function renderBusinessFunnel(metrics, profileCompletionPct, portfolioAttachPct) {
+function renderBusinessFunnel(metrics, portfolioAttachPct) {
   const funnel = [
     { label: "Registered users", value: metrics.users || 0, caption: "Top of funnel" },
-    { label: "Completed profiles", value: metrics.completedProfiles || 0, caption: `${formatNumber(profileCompletionPct)}% activation` },
     { label: "Saved portfolios", value: metrics.savedPortfolios || 0, caption: `${formatNumber(portfolioAttachPct)}% portfolio attach` },
     { label: "Paid users", value: metrics.paidUsers || 0, caption: `${money(metrics.mrrEstimate || 0)} MRR` },
   ];
@@ -2729,7 +3039,8 @@ function renderWorkspaceSummary(organizations = state.organizations) {
   `;
 }
 
-function renderTeamWorkspace() {
+function renderTeamWorkspace(options = {}) {
+  const compactAdmin = Boolean(options.compactAdmin);
   if (!state.teamUsers.length) {
     return `
       <section class="chart-panel user-management-panel" data-user-management-panel>
@@ -2742,6 +3053,16 @@ function renderTeamWorkspace() {
   const roles = state.policy?.roles || ["owner", "admin", "advisor", "customer"];
   const advisors = state.teamUsers.filter((user) => ["owner", "admin", "advisor"].includes(user.role));
   const organizations = state.organizations.length ? state.organizations : state.businessMetrics?.recentOrganizations || [];
+  const launchPlans = state.plans || [];
+  const subscriptionStatuses = ["active", "trialing", "past_due", "canceled", "inactive"];
+  const canManagePackages = canManageSubscriptions();
+  const canDeleteUserAccounts = canDeleteUsers();
+  const pendingManualPackages = state.teamUsers.filter((user) => user.subscription?.status === "inactive").length;
+  const activeMembers = state.teamUsers.filter((user) => user.subscription?.status === "active").length;
+  const expiredMembers = state.teamUsers.filter((user) => {
+    const expiresAt = user.subscription?.expiresAt || user.subscription?.renewsAt;
+    return expiresAt && new Date(expiresAt).getTime() < Date.now();
+  }).length;
 
   return `
     <section class="chart-panel user-management-panel" data-user-management-panel>
@@ -2749,24 +3070,38 @@ function renderTeamWorkspace() {
         <div>
           <span class="eyebrow">${canViewBusinessMetrics() ? "Access control" : "Client scope"}</span>
           <h3>${canViewBusinessMetrics() ? "User Management" : "Assigned Client Management"}</h3>
-          <p class="muted">${canViewBusinessMetrics() ? "จัดการ role, package, workspace และ advisor assignment ของผู้ใช้ทั้งหมดที่บัญชีนี้มีสิทธิ์ดูแล" : "ดูรายชื่อลูกค้าที่ถูก assign ให้ดูแลเท่านั้น"}</p>
+          <p class="muted">${canViewBusinessMetrics() ? "หน้าหลักของ admin สำหรับเปิด Package ให้สมาชิก: เลือก Starter/Pro, เลือกสถานะ, ตั้งวันหมดอายุ แล้วกด Save package" : "ดูรายชื่อลูกค้าที่ถูก assign ให้ดูแลเท่านั้น"}</p>
         </div>
         <span class="status-pill ready">${formatNumber(state.teamUsers.length)} accounts</span>
       </div>
+      ${canManagePackages ? `
+        <div class="guidance-grid package-admin-guide" data-admin-package-management>
+          <div class="guidance-card"><span>New signups</span><strong>${formatNumber(pendingManualPackages)} account(s) waiting for package assignment</strong></div>
+          <div class="guidance-card"><span>Active members</span><strong>${formatNumber(activeMembers)} account(s) currently active</strong></div>
+          <div class="guidance-card"><span>Expired / check date</span><strong>${formatNumber(expiredMembers)} account(s) need expiry review</strong></div>
+        </div>
+      ` : ""}
       <div class="table-wrap">
         <table>
           <thead>
-            <tr>
-              <th>Account</th>
-              <th>Role</th>
-              <th>Workspace</th>
-              <th>Plan</th>
-              <th>Advisor</th>
-              <th>Profile</th>
-              <th>Portfolio</th>
-              <th>Revenue</th>
-              <th>Actions</th>
-            </tr>
+            ${compactAdmin
+              ? `<tr>
+                  <th>Member</th>
+                  <th>Package / Expiry</th>
+                  <th>Status</th>
+                  <th>Portfolio</th>
+                  <th>Actions</th>
+                </tr>`
+              : `<tr>
+                  <th>Account</th>
+                  <th>Role</th>
+                  <th>Workspace</th>
+                  <th>Plan</th>
+                  <th>Advisor</th>
+                  <th>Portfolio</th>
+                  <th>Revenue</th>
+                  <th>Actions</th>
+                </tr>`}
           </thead>
           <tbody>
             ${state.teamUsers.map((user) => {
@@ -2782,23 +3117,54 @@ function renderTeamWorkspace() {
               const organizationControl = canManageOrganizations()
                 ? `<select data-organization-user="${escapeHtml(user.id)}">${organizations.map((organization) => option(organization.id, organization.name, user.organizationId)).join("")}</select>`
                 : `${escapeHtml(user.organizationName || "-")}<br><span class="muted">${escapeHtml(user.organizationType || "-")}</span>`;
+              const subscription = user.subscription || {};
+              const packageControl = canManagePackages
+                ? `<div class="subscription-admin-control" data-subscription-user="${escapeHtml(user.id)}">
+                    ${subscription.status === "inactive" ? `<span class="status-pill warning">Waiting admin</span>` : ""}
+                    <select data-subscription-plan-user="${escapeHtml(user.id)}">
+                      ${launchPlans.map((plan) => option(plan.id, `${plan.name} (${money(plan.priceThb || 0)})`, subscription.planId)).join("")}
+                    </select>
+                    <select data-subscription-status-user="${escapeHtml(user.id)}">
+                      ${subscriptionStatuses.map((status) => option(status, subscriptionStatusLabel(status), subscription.status)).join("")}
+                    </select>
+                    <input type="date" data-subscription-expiry-user="${escapeHtml(user.id)}" value="${escapeHtml(subscriptionExpiryValue(subscription))}" aria-label="Package expiry date for ${escapeHtml(user.email)}">
+                  </div>`
+                : `${escapeHtml(subscription.plan || "-")}<br><span class="muted">${escapeHtml(subscription.status || "-")}</span>`;
               const portfolioValue = user.portfolioSummary ? money(user.portfolioSummary.marketValue || 0) : "-";
               const revenue = money(user.billingSummary?.revenueCollected || 0);
+              const subscriptionStatus = subscriptionStatusLabel(subscription.status || "inactive");
+              const expiryLabel = formatDate(subscription.expiresAt || subscription.renewsAt);
+
+              if (compactAdmin) {
+                return `
+                  <tr data-member-management-row>
+                    <td><strong>${escapeHtml(user.name || "Investor")}</strong><br><span class="muted">${escapeHtml(user.email)}</span></td>
+                    <td>${packageControl}</td>
+                    <td><strong>${escapeHtml(subscriptionStatus)}</strong><br><span class="muted">Expiry: ${escapeHtml(expiryLabel)}</span></td>
+                    <td>${escapeHtml(portfolioValue)}</td>
+                    <td>
+                      ${canManagePackages ? `<button class="table-action" type="button" data-save-subscription="${escapeHtml(user.id)}">Save package</button>` : ""}
+                      ${canDeleteUserAccounts && user.id !== state.user?.id ? `<button class="table-action danger-action" type="button" data-delete-user="${escapeHtml(user.id)}" data-delete-user-label="${escapeHtml(user.email)}">Delete user</button>` : ""}
+                    </td>
+                  </tr>
+                `;
+              }
 
               return `
                 <tr>
                   <td><strong>${escapeHtml(user.name || "Investor")}</strong><br><span class="muted">${escapeHtml(user.email)}</span></td>
                   <td>${roleControl}</td>
                   <td>${organizationControl}</td>
-                  <td>${escapeHtml(user.subscription?.plan || "-")}<br><span class="muted">${escapeHtml(user.subscription?.status || "-")}</span></td>
+                  <td>${packageControl}</td>
                   <td>${advisorControl}</td>
-                  <td>${user.profileCompleted ? "Complete" : "Missing"}</td>
                   <td>${escapeHtml(portfolioValue)}</td>
                   <td>${escapeHtml(revenue)}</td>
                   <td>
                     ${canManageRoles() ? `<button class="table-action" type="button" data-save-role="${escapeHtml(user.id)}">Save role</button>` : ""}
+                    ${canManagePackages ? `<button class="table-action" type="button" data-save-subscription="${escapeHtml(user.id)}">Save package</button>` : ""}
                     ${canManageOrganizations() ? `<button class="table-action" type="button" data-save-organization-user="${escapeHtml(user.id)}">Move workspace</button>` : ""}
                     ${canAssignAdvisors() && user.role === "customer" ? `<button class="table-action" type="button" data-save-advisor="${escapeHtml(user.id)}">Assign advisor</button>` : ""}
+                    ${canDeleteUserAccounts && user.id !== state.user?.id ? `<button class="table-action danger-action" type="button" data-delete-user="${escapeHtml(user.id)}" data-delete-user-label="${escapeHtml(user.email)}">Delete user</button>` : ""}
                   </td>
                 </tr>
               `;
@@ -2806,9 +3172,92 @@ function renderTeamWorkspace() {
           </tbody>
         </table>
       </div>
-      <p id="teamMessage" class="muted">User role, workspace move และ advisor assignment จะถูกบันทึกใน activity timeline.</p>
+      <p id="teamMessage" class="muted">${compactAdmin ? "บันทึกเฉพาะ package, status, expiry date หรือ delete user จากหน้านี้ หากต้องจัดการ role/workspace/advisor ให้ไปที่ Advanced Ops." : "User role, manual package update, workspace move และ advisor assignment จะถูกบันทึกใน activity timeline."}</p>
     </section>
   `;
+}
+
+function renderSectorBeginnerSummary(sectorInsights, selectedInsight = {}) {
+  const bestSector = sectorInsights[0] || {};
+  const firstRisk = sectorInsights.find((item) => !["Balanced", "No holding"].includes(item.Portfolio_Risk)) || selectedInsight;
+  return `
+    <section class="sector-beginner-summary" data-sector-beginner-summary>
+      <article>
+        <span>1. กลุ่มน่าศึกษาก่อน</span>
+        <strong>${escapeHtml(bestSector.Sector || "-")}</strong>
+        <p>${escapeHtml(bestSector.Sector ? `คะแนนกลุ่ม ${formatNumber(bestSector.Sector_Score)} และสัญญาณ ${beginnerSignalText(bestSector.Rotation_Signal)}` : "ยังไม่มีข้อมูล sector")}</p>
+      </article>
+      <article>
+        <span>2. กลุ่มที่เลือกอยู่</span>
+        <strong>${escapeHtml(selectedInsight.Sector || "-")}</strong>
+        <p>${escapeHtml(sectorNextStep(selectedInsight))}</p>
+      </article>
+      <article>
+        <span>3. จุดที่ควรเช็กในพอร์ต</span>
+        <strong>${escapeHtml(firstRisk?.Sector || selectedInsight.Sector || "-")}</strong>
+        <p>${escapeHtml(beginnerRiskText(firstRisk?.Portfolio_Risk || "No holding"))}</p>
+      </article>
+    </section>
+  `;
+}
+
+function renderSectorProInsights(sectorInsights, selectedInsight = {}) {
+  const rankingBars = sectorInsights.slice(0, 5).map((item) => ({
+    label: item.Sector,
+    value: item.Sector_Score,
+    selected: item.Sector === selectedInsight.Sector,
+    caption: `${beginnerSignalText(item.Rotation_Signal)} · พอร์ต ${formatNumber(item.Portfolio_Exposure_Pct)}%`,
+  }));
+  const exposureBars = sectorInsights
+    .filter((item) => numberValue(item.Portfolio_Exposure_Pct) > 0)
+    .slice()
+    .sort((left, right) => numberValue(right.Portfolio_Exposure_Pct) - numberValue(left.Portfolio_Exposure_Pct))
+    .slice(0, 5)
+    .map((item) => ({
+      label: item.Sector,
+      value: item.Portfolio_Exposure_Pct,
+      selected: item.Sector === selectedInsight.Sector,
+      caption: beginnerRiskText(item.Portfolio_Risk),
+    }));
+
+  return `
+    <div class="visual-grid two-columns sector-pro-grid">
+      <section class="chart-panel" data-sector-ranking-panel>
+        <h3>1. กลุ่มไหนน่าศึกษา</h3>
+        <p class="muted">ดู 5 กลุ่มที่คะแนนรวมดีที่สุดก่อน แล้วค่อยลงไปดูหุ้นรายตัว</p>
+        ${renderBarList(rankingBars, { action: "sector-select", maxValue: 100, valueFormatter: (value) => `${formatNumber(value)} / 100` })}
+      </section>
+      <section class="chart-panel" data-sector-risk-panel>
+        <h3>2. พอร์ตกระจุกตรงไหน</h3>
+        <p class="muted">ถ้ามี portfolio ระบบจะบอกว่าถือกลุ่มไหนเยอะ และควรระวังอะไร</p>
+        ${exposureBars.length
+          ? renderBarList(exposureBars, { action: "sector-select", maxValue: Math.max(...exposureBars.map((item) => numberValue(item.value)), 1), valueFormatter: (value) => `${formatNumber(value)}%` })
+          : `<p class="muted">Upload a portfolio to compare your sector exposure with sector strength.</p>`}
+      </section>
+      <section class="chart-panel wide" data-sector-rotation-panel>
+        <h3>3. สัญญาณกลุ่มแบบอ่านง่าย</h3>
+        <div class="sector-signal-grid">
+          ${sectorInsights.slice(0, 6).map((item) => `
+            <button class="sector-signal-card ${item.Sector === selectedInsight.Sector ? "selected" : ""}" type="button" data-sector-select="${escapeHtml(item.Sector)}">
+              <span>${escapeHtml(item.Sector)}</span>
+              <strong>${escapeHtml(beginnerSignalText(item.Rotation_Signal))}</strong>
+              <small>${escapeHtml(sectorSignalReason(item))}</small>
+            </button>
+          `).join("")}
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function attachSectorSelectionControls(sectorSelect, renderDetails) {
+  document.querySelectorAll("[data-sector-select]").forEach((button) => {
+    button.addEventListener("click", () => {
+      sectorSelect.value = button.dataset.sectorSelect || sectorSelect.value;
+      renderDetails();
+      document.querySelector("#sectorDetails")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
 }
 
 function renderApprovalWorkspace(requests = state.approvalRequests) {
@@ -2936,9 +3385,11 @@ function auditActionLabel(action) {
     "analysis.run": "Portfolio analysis",
     "analysis.snapshot_saved": "Snapshot saved",
     "simulation.run": "Simulation",
-    "profile.update": "Guide profile",
+    "profile.update": "Investor profile updated",
     "billing.checkout": "Subscription checkout",
     "team.role_update": "Role updated",
+    "team.subscription_update": "Package updated",
+    "team.user_deleted": "User deleted",
     "team.advisor_assigned": "Advisor assigned",
     "team.advisor_reassigned": "Advisor reassigned",
     "team.advisor_unassigned": "Advisor removed",
@@ -2967,6 +3418,10 @@ function summarizeAuditDetails(event) {
 
   if (event.action === "team.role_update") {
     return `${details.previousRole || "-"} → ${details.nextRole || "-"}`;
+  }
+
+  if (event.action === "team.subscription_update") {
+    return `${details.previousPlanId || "-"} → ${details.nextPlanId || "-"} · ${details.nextStatus || "-"} · expires ${formatDate(details.expiresAt)}`;
   }
 
   if (event.action === "team.advisor_assigned" || event.action === "team.advisor_reassigned") {
@@ -3041,11 +3496,17 @@ function attachTeamActions() {
   document.querySelectorAll("[data-save-role]").forEach((button) => {
     button.addEventListener("click", () => updateTeamRole(button.dataset.saveRole));
   });
+  document.querySelectorAll("[data-save-subscription]").forEach((button) => {
+    button.addEventListener("click", () => updateUserSubscription(button.dataset.saveSubscription));
+  });
   document.querySelectorAll("[data-save-advisor]").forEach((button) => {
     button.addEventListener("click", () => updateAdvisorAssignment(button.dataset.saveAdvisor));
   });
   document.querySelectorAll("[data-save-organization-user]").forEach((button) => {
     button.addEventListener("click", () => updateUserOrganization(button.dataset.saveOrganizationUser));
+  });
+  document.querySelectorAll("[data-delete-user]").forEach((button) => {
+    button.addEventListener("click", () => deleteManagedUser(button.dataset.deleteUser, button.dataset.deleteUserLabel));
   });
 }
 
@@ -3254,6 +3715,65 @@ async function updateTeamRole(userId) {
   renderBusinessView();
 }
 
+async function updateUserSubscription(userId) {
+  const planSelect = document.querySelector(`[data-subscription-plan-user="${cssEscape(userId)}"]`);
+  const statusSelect = document.querySelector(`[data-subscription-status-user="${cssEscape(userId)}"]`);
+  const expiryInput = document.querySelector(`[data-subscription-expiry-user="${cssEscape(userId)}"]`);
+  const teamMessage = document.querySelector("#teamMessage");
+  if (!planSelect || !statusSelect || !expiryInput || !teamMessage) return;
+
+  teamMessage.textContent = "Saving manual package update...";
+  const response = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/subscription`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      planId: planSelect.value,
+      status: statusSelect.value,
+      expiresAt: expiryInput.value,
+    }),
+  });
+  const data = await response.json();
+
+  if (!data.ok) {
+    teamMessage.textContent = data.message || "Package update failed.";
+    return;
+  }
+
+  await refreshWorkspaceData({ includeCurrentUser: state.user?.id === userId });
+  renderAuthState();
+  renderBusinessView();
+}
+
+async function deleteManagedUser(userId, label = "this user") {
+  const teamMessage = document.querySelector("#teamMessage");
+  if (!teamMessage || !userId) return;
+
+  const confirmed = window.confirm(`Delete ${label}? This will remove access, active sessions, portfolio snapshot, investor profile, and advisor assignments. Audit history will be kept.`);
+  if (!confirmed) {
+    teamMessage.textContent = "Delete user cancelled.";
+    return;
+  }
+
+  teamMessage.textContent = "Deleting user...";
+  const response = await fetch(`/api/admin/users/${encodeURIComponent(userId)}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason: "admin_user_management" }),
+  });
+  const data = await response.json();
+
+  if (!data.ok) {
+    teamMessage.textContent = data.message || "Delete user failed.";
+    return;
+  }
+
+  await refreshWorkspaceData();
+  await loadBusinessMetrics();
+  await loadAuditEvents();
+  teamMessage.textContent = "User deleted. Audit history was kept.";
+  renderBusinessView();
+}
+
 async function updateAdvisorAssignment(userId) {
   const select = document.querySelector(`[data-advisor-user="${cssEscape(userId)}"]`);
   const teamMessage = document.querySelector("#teamMessage");
@@ -3299,7 +3819,7 @@ async function updateUserOrganization(userId) {
 }
 
 async function refreshWorkspaceData(options = {}) {
-  const loaders = [loadBusinessMetrics(), loadReferenceMasterReview(), loadTeamUsers(), loadOrganizations(), loadPaymentSessions(), loadAuditEvents(), loadApprovalRequests(), loadTenantScope()];
+  const loaders = [loadBusinessMetrics(), loadReferenceMasterReview(), loadTeamUsers(), loadOrganizations(), loadPaymentSessions(), loadAuditEvents(), loadTenantScope()];
   if (options.includeCurrentUser) {
     loaders.push(loadCurrentUser());
   }
@@ -3331,6 +3851,14 @@ function renderBarList(items, options = {}) {
         if (options.action === "sector-filter") {
           return `
             <button class="bar-row bar-row-button ${item.selected ? "selected" : ""}" type="button" data-sector-filter="${escapeHtml(item.label)}" title="Filter sector ${escapeHtml(item.label)}">
+              ${rowContent}
+            </button>
+          `;
+        }
+
+        if (options.action === "sector-select") {
+          return `
+            <button class="bar-row bar-row-button ${item.selected ? "selected" : ""}" type="button" data-sector-select="${escapeHtml(item.label)}" title="Open sector ${escapeHtml(item.label)}">
               ${rowContent}
             </button>
           `;
@@ -3484,7 +4012,7 @@ function renderTable(rows, columns, options = {}) {
   return `
     <div class="table-wrap">
       <table>
-        <thead><tr>${columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}</tr></thead>
+        <thead><tr>${columns.map((column) => renderTableHeader(column)).join("")}</tr></thead>
         <tbody>
           ${rows.map((row) => {
             const symbol = String(row.Symbol || "").trim();
@@ -3496,6 +4024,29 @@ function renderTable(rows, columns, options = {}) {
         </tbody>
       </table>
     </div>
+  `;
+}
+
+function renderTableHeader(column) {
+  const tip = tableColumnTips[column];
+  if (!tip) {
+    return `<th>${escapeHtml(column)}</th>`;
+  }
+
+  const tooltipId = `table-tip-${column.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+  return `
+    <th>
+      <span class="table-header-help" data-table-header-hint="${escapeHtml(column)}">
+        <span>${escapeHtml(column)}</span>
+        <button class="tooltip-trigger table-tooltip-trigger" type="button" aria-label="Explain ${escapeHtml(tip.title)}" aria-describedby="${tooltipId}">?</button>
+        <span id="${tooltipId}" class="tooltip-card table-tooltip-card" role="tooltip">
+          <strong>${escapeHtml(tip.title)}</strong>
+          <span>คืออะไร: ${escapeHtml(tip.meaning)}</span>
+          <span>ค่าที่น่าเริ่มดู: ${escapeHtml(tip.goodValue)}</span>
+          <span>ข้อควรระวัง: ${escapeHtml(tip.caution)}</span>
+        </span>
+      </span>
+    </th>
   `;
 }
 
@@ -3553,6 +4104,32 @@ function option(value, label, selectedValue) {
   return `<option value="${escapeHtml(value)}"${value === selectedValue ? " selected" : ""}>${escapeHtml(label)}</option>`;
 }
 
+function subscriptionStatusLabel(status) {
+  return {
+    active: "Active",
+    trialing: "Trialing",
+    past_due: "Past due",
+    canceled: "Canceled",
+    inactive: "Inactive",
+  }[status] || "Active";
+}
+
+function subscriptionExpiryValue(subscription = {}) {
+  const dateValue = subscription.status === "trialing"
+    ? subscription.trialEndsAt || subscription.renewsAt
+    : subscription.renewsAt || subscription.trialEndsAt;
+  if (!dateValue) {
+    return "";
+  }
+
+  const parsed = new Date(dateValue);
+  if (!Number.isFinite(parsed.getTime())) {
+    return "";
+  }
+
+  return parsed.toISOString().slice(0, 10);
+}
+
 function approvalActionTypeLabel(actionType) {
   return {
     portfolio_review: "Portfolio review",
@@ -3578,6 +4155,14 @@ function canViewBusinessMetrics() {
 
 function canManageRoles() {
   return hasRolePermission("role_management") && hasEntitlement("role.management");
+}
+
+function canManageSubscriptions() {
+  return ["owner", "admin"].includes(state.user?.role) && hasEntitlement("business.metrics");
+}
+
+function canDeleteUsers() {
+  return canManageSubscriptions();
 }
 
 function canAssignAdvisors() {
@@ -3635,6 +4220,7 @@ function renderLockedFeature(featureId) {
   const feature = featurePolicy(featureId);
   const plan = state.plans.find((candidate) => candidate.id === feature.requiredPlanId);
   const currentPlan = state.user?.entitlements?.planName || state.user?.subscription?.plan || "Current plan";
+  const publicUpgradeAvailable = Boolean(plan);
 
   return `
     <section class="locked-card">
@@ -3647,9 +4233,16 @@ function renderLockedFeature(featureId) {
         ${metric("Monthly Price", plan ? money(plan.priceThb || 0) : "-")}
         ${metric("Status", state.user?.entitlements?.status || state.user?.subscription?.status || "-")}
       </div>
-      <button type="button" data-upgrade-plan="${escapeHtml(feature.requiredPlanId || "pro")}">Upgrade to ${escapeHtml(feature.requiredPlanName || "Pro")}</button>
+      ${publicUpgradeAvailable
+        ? `<button type="button" data-upgrade-plan="${escapeHtml(feature.requiredPlanId || "pro")}">Upgrade to ${escapeHtml(feature.requiredPlanName || "Pro")}</button>`
+        : `<button type="button" disabled data-deferred-upgrade="${escapeHtml(feature.requiredPlanId || "advisor")}">${escapeHtml(feature.requiredPlanName || "Advisor")} coming soon</button>
+          <p class="muted" data-deferred-upgrade-note>ช่วงแรกเปิดใช้งานจริงเฉพาะ Starter/Pro ก่อน หากต้องใช้ feature นี้ให้ owner/admin จัดการแบบ manual หรือรอ Advisor package รอบถัดไป</p>`}
     </section>
   `;
+}
+
+function isPublicLaunchPlan(planId) {
+  return state.plans.some((plan) => plan.id === String(planId || "").toLowerCase());
 }
 
 function cssEscape(value) {
@@ -3676,6 +4269,125 @@ function getSectorStats(sectorRows) {
     roe: firstRow ? numberValue(firstRow.Sector_ROE) : median(sectorRows.map((row) => numberValue(row.ROE))),
     yield: firstRow ? numberValue(firstRow.Sector_Yield) : median(sectorRows.map((row) => numberValue(row.Yield))),
   };
+}
+
+function buildSectorInsights(sectors, portfolioRows = []) {
+  const totalPortfolioValue = sum(portfolioRows, "Market_Value");
+  const portfolioBySector = groupBy(portfolioRows, "Sector");
+  return Object.entries(sectors)
+    .map(([sector, sectorRows]) => {
+      const rows = sectorRows.slice();
+      const stats = getSectorStats(rows);
+      const leader = rows.slice().sort((left, right) => numberValue(right.Total_Score) - numberValue(left.Total_Score))[0];
+      const avgScore = average(rows, "Total_Score");
+      const avgRrr = average(rows, "RRR");
+      const avgUpside = average(rows, "Upside_Pct");
+      const avgDe = average(rows, "DE");
+      const bullishPct = percentOf(rows, (row) => /Bullish|Uptrend|Positive/i.test(String(row.Trend_Status || "")));
+      const bearishPct = percentOf(rows, (row) => /Bearish|Downtrend|Negative/i.test(String(row.Trend_Status || "")));
+      const topIdeas = rows.filter((row) => numberValue(row.Total_Score) >= 70).length;
+      const weakIdeas = rows.filter((row) => numberValue(row.Total_Score) < 45).length;
+      const portfolioSectorRows = portfolioBySector[sector] || [];
+      const portfolioValue = sum(portfolioSectorRows, "Market_Value");
+      const exposurePct = totalPortfolioValue ? (portfolioValue / totalPortfolioValue) * 100 : 0;
+      const sectorScore = calculateSectorScore({ avgScore, avgRrr, avgUpside, avgRoe: stats.roe, avgDe, bullishPct, bearishPct });
+      return {
+        Sector: sector,
+        Count: rows.length,
+        Sector_Score: sectorScore,
+        Rotation_Signal: sectorRotationSignal({ sectorScore, avgScore, avgRrr, avgUpside, bullishPct, bearishPct, stats }),
+        Portfolio_Exposure_Pct: exposurePct,
+        Portfolio_Risk: portfolioSectorRisk({ exposurePct, sectorScore, weakIdeas, portfolioSectorRows }),
+        Median_PE: stats.pe,
+        Median_ROE: stats.roe,
+        Median_Yield: stats.yield,
+        Avg_Score: avgScore,
+        Avg_RRR: avgRrr,
+        Avg_Upside_Pct: avgUpside,
+        Bullish_Pct: bullishPct,
+        Bearish_Pct: bearishPct,
+        Top_Ideas: topIdeas,
+        Weak_Ideas: weakIdeas,
+        Leader: leader?.Symbol || "-",
+        Leader_Score: leader?.Total_Score || 0,
+      };
+    })
+    .sort((left, right) => numberValue(right.Sector_Score) - numberValue(left.Sector_Score))
+    .map((item, index) => ({ Rank: index + 1, ...item }));
+}
+
+function calculateSectorScore({ avgScore, avgRrr, avgUpside, avgRoe, avgDe, bullishPct, bearishPct }) {
+  const rrrScore = clamp(avgRrr * 20, 0, 100);
+  const upsideScore = clamp(avgUpside * 2, 0, 100);
+  const roeScore = clamp(avgRoe * 3, 0, 100);
+  const debtScore = 100 - clamp((avgDe / 3) * 100, 0, 100);
+  const momentumScore = clamp(bullishPct - bearishPct + 50, 0, 100);
+  return clamp((avgScore * 0.42) + (rrrScore * 0.16) + (upsideScore * 0.16) + (roeScore * 0.1) + (debtScore * 0.08) + (momentumScore * 0.08), 0, 100);
+}
+
+function sectorRotationSignal({ sectorScore, avgScore, avgRrr, avgUpside, bullishPct, bearishPct, stats }) {
+  if (sectorScore >= 72 && bullishPct >= 45) return "Strong Sector";
+  if (sectorScore >= 62 && avgUpside >= 10 && avgRrr >= 1.4) return "Accumulation Watch";
+  if (sectorScore >= 55 && stats.pe <= 15 && avgScore >= 55) return "Cheap but Selective";
+  if (bearishPct >= 45 || sectorScore < 45) return "Weak Momentum";
+  return "Neutral";
+}
+
+function beginnerSignalText(signal) {
+  return {
+    "Strong Sector": "น่าศึกษาต่อ",
+    "Accumulation Watch": "เริ่มทยอยดูได้",
+    "Cheap but Selective": "ถูกแต่ต้องเลือกหุ้น",
+    "Weak Momentum": "ระวังเป็นพิเศษ",
+    Neutral: "กลางๆ รอดูเพิ่ม",
+  }[signal] || signal || "-";
+}
+
+function beginnerRiskText(risk) {
+  return {
+    "No holding": "ยังไม่ได้ถือกลุ่มนี้",
+    "Overexposed weak sector": "ถือเยอะในกลุ่มที่ยังอ่อน ควรทบทวน",
+    "Concentration risk": "ถือกระจุกตัว ควรกระจายความเสี่ยง",
+    "Review weak holdings": "มีหุ้นอ่อนในกลุ่มนี้ ควรตรวจรายตัว",
+    "Possible underweight": "กลุ่มแข็งแรงแต่ถืออยู่น้อย",
+    Balanced: "สัดส่วนดูสมดุล",
+  }[risk] || risk || "-";
+}
+
+function sectorNextStep(insight = {}) {
+  const signal = insight.Rotation_Signal || "Neutral";
+  const risk = insight.Portfolio_Risk || "No holding";
+  if (risk === "Overexposed weak sector" || risk === "Concentration risk") {
+    return "เริ่มจากเช็กสัดส่วนในพอร์ตและดูหุ้นที่คะแนนต่ำก่อน";
+  }
+  if (signal === "Strong Sector" || signal === "Accumulation Watch") {
+    return "ดู Sector leaders แล้วเลือกหุ้นที่คะแนนและ RRR ดีเพื่อศึกษาต่อ";
+  }
+  if (signal === "Cheap but Selective") {
+    return "อย่าเหมาซื้อทั้งกลุ่ม ให้เลือกเฉพาะหุ้นที่พื้นฐานและ trend ยังดี";
+  }
+  if (signal === "Weak Momentum") {
+    return "ยังไม่ควรรีบเพิ่มน้ำหนัก ให้ตรวจความเสี่ยงและรอสัญญาณดีขึ้น";
+  }
+  return "ใช้เป็นข้อมูลประกอบ แล้วเปรียบเทียบกับ sector อันดับสูงกว่า";
+}
+
+function sectorSignalReason(item = {}) {
+  return `คะแนน ${formatNumber(item.Sector_Score)} · หุ้นเด่น ${formatNumber(item.Top_Ideas)} ตัว · bullish ${formatNumber(item.Bullish_Pct)}%`;
+}
+
+function portfolioSectorRisk({ exposurePct, sectorScore, weakIdeas, portfolioSectorRows }) {
+  if (!portfolioSectorRows.length) return "No holding";
+  if (exposurePct >= 35 && sectorScore < 55) return "Overexposed weak sector";
+  if (exposurePct >= 35) return "Concentration risk";
+  if (weakIdeas >= 3 && exposurePct >= 15) return "Review weak holdings";
+  if (sectorScore >= 65 && exposurePct < 5) return "Possible underweight";
+  return "Balanced";
+}
+
+function percentOf(rows, predicate) {
+  if (!rows.length) return 0;
+  return (rows.filter(predicate).length / rows.length) * 100;
 }
 
 function formatCell(value) {

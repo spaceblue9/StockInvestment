@@ -55,6 +55,8 @@ try {
   await moveUserToOrganization(owner.id, advisor.id, owner.organizationId);
   await moveUserToOrganization(owner.id, admin.id, owner.organizationId);
   await checkoutSubscription(advisor.id, "advisor");
+  await checkoutSubscription(customerA.id, "starter");
+  await checkoutSubscription(customerB.id, "pro");
   await assignAdvisor(owner.id, customerA.id, advisor.id);
 
   await saveInvestorProfile(customerA.id, {
@@ -74,8 +76,6 @@ try {
   await saveCustomerPortfolioSnapshot(customerA.id, samplePortfolio("AOT", 72000, 65000, 7000, 78));
   await saveCustomerPortfolioSnapshot(customerB.id, samplePortfolio("PTT", 54000, 60000, -6000, 54));
 
-  await checkoutSubscription(customerA.id, "starter");
-  await checkoutSubscription(customerB.id, "pro");
   const pendingA = await createPaymentSession(customerA.id, "pro");
   const pendingB = await createPaymentSession(customerB.id, "starter");
 

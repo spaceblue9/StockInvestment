@@ -8,7 +8,7 @@ Web App รองรับความสามารถหลักเหล่
 
 - Register / Login / Logout
 - แสดง subscription plan แบบรายเดือน
-- เลือก plan และ checkout รายเดือนผ่าน local gateway default หรือ Stripe Checkout provider แบบ opt-in
+- สมัครสมาชิกแบบ manual access ก่อน แล้ว owner/admin กำหนด Starter หรือ Pro ให้จากหน้า Business > User Management
 - บังคับใช้ package entitlement สำหรับ Starter / Pro / Advisor ทั้ง backend และ frontend
 - แสดง upgrade card เมื่อผู้ใช้เปิด feature ที่แพ็กเกจปัจจุบันยังไม่รวม
 - รองรับ signed local gateway webhook และ Stripe-style provider webhook ที่ verify จาก raw body พร้อม timestamp tolerance
@@ -19,7 +19,7 @@ Web App รองรับความสามารถหลักเหล่
 - owner สามารถเปลี่ยน role ได้
 - owner/admin สามารถ assign advisor ให้ลูกค้าได้
 - advisor เห็น client workspace เฉพาะลูกค้าที่ถูก assign
-- มี approval workflow prototype ให้ owner/admin/advisor ขออนุมัติ action สำคัญ และให้ customer approve/reject ของตัวเอง
+- มี approval workflow prototype เป็น internal/deferred foundation สำหรับ Advisor phase ภายหลัง ไม่แสดงเป็นเมนูหลักใน launch phase
 - มี activity timeline / audit log สำหรับ action สำคัญของระบบ
 - มี audit integrity hash chain และ API ตรวจ hash chain สำหรับ owner/admin
 - มี automated tenant access regression test สำหรับตรวจ role/workspace isolation ก่อนส่งมอบ
@@ -48,9 +48,10 @@ Web App รองรับความสามารถหลักเหล่
 - มี reference master staging migration guard สำหรับ dry-run-first, `--confirm` execution, staging/backup/plan-reviewed guards, evidence output และ secret masking ก่อนเขียน database จริง
 - มี production deployment checklist แบบ dry-run สำหรับตรวจ env, Postgres, Stripe, webhook, external audit, backup และ CI gate โดย mask secret เสมอ
 - มี append-only audit trail mirror แบบ local NDJSON สำหรับเตรียมต่อยอดเป็น external immutable audit storage
-- เก็บ investor onboarding profile ของลูกค้า
+- เก็บ investor profile foundation ไว้ภายในสำหรับอนาคต แต่ซ่อนจาก launch UI
 - บันทึก portfolio snapshot ของลูกค้า
 - มีปุ่ม Download portfolio/watchlist template ให้ผู้ใช้โหลดไฟล์ไปกรอกเองก่อน upload โดย watchlist template มีคำอธิบายแบบ `#` ที่ระบบข้ามให้
+- ผู้ใช้ต้อง Register/Login ก่อนจึงจะ download template, browse/upload file หรือ run analysis ได้
 - Upload watchlist เป็นไฟล์ `.txt`
 - Upload portfolio เป็นไฟล์ `.xlsx` หรือ `.xls`
 - ดึงข้อมูลราคาหุ้นไทยด้วย ticker `.BK`
@@ -97,7 +98,7 @@ npm run dev
 
 1. เปิดหน้า Web App
 2. สมัครสมาชิกหรือเข้าสู่ระบบ
-3. ถ้ายังไม่มีไฟล์ ให้กด `Download blank portfolio template` หรือ `Download watchlist guide template`
+3. หลัง login แล้ว ถ้ายังไม่มีไฟล์ ให้กด `Download blank portfolio template` หรือ `Download watchlist guide template`
 4. กรอกไฟล์ template:
    - Portfolio Excel ต้องมีคอลัมน์ `Symbol`, `Quantity`, `Avg_Price`
    - Watchlist text ให้ใส่ ticker หุ้นไทยทีละบรรทัด เช่น `PTT` โดยไม่ต้องใส่ `.BK`
@@ -109,14 +110,14 @@ npm run dev
 9. ดาวน์โหลดไฟล์ผลลัพธ์จาก link ที่แสดงบนหน้าเว็บ
 10. เลือก view ที่ต้องการดู:
    - `My Portfolio`
-   - `Guide`
-   - `Approvals`
    - `Stock Screener`
    - `Sector Analysis`
    - `Strategy Simulation`
    - `Business` เฉพาะ owner account
 
 หมายเหตุ: การวิเคราะห์อาจใช้เวลาหลายวินาทีถึงหลายนาที เพราะระบบต้องดึงข้อมูลหุ้น, คำนวณคะแนน, สร้างรายงานพอร์ต และเตรียมไฟล์ดาวน์โหลด หากเห็น progress panel แสดงอยู่ แปลว่าระบบยังทำงาน ไม่ใช่ error
+
+หมายเหตุ: ก่อน login ระบบจะล็อกปุ่ม download template, ช่อง browse/upload file และปุ่ม `Analyze my portfolio` ทั้งในหน้าเว็บและ API download โดยตรง เพื่อให้ flow ใช้งานจริงชัดเจนว่าต้องเป็นสมาชิกก่อนใช้งาน
 
 ### Simulation แบบแบ่งไม้
 
@@ -127,13 +128,21 @@ npm run dev
 
 ผลลัพธ์จะแสดงจำนวนไม้ที่ใช้จริง, เงินต่อไม้, เงินที่ deploy แล้ว, average cost และ trade history เพื่อช่วยเทียบว่าการแบ่งไม้ต่างจากซื้อครั้งเดียวอย่างไร
 
+หลัง Run Simulation ระบบจะแสดงกราฟ `Portfolio Growth: Strategy vs Buy & Hold` เพื่อเทียบเส้นมูลค่าพอร์ตตามกลยุทธ์กับเส้นซื้อแล้วถือยาว พร้อม `วิธีอ่านกราฟนี้` สำหรับมือใหม่:
+
+- เส้น `Strategy` คือมูลค่าตามกฎซื้อ/ขายของระบบ
+- เส้น `Buy & Hold` คือซื้อครั้งเดียวแล้วถือยาว
+- ถ้า Strategy อยู่เหนือ Buy & Hold แปลว่ากลยุทธ์ชนะการถือเฉยๆ ในช่วงเวลาที่ทดสอบ
+- ให้ดู `Trade History` ประกอบเพื่อเข้าใจว่าจุดที่เส้นเปลี่ยนเกิดจาก order ไหน
+
 ## Visual Dashboard
 
 Web App มี visual dashboard ในตัวโดยไม่ต้องติดตั้ง chart library เพิ่ม:
 
 - `My Portfolio`: sector exposure, action mix และ score distribution โดย `Sector exposure`, `Action mix` และ `Score distribution` คลิกเพื่อกรองตาราง Recommended actions ได้ทันที
-- `Stock Screener`: quality vs reward scatter, top ideas, sector/trend filter, beginner tooltip สำหรับอธิบายค่า filter, sector count ที่คลิกเพื่อ drilldown ตารางได้, จุดวงกลมใน `Quality vs reward` ของหุ้นที่อยู่ใน `Top ideas` แสดงสีเขียวเพื่อเน้นกลุ่มที่ระบบ recommend และคลิกหุ้นในกราฟเพื่อ highlight แถวหุ้นนั้นในตาราง
-- `Sector Analysis`: sector leaders, benchmark และ timing vs quality scatter โดยคลิกหุ้นในกราฟเพื่อ highlight แถวหุ้นนั้นในตาราง
+- `Sector exposure` ในหน้า Portfolio แสดง sector จริงทั้งหมดในพอร์ต ไม่รวม sector ที่เหลือเป็น `Other` เพื่อให้ผู้ใช้เห็นความกระจุกตัวจริงและกด filter ได้ตรงกับ sector จริง
+- `Stock Screener`: ค่าเริ่มต้นแสดงหุ้นทั้งหมดจาก analysis ล่าสุดก่อน แล้วค่อยให้ผู้ใช้ปรับ Score/RRR/D/E/Sector/Trend เอง พร้อม quality vs reward scatter, top ideas, sector count และ tooltip สำหรับมือใหม่
+- `Sector Analysis`: ค่าเริ่มต้นแสดงภาพรวมทุก sector ก่อนเพื่อไม่ให้เข้าใจผิดว่าข้อมูลเหลือหุ้นตัวเดียว จากนั้นค่อยเลือก sector เพื่อเจาะลึก sector leaders, benchmark และ timing vs quality scatter
 - `Business`: customer funnel และ plan distribution สำหรับ owner account
 
 กราฟเหล่านี้ช่วยให้ผู้ใช้มือใหม่เห็นภาพรวมก่อนอ่านตารางรายละเอียด และยังคงข้อมูลตารางเดิมไว้สำหรับตรวจสอบเชิงลึก
@@ -152,76 +161,73 @@ Web App มี visual dashboard ในตัวโดยไม่ต้องต
 
 ค่าเริ่มต้นของตารางจะเรียงตาม Score จากมากไปน้อย เพื่อให้มือใหม่เห็นหุ้นที่ระบบให้คะแนนสูงก่อน แต่สามารถเปลี่ยนเป็นมุมมองตามมูลค่าพอร์ตหรือกำไรขาดทุนได้ทันที
 
+### Table header hints
+
+ตารางหุ้นและตาราง sector มีปุ่ม `?` ในหัวคอลัมน์สำคัญ เช่น `Total_Score`, `RRR`, `Upside_Pct`, `PE`, `ROE`, `DE`, `RSI`, `Portfolio_Risk` เพื่ออธิบายว่า:
+
+- ค่านี้คืออะไร
+- ค่าเท่าไหร่เริ่มน่าสนใจ
+- ค่าแบบไหนควรระวัง
+
+ออกแบบไว้สำหรับผู้ใช้มือใหม่ที่ยังไม่รู้ศัพท์การลงทุน โดย tooltip ใช้ได้ทั้ง hover และ keyboard focus
+
 ### Screener tooltip สำหรับมือใหม่
 
 หน้า `Stock Screener` มีปุ่ม `?` ข้าง filter หลักเพื่ออธิบายภาษาง่าย:
 
+- ค่าเริ่มต้นของ Screener จะแสดงทุกหุ้นก่อน ไม่ใส่ filter เข้มอัตโนมัติ เพื่อให้ผู้ใช้เห็นว่าข้อมูลล่าสุดมีหุ้นกี่ตัวจริง
 - `Min Score`: คะแนนรวมคุณภาพ/ความคุ้มค่า/จังหวะราคา มือใหม่ลอง 60+ และคัดเข้มที่ 70+
 - `Min RRR`: reward เทียบกับ risk มือใหม่ลอง 1.5+ และคัดเข้มที่ 2.0+
 - `Max D/E`: หนี้เทียบทุน มือใหม่ลองไม่เกิน 1.0 และระวังมากขึ้นที่ไม่เกิน 0.7 โดยต้องเทียบกับ sector เดียวกัน
 - `Sector`: กลุ่มธุรกิจ ควรเริ่มจากกลุ่มที่เข้าใจและไม่กระจุกทั้งพอร์ต
 - `Trend`: จังหวะราคา ใช้เป็นข้อมูลประกอบ ไม่ใช่การรับประกันว่าราคาจะขึ้นต่อ
 
-## Guide สำหรับผู้เริ่มต้น
+### Sector Analysis สำหรับ Pro
 
-หน้า `Guide` ใช้เก็บข้อมูลพื้นฐานของผู้ลงทุน เช่น:
+หน้า `Sector Analysis` ต่างจาก `Stock Screener` ตรงที่ไม่ได้เน้นหาหุ้นรายตัวก่อน แต่ช่วยมองภาพใหญ่ระดับอุตสาหกรรมแบบอ่านง่าย:
 
-- เป้าหมายลงทุน
-- ระดับประสบการณ์
-- ระดับความเสี่ยงที่รับได้
-- งบลงทุนรายเดือน
-- ระยะเวลาที่ต้องการถือ
+- ค่าเริ่มต้นเปิดที่ `All sectors overview` เพื่อแสดงหุ้นทั้งหมดจาก analysis ล่าสุดก่อน ถ้าต้องการเจาะ sector เดียวให้เลือกจาก dropdown หรือกดการ์ด sector
+- Summary 3 ช่องด้านบนช่วยตอบว่า `กลุ่มไหนน่าศึกษาก่อน`, `กลุ่มที่เลือกอยู่ควรทำอะไรต่อ` และ `จุดที่ควรเช็กในพอร์ต`
+- `กลุ่มไหนน่าศึกษา`: แสดง sector คะแนนสูงสุดไม่กี่กลุ่มก่อน เพื่อไม่ให้มือใหม่ต้องอ่านทุกตัวเลขพร้อมกัน
+- `พอร์ตกระจุกตรงไหน`: เทียบ sector exposure ในพอร์ตกับความแข็งแรงของ sector เช่น ถือเยอะเกินไป หรือถือกลุ่มอ่อนมากเกินไป
+- `สัญญาณกลุ่มแบบอ่านง่าย`: แปล signal เป็นภาษาง่าย เช่น `น่าศึกษาต่อ`, `เริ่มทยอยดูได้`, `ถูกแต่ต้องเลือกหุ้น`, `ระวังเป็นพิเศษ`
+- ตารางตัวเลขขั้นสูงยังอยู่ แต่พับไว้ใน `ดูตารางตัวเลขขั้นสูงของทุก Sector` เพื่อให้ผู้ใช้ที่ต้องการตรวจละเอียดเปิดดูเอง
 
-ข้อมูลนี้ถูกใช้เพื่อทำให้ guidance card ในหน้า Portfolio อธิบายพอร์ตด้วยภาษาที่เหมาะกับผู้ใช้มากขึ้น เช่น เน้นปกป้องเงินต้นสำหรับความเสี่ยงต่ำ หรือเตือนให้ใช้ Stop Loss สำหรับความเสี่ยงสูง
+แนวคิดคือ `Screener` ใช้หา candidate รายตัว ส่วน `Sector Analysis` ใช้วางกลยุทธ์ว่าควรเพิ่ม/ลดน้ำหนักอุตสาหกรรมไหนก่อนเลือกหุ้น
 
-## Approval Workflow Prototype
+## Launch UI Simplification
 
-หน้า `Approvals` ใช้สำหรับ workflow ที่ต้องให้ลูกค้ายืนยันก่อน action สำคัญ เช่น rebalance, buy plan หรือ risk action:
+หน้า `Guide` ถูกซ่อนจาก launch UI แล้ว เพราะผู้ใช้มือใหม่ยังไม่เห็นประโยชน์ชัดเจนพอเมื่อเทียบกับพื้นที่หน้าจอที่ใช้ ระบบยังเก็บ backend investor profile foundation ไว้ภายในสำหรับอนาคต แต่เมนูหลักช่วงเปิดตัวจะโฟกัสเฉพาะ:
 
-- owner/admin สร้าง approval request ให้ customer ได้
-- advisor สร้าง approval request ได้เฉพาะลูกค้าที่ถูก assign ให้ดูแล และต้องอยู่แพ็กเกจ Advisor
-- customer เห็นเฉพาะ approval request ของตัวเอง
-- customer เป็นคน approve หรือ reject request ของตัวเองเท่านั้น
-- ทุกการสร้าง request และคำตัดสินจะถูกบันทึกใน activity timeline และ audit hash chain
+- `Portfolio`
+- `Stock Screener`
+- `Sector Analysis`
+- `Strategy Simulation`
+- `Business` เฉพาะ owner/admin
 
-หน้า `Business` จะแสดงจำนวน pending, approved และ rejected approvals เพื่อช่วยให้ทีมบริการเห็นงานค้างที่ต้องติดตาม
+หน้า `Portfolio` ถูกลดความรกลง โดยตัด Guide personalization ออก เหลือ metric สรุป, warning ที่จำเป็น, quick guidance 3 ช่อง, visual filters และตาราง Recommended actions ที่กรอง/เรียง/เลือก field ได้
+
+## Approval Workflow Prototype แบบ Deferred
+
+ช่วงเปิดตัว Starter/Pro ซ่อนหน้า `Approvals` จากเมนูหลักแล้ว เพราะ workflow นี้เหมาะกับ Advisor/ทีมบริการที่ต้องให้ลูกค้ายืนยัน action สำคัญ เช่น rebalance, buy plan หรือ risk action ซึ่งยังไม่ใช่ flow หลักของผู้ใช้มือใหม่
+
+ระบบยังคง backend approval foundation และ regression test ไว้สำหรับอนาคต:
+
+- owner/admin/advisor approval API และ audit flow ยังอยู่ภายใน
+- customer approval decision ยังมี regression coverage สำหรับ Advisor phase
+- activity timeline และ audit hash chain ยังรองรับ event approval เดิม
+- launch UI จะไม่แสดงเมนูหรือ Business panel ของ approval จนกว่าจะเปิด Advisor workflow จริง
 
 ## Business Dashboard Prototype
 
-หน้า `Business` แสดงเฉพาะ owner account และเป็น prototype สำหรับเจ้าของบริการ subscription โดยมีตัวเลขหลัก เช่น:
+หน้า `Business` แสดงเฉพาะ owner/admin และถูกจัดเป็น `Member Control Center` เพื่อไม่ให้ admin มือใหม่เจอทุกระบบพร้อมกันในหน้าเดียว ค่าเริ่มต้นจะเปิดที่ `Member Management` เพราะเป็นงานหลักของ launch phase
 
-- จำนวน users
-- จำนวน trial users
-- MRR estimate
-- paid users
-- revenue collected
-- ARPU
-- จำนวน portfolio snapshots ที่ลูกค้าบันทึก
-- profile completion rate
-- portfolio attach rate
-- users by plan
-- users by role
-- workspace count
-- customer workspaces
-- platform members
-- pending payments
-- failed payments
-- webhook events
-- verified signatures
-- rejected webhooks
-- pending approvals
-- approved approvals
-- rejected approvals
-- tenant metadata gaps
-- audit integrity status
-- audit hash gaps
-- advisor assignments
-- activity events
-- team/client workspace
-- Production Environment Advisor สำหรับดู production env readiness, blocker/warning, env group, next action และ preflight command แบบไม่แสดง secret
-- Portfolio Data Health สำหรับตรวจ saved portfolio snapshot ที่ healthy/repairable/skipped และ command recovery แบบ dry-run-first
-- Launch Evidence Center สำหรับ go-live evidence เช่น CI quality, Postgres backup/import, patch validation, patch smoke, deployment checklist, ops alerts และ audit evidence
-- Reference Master Review สำหรับดูจำนวน reference rows, rows ที่ต้อง review, rows ที่ stale, queue หุ้นที่ข้อมูลพื้นฐานยังขาด และปุ่มบันทึกค่าที่ owner/admin ยืนยันแล้ว
+หมวดหลักในหน้า `Business`:
+
+- `Members`: ใช้จัดการสมาชิกใหม่ เลือก Starter/Pro, ตั้ง status, expiry date และลบ user
+- `Advanced Ops`: เก็บระบบหลังบ้านที่ไม่ต้องใช้ทุกวัน เช่น role/workspace, tenant scope, activity, Portfolio Data Health, Database Mode Advisor, Reference Master, Production Environment Advisor และ Launch Evidence Center
+
+ตัวเลขด้านบนถูกลดให้เหลือเฉพาะ KPI ที่ admin ใช้ตัดสินใจเร็ว เช่น waiting package, users, active paid, MRR, portfolios และ system status ส่วนรายละเอียดลึกจะอยู่ใน `Advanced Ops`
 
 ## Launch Evidence Center
 
@@ -305,7 +311,22 @@ npm run portfolio:recover-zero-market -- --confirm --format text
 - owner/admin จะเห็นตาราง Team and clients
 - owner เปลี่ยน role ของ user ได้จากตาราง
 - owner/admin assign advisor ให้ customer ได้จากตาราง
+- owner/admin ลบ user ได้จากปุ่ม `Delete user` ในตาราง User Management โดยระบบจะปิดการเข้าใช้งานทันทีและซ่อน user จากรายการ แต่ยังเก็บ audit history ไว้
 - advisor จะเห็นเฉพาะ Assigned clients
+
+### การลบ User สำหรับ Admin
+
+ปุ่ม `Delete user` ในหน้า `Business` > `User Management` ใช้สำหรับกรณีสมัครผิด, test account, ลูกค้ายกเลิกก่อนเริ่มใช้งาน หรือบัญชีที่ไม่ควรให้เข้าระบบต่อ
+
+ระบบใช้วิธี soft delete เพื่อให้ audit log และประวัติการจัดการระบบยังตรวจสอบย้อนหลังได้:
+
+- ลบ active session ของ user นั้น ทำให้ login/session เดิมใช้งานต่อไม่ได้
+- ลบ portfolio snapshot, investor profile และ advisor assignment ที่ผูกกับ user นั้น
+- ซ่อน user จากรายการ admin/user management และ business metrics
+- anonymize ชื่อ/email/package ของ user ที่ถูกลบ
+- บันทึก audit event `team.user_deleted`
+- ป้องกัน customer เรียก API ลบ user เอง
+- ป้องกัน admin/owner ลบ account ตัวเอง และป้องกันการลบ owner คนสุดท้ายของระบบ
 
 ## Workspace / Organization Prototype
 
@@ -356,7 +377,7 @@ API ที่เพิ่มสำหรับตรวจ scope:
 
 - สมัครสมาชิก
 - เข้าสู่ระบบ / ออกจากระบบ
-- บันทึก Guide profile
+- บันทึก investor profile ภายในหากมีข้อมูลเก่าหรือ integration ในอนาคต
 - run portfolio analysis
 - บันทึก portfolio snapshot
 - run strategy simulation
@@ -833,30 +854,57 @@ output จะ sanitize `DATABASE_URL` และ key/secret ทุกตัวก
 
 ## Subscription Prototype
 
-ระบบมี plan ตัวอย่าง:
+Phase แรกสำหรับใช้งานจริงควรขายเฉพาะ 2 package เพื่อลดความซับซ้อนของ product และ support:
 
 - Starter
 - Pro
-- Advisor
 
-สิทธิ์สำคัญที่ระบบบังคับใช้ตอนนี้:
+`Advisor` ยังอยู่ใน backend/internal prototype เพื่อเก็บ entitlement, advisor workspace, approval workflow และ admin/operator tooling สำหรับอนาคต แต่ไม่ถูกเปิดเป็น public checkout plan ในหน้า pricing และ API `/api/subscription/plans` จะแสดงเฉพาะ Starter/Pro พร้อมส่ง `deferredPlans` สำหรับ package ที่ยังไม่เปิดขาย
 
-| Feature | Starter | Pro | Advisor |
-| --- | --- | --- | --- |
-| Portfolio analysis / saved snapshot | Yes | Yes | Yes |
-| Stock screener | Yes | Yes | Yes |
-| Billing history / payment sessions | Yes | Yes | Yes |
-| Customer approval decision | Yes | Yes | Yes |
-| Sector analysis | Upgrade | Yes | Yes |
-| Strategy simulation | Upgrade | Yes | Yes |
-| Advanced action plan | Upgrade | Yes | Yes |
-| Client workspace | Upgrade | Upgrade | Yes |
-| Advisor approval workflow | Upgrade | Upgrade | Yes |
-| Business dashboard / production readiness | Upgrade | Upgrade | Yes |
+สิทธิ์สำคัญที่เปิดใน launch UI ตอนนี้:
 
-สมาชิกใหม่จะได้ `Pro trial` จึงทดลอง Sector Analysis และ Strategy Simulation ได้ระหว่าง trial แต่ยังไม่เห็น client workspace จนกว่าจะใช้แพ็กเกจ Advisor ส่วน owner/admin เป็น platform operator จึงยังเข้าถึงหลังบ้านเพื่อดูแลระบบได้แม้เป็น trial
+| Feature | Starter | Pro |
+| --- | --- | --- |
+| Portfolio analysis / saved snapshot | Yes | Yes |
+| Stock screener | Yes | Yes |
+| Billing history / payment sessions | Yes | Yes |
+| Sector analysis | Upgrade | Yes |
+| Strategy simulation | Upgrade | Yes |
+| Advanced action plan | Upgrade | Yes |
+| Business dashboard / production readiness | Owner/admin only | Owner/admin only |
 
-ผู้ใช้สามารถกดเลือกแพ็กเกจใน pricing panel เพื่อ checkout ได้ ระบบ default ยังใช้ local gateway เพื่อ demo ได้ทันที:
+Advisor, client workspace และ approval workflow ยังเป็น internal/deferred foundation จนกว่าจะพร้อมเปิดขายแพ็กเกจ Advisor จริง
+
+สมาชิกใหม่หลังจาก owner คนแรกจะเริ่มเป็น `Starter inactive` พร้อม provider `manual_admin_pending` เพื่อรอ owner/admin ตรวจสอบและกำหนด package ให้ ส่วน owner คนแรกยังได้ Pro trial เพื่อเข้า Business dashboard และจัดการระบบได้
+
+ระบบตรวจสถานะแพ็กเกจจากเวลา:
+
+- `trialing` ใช้ได้ถึง `trialEndsAt`
+- `active` ใช้ได้ถึง `renewsAt`
+- ถ้าวันหมดอายุผ่านไปแล้ว entitlement summary จะมองเป็น `past_due` และ feature ที่ต้องใช้แพ็กเกจจะถูกล็อก ยกเว้น owner/admin ที่เป็น platform operator override
+
+ช่วงแรกยังไม่จำเป็นต้องมี online payment เต็มรูปแบบ Flow ที่แนะนำคือให้ลูกค้าสมัครบัญชีก่อน จากนั้น owner/admin ตรวจสอบลูกค้า/หลักฐานการชำระเงินนอกระบบ แล้วจัดการ subscription แบบ manual ในหน้า admin เมื่อพร้อม production จึงค่อยเปิด Stripe/external provider
+
+สำหรับ launch ที่ยังไม่เปิด online payment เต็มรูปแบบ owner/admin สามารถเข้า `Business` > `User Management` เพื่อปรับ package แบบ manual ได้:
+
+- เลือกได้เฉพาะ `Starter` หรือ `Pro`
+- เลือกสถานะ `active`, `trialing`, `past_due`, `canceled`, `inactive`
+- ตั้งวันหมดอายุของ package
+- ระบบบันทึก audit event `team.subscription_update` เพื่อย้อนดูว่าใครเปลี่ยน package ให้ใคร เมื่อไร และหมดอายุวันไหน
+- ถ้าต้องปิดบัญชีที่สมัครผิดหรือบัญชีทดสอบ ให้ใช้ปุ่ม `Delete user` ในแถวของ user นั้น ระบบจะตัด session, ลบข้อมูลพอร์ต/โปรไฟล์ที่ผูกกับ user, ซ่อนจากรายการ และบันทึก audit `team.user_deleted`
+
+ขั้นตอน admin เปิด package ให้สมาชิก:
+
+1. สมาชิกสมัครบัญชีจากหน้า `Member Access`
+2. สมาชิกใหม่จะเห็นสถานะ `Waiting for admin package`
+3. owner/admin เข้า `Business` > `User Management`
+4. ที่คอลัมน์ `Plan` เลือก `Starter` หรือ `Pro`
+5. เลือก status เป็น `active` หรือ `trialing`
+6. ตั้งวันหมดอายุ package
+7. กด `Save package`
+8. สมาชิก login ใหม่หรือ refresh หน้า แล้ว entitlement จะอัปเดตตาม package ที่ admin กำหนด
+
+ผู้ใช้สามารถกดเลือก Starter/Pro ใน pricing panel เพื่อ checkout ได้ ระบบ default ยังใช้ local gateway เพื่อ demo ได้ทันที:
 
 - สร้าง payment session แบบ local gateway
 - จำลอง gateway webhook สำหรับ payment success

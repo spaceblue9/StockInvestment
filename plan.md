@@ -1528,6 +1528,746 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - ถ้า T97 ยัง In Progress ให้แก้ Simulation โดยเพิ่ม split buy tranches แบบไม่ลบโหมด lump sum เดิม และอย่าเปลี่ยนสูตรวิเคราะห์หุ้นส่วนอื่น
   - ตรวจด้วย `npm run check`, `node --check src/public/app.js`, และ regression ของ simulation/frontend ที่เกี่ยวข้อง
 
+### T98 - Sector Analysis Pro Differentiation
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-18 08:43:00 +07:00
+- เสร็จเมื่อ: 2026-06-18 08:46:33 +07:00
+- เหตุผล:
+  - หน้า Screener และ Sector ตอนนี้ทำงานซ้ำกันมากเกินไป ทำให้แพ็กเกจ Pro ที่มี Sector/Simulation ดูไม่คุ้ม
+  - ต้องยกระดับ Sector ให้เป็นเครื่องมือวิเคราะห์ระดับอุตสาหกรรมและพอร์ต ไม่ใช่แค่ตารางหุ้นอีกหน้า
+- งานที่ต้องทำ:
+  - [x] ตรวจโครงสร้างหน้า Sector, Screener และ Portfolio data ที่ใช้ร่วมกัน
+  - [x] เพิ่ม Sector Ranking พร้อม Sector Score, label และ rotation signal
+  - [x] เพิ่ม Portfolio Sector Risk โดยเทียบ holdings ในพอร์ตกับ sector ที่เลือก
+  - [x] เพิ่ม sector comparison visuals ที่ต่างจาก Screener เช่น quality, valuation, momentum/exposure
+  - [x] เพิ่ม docs/regression markers เพื่อสื่อว่า Sector เป็น Pro feature ที่คุ้มขึ้น
+  - [x] ทดสอบด้วย command ที่เหมาะสม
+- ผลลัพธ์:
+  - หน้า `Sector Analysis` เพิ่ม `Pro Sector Intelligence` เพื่อแยกบทบาทจาก Screener ชัดเจน
+  - เพิ่ม `Sector Score Ranking` จาก score เฉลี่ย, RRR, upside, ROE, D/E และ momentum โดยไม่เปลี่ยนสูตรหุ้นรายตัว
+  - เพิ่ม `Rotation Signal` เช่น `Strong Sector`, `Accumulation Watch`, `Cheap but Selective`, `Weak Momentum`, `Neutral`
+  - เพิ่ม `Portfolio Sector Risk` จาก exposure ในพอร์ตและความแข็งแรงของ sector เช่น concentration risk, overexposed weak sector, underweight sector ที่แข็งแรง
+  - เพิ่ม visual panels `Sector Score Ranking`, `Portfolio Sector Risk`, `Rotation Signals`, `Quality vs Valuation Context`
+  - เพิ่ม docs อธิบายความต่างระหว่าง `Stock Screener` กับ `Sector Analysis` สำหรับ Pro
+  - เพิ่ม regression markers `data-sector-pro-intelligence`, `data-sector-ranking-panel`, `data-sector-risk-panel`, `data-sector-rotation-panel`
+  - ทดสอบผ่าน: `npm run check`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - ถ้า T98 ยัง In Progress ให้ยกระดับหน้า `Sector Analysis` ให้เน้น sector-level ranking/rotation/portfolio risk โดยไม่ลดความสามารถ Screener และไม่เปลี่ยนสูตรวิเคราะห์หุ้นเดิม
+  - ตรวจด้วย `npm run check`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+
+### T99 - Beginner-Friendly Sector UX Simplification
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-18 08:54:09 +07:00
+- เสร็จเมื่อ: 2026-06-18 08:57:14 +07:00
+- เหตุผล:
+  - หลังเพิ่ม Pro Sector Intelligence หน้า Sector มีข้อมูลเยอะเกินไป มือใหม่อาจงงและไม่รู้ว่าควรอ่านตรงไหนก่อน
+  - ต้องคงคุณค่าของแพ็กเกจ Pro แต่จัดลำดับข้อมูลใหม่ให้เริ่มจากคำแนะนำง่ายๆ ก่อนตาราง/ตัวเลขขั้นสูง
+- งานที่ต้องทำ:
+  - [x] วิเคราะห์จุดที่หน้า Sector ทำให้มือใหม่สับสน
+  - [x] เพิ่ม beginner summary/next step ที่สรุปว่าควรดู sector ไหนและเพราะอะไร
+  - [x] ลดจำนวน panel ที่แสดงพร้อมกัน และย้ายตารางตัวเลขขั้นสูงเข้า progressive disclosure
+  - [x] เปลี่ยนข้อความ/label ให้เข้าใจง่ายขึ้นโดยไม่เปลี่ยนสูตรคำนวณ
+  - [x] เพิ่ม docs/regression markers ที่สะท้อน UX ใหม่
+  - [x] ทดสอบด้วย command ที่เหมาะสม
+- ผลลัพธ์:
+  - หน้า `Sector Analysis` เริ่มด้วยคำตอบง่ายๆ 3 ช่อง: กลุ่มน่าศึกษาก่อน, กลุ่มที่เลือกอยู่ควรทำอะไรต่อ, จุดที่ควรเช็กในพอร์ต
+  - ลด panel ที่แสดงพร้อมกัน เหลือ 3 เรื่องหลัก: กลุ่มไหนน่าศึกษา, พอร์ตกระจุกตรงไหน, สัญญาณกลุ่มแบบอ่านง่าย
+  - ย้ายตารางตัวเลขขั้นสูงของทุก sector เข้า `<details>` ชื่อ `ดูตารางตัวเลขขั้นสูงของทุก Sector`
+  - แปล signal/risk เป็นภาษาง่าย เช่น `น่าศึกษาต่อ`, `เริ่มทยอยดูได้`, `ระวังเป็นพิเศษ`, `ถือกระจุกตัว`
+  - คง logic Pro Sector Intelligence, Sector Score และ Portfolio Risk เดิมไว้ ไม่เปลี่ยนสูตรหุ้นรายตัว
+  - เพิ่ม docs และ regression markers `data-sector-beginner-summary`, `data-sector-advanced-table`, `.sector-beginner-summary`, `.advanced-sector-details`
+  - ทดสอบผ่าน: `npm run check`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - ถ้า T99 ยัง In Progress ให้ปรับหน้า Sector ให้มือใหม่อ่านง่ายขึ้น โดยแสดงคำแนะนำ/next step ก่อน แล้วซ่อนตารางขั้นสูงไว้ใน details ห้ามลบ logic Pro Sector Intelligence หรือเปลี่ยนสูตรหุ้นเดิม
+  - ตรวจด้วย `npm run check`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+
+### T100 - Beginner Table Header Hints
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-18 09:22:14 +07:00
+- เสร็จเมื่อ: 2026-06-18 09:32:39 +07:00
+- เหตุผล:
+  - ผู้ใช้กลุ่มเป้าหมายไม่มีความรู้ด้านการลงทุน จึงไม่รู้ว่าคอลัมน์ในตารางเช่น `Total_Score`, `RRR`, `PE`, `ROE`, `DE`, `RSI` คืออะไร และค่าเท่าไหร่ถือว่าดีหรือควรระวัง
+  - ต้องเพิ่ม hint ที่ header ของตารางเพื่อช่วยอ่านข้อมูล โดยไม่เปลี่ยนสูตรคำนวณหรือข้อมูลในตาราง
+- งานที่ต้องทำ:
+  - [x] เพิ่ม dictionary อธิบายคอลัมน์หลักของตารางหุ้น/sector/portfolio
+  - [x] ปรับ `renderTable()` ให้ header มีปุ่ม `?` พร้อม tooltip/hint ที่ใช้ keyboard focus ได้
+  - [x] เพิ่ม CSS ให้ tooltip ใน header ไม่ทำให้ตารางล้นหรืออ่านยาก
+  - [x] เพิ่ม docs/regression markers ที่เกี่ยวข้อง
+  - [x] ทดสอบด้วย command ที่เหมาะสม
+- ผลลัพธ์:
+  - เพิ่ม `tableColumnTips` สำหรับคอลัมน์สำคัญ เช่น `Total_Score`, `RRR`, `Upside_Pct`, `PE`, `ROE`, `DE`, `RSI`, `Portfolio_Risk`, `Rotation_Signal`
+  - `renderTable()` สร้าง header hint อัตโนมัติผ่านปุ่ม `?` ในคอลัมน์ที่มีคำอธิบาย
+  - Tooltip บอก 3 ส่วน: ค่านี้คืออะไร, ค่าเท่าไหร่น่าเริ่มดู, ข้อควรระวัง
+  - รองรับ hover และ keyboard focus ผ่าน `aria-describedby`
+  - เพิ่ม CSS `.table-header-help`, `.table-tooltip-trigger`, `.table-tooltip-card`
+  - เพิ่ม docs และ regression markers `data-table-header-hint`, `tableColumnTips`, `ค่าที่น่าเริ่มดู`
+  - ทดสอบผ่าน: `npm run check`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - ถ้า T100 ยัง In Progress ให้เพิ่ม table header hints สำหรับคอลัมน์การลงทุนหลัก โดยใช้ภาษาง่ายและเกณฑ์ดี/ควรระวัง ไม่เปลี่ยนสูตรคำนวณ
+  - ตรวจด้วย `npm run check`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+
+### T101 - Table Header Hint Initialization Fix
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-18 09:51:54 +07:00
+- เสร็จเมื่อ: 2026-06-18 09:53:21 +07:00
+- เหตุผล:
+  - หลังเพิ่ม T100 โปรแกรม error `can't access lexical declaration 'tableColumnTips' before initialization`
+  - สาเหตุคือ `await initialize()` เรียก render ตารางก่อน `const tableColumnTips` ถูกประกาศ
+- งานที่ต้องทำ:
+  - [x] ย้าย `tableColumnTips` ไปอยู่ก่อน `await initialize()`
+  - [x] เพิ่ม regression ตรวจ initialization order เหมือน `recommendedActionFields`
+  - [x] ทดสอบด้วย command ที่เกี่ยวข้อง
+- ผลลัพธ์:
+  - แก้ error `can't access lexical declaration 'tableColumnTips' before initialization`
+  - ย้าย `const tableColumnTips` ไปอยู่ช่วงต้นไฟล์ก่อน event listeners และก่อน `await initialize()`
+  - เพิ่ม `assertBefore(appJs, "const tableColumnTips", "await initialize();", ...)` ใน `scripts/frontendViewportRegression.js`
+  - ทดสอบผ่าน: `npm run check`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - ถ้า T101 ยัง In Progress ให้แก้ initialization order ของ `tableColumnTips` ให้อยู่ก่อน `await initialize()` และตรวจ regression ไม่ให้กลับมาเกิดอีก
+  - ตรวจด้วย `npm run check`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+
+### T102 - Portfolio Sector Exposure Other Clarification
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-18 09:58:42 +07:00
+- เสร็จเมื่อ: 2026-06-18 10:00:57 +07:00
+- เหตุผล:
+  - ผู้ใช้เห็น `Other` ในกราฟ `Sector exposure` เยอะและสงสัยว่าถูกหรือไม่
+  - ตรวจข้อมูลล่าสุดแล้ว `Other = 52,239 THB` เกิดจากการรวม sector ที่เหลือเพราะกราฟจำกัด `limit = 6` ไม่ใช่ sector จริง
+  - UX ปัจจุบันทำให้เข้าใจผิด และ `Other` ยังถูก render เป็น filter button ทั้งที่ไม่มี sector ชื่อ Other จริง
+- งานที่ต้องทำ:
+  - [x] ปรับ `Sector exposure` ในหน้า Portfolio ไม่ให้รวม sector ที่เหลือเป็น `Other`
+  - [x] แสดง sector จริงทั้งหมดในพอร์ต หรือทำให้ผู้ใช้เห็นชัดว่าเป็นการรวม
+  - [x] เพิ่ม regression/docs marker ที่อธิบาย behavior ใหม่
+  - [x] ทดสอบด้วย command ที่เหมาะสม
+- ผลลัพธ์:
+  - ตรวจข้อมูลล่าสุดแล้ว `Other = 52,239 THB` มาจากการรวม `Basic Materials 21,840`, `Industrials 12,670`, `Healthcare 11,160`, `Consumer Cyclical 4,660`, `Real Estate 1,909`
+  - สาเหตุคือ `renderPortfolioVisuals()` เดิมใช้ `breakdownBy(..., limit = 6)` ทำให้แสดง 5 sector แรกและรวม sector ที่เหลือเป็น `Other`
+  - ปรับ `Sector exposure` ให้เรียก `breakdownBy()` โดยไม่ส่ง limit เพื่อแสดง sector จริงทั้งหมดในพอร์ต
+  - เพิ่มข้อความใต้หัวข้อ `Sector exposure`: `แสดง sector จริงทั้งหมดในพอร์ต ไม่มีการรวมเป็น Other`
+  - เพิ่ม docs และ regression markers `data-sector-exposure-complete`, `ไม่มีการรวมเป็น Other`
+  - ทดสอบผ่าน: `npm run check`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - ถ้า T102 ยัง In Progress ให้แก้ `Sector exposure` หน้า Portfolio ไม่ให้ `Other` ทำให้ผู้ใช้เข้าใจผิดและไม่ให้คลิก filter ไป sector ที่ไม่มีจริง
+  - ตรวจด้วย `npm run check`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+
+### T103 - Simulation Strategy vs Buy & Hold Chart
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-18 10:34:26 +07:00
+- เสร็จเมื่อ: 2026-06-18 10:37:13 +07:00
+- เหตุผล:
+  - ผู้ใช้ต้องการให้หน้า Simulation มีกราฟเหมือน Python version เพื่อดูการเติบโตของพอร์ตแบบ Strategy เทียบกับ Buy & Hold
+  - กราฟช่วยให้มือใหม่เห็นภาพมากกว่าตารางตัวเลขและ trade history อย่างเดียว
+- งานที่ต้องทำ:
+  - [x] เพิ่มกราฟเส้น `Portfolio_Value` vs `Buy_Hold_Value` จาก simulation history
+  - [x] เพิ่ม legend, แกนเวลา/มูลค่า และคำอธิบายวิธีอ่านแบบภาษาง่าย
+  - [x] แสดงกราฟหลัง Run Simulation โดยไม่เปลี่ยน backend calculation
+  - [x] เพิ่ม CSS และ regression markers
+  - [x] อัปเดต docs และทดสอบด้วย command ที่เหมาะสม
+- ผลลัพธ์:
+  - เพิ่ม native SVG chart `Portfolio Growth: Strategy vs Buy & Hold` ในหน้า Simulation หลัง metric cards
+  - กราฟใช้ `data.history` จาก API เดิม โดยเปรียบเทียบ `Portfolio_Value` กับ `Buy_Hold_Value`
+  - เพิ่ม legend เส้น Strategy สีฟ้า และ Buy & Hold สีส้ม พร้อมแกนเวลา/มูลค่า
+  - เพิ่ม card `Better in this run` เพื่อบอกว่ารอบนี้ Strategy หรือ Buy & Hold ชนะ
+  - เพิ่ม `<details>` `วิธีอ่านกราฟนี้` เพื่ออธิบายให้มือใหม่เข้าใจ
+  - เพิ่ม CSS `.simulation-growth-panel`, `.simulation-chart-frame`, `.chart-reading-guide`, `.strategy-line`, `.buy-hold-line`
+  - เพิ่ม docs และ regression markers `data-simulation-growth-chart`, `data-simulation-chart-guide`
+  - ทดสอบผ่าน: `npm run check`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - ถ้า T103 ยัง In Progress ให้เพิ่ม native SVG chart ในหน้า Simulation เพื่อเทียบ Strategy vs Buy & Hold โดยใช้ `data.history` จาก API เดิม ห้ามเปลี่ยนสูตร simulation
+  - ตรวจด้วย `npm run check`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+
+### T104 - Starter/Pro Launch Scope and Package Validity
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-18 13:27:57 +07:00
+- เสร็จเมื่อ: 2026-06-18 13:32:52 +07:00
+- เหตุผล:
+  - ช่วงเปิดตัวควรลดความซับซ้อนโดยขายจริงเฉพาะ Starter 790 THB/month และ Pro 1,490 THB/month ก่อน
+  - Advisor ยังยากต่อการอธิบาย ทดลอง และ support จึงควรเก็บเป็น coming soon/internal prototype
+  - ระบบที่ใช้งานจริงต้องตรวจวันหมดอายุของ trial/subscription ได้ แม้ยังไม่มี online payment เต็มรูปแบบ
+- งานที่ต้องทำ:
+  - [x] แยก public subscription plans ออกจาก internal subscription plans
+  - [x] ให้ public pricing/API/checkout เปิดเฉพาะ Starter และ Pro
+  - [x] แสดง Advisor เป็น coming soon/manual contact แทนแพ็กเกจที่กดซื้อได้
+  - [x] ป้องกัน public checkout/payment session ของ plan ที่ยังไม่เปิดขาย
+  - [x] ตรวจสถานะแพ็กเกจหมดอายุจาก `trialEndsAt` และ `renewsAt`
+  - [x] อัปเดต docs/regression และทดสอบ targeted commands
+- ผลลัพธ์:
+  - เพิ่ม `publicSubscriptionPlans()`, `deferredSubscriptionPlans()` และ `isPublicCheckoutPlan()` ใน auth service
+  - `/api/subscription/plans` ส่ง public plans เฉพาะ `starter,pro`, ส่ง Advisor ใน `deferredPlans` และระบุ `launchMode: starter_pro_manual_ready`
+  - `/api/subscription/checkout` และ `/api/subscription/payment-session` ปฏิเสธ Advisor ใน public flow
+  - Pricing UI แสดง Starter/Pro เป็นแพ็กเกจหลัก และแสดง Advisor เป็น coming soon/manual contact
+  - Locked feature card ไม่แสดงปุ่ม upgrade ไป Advisor ที่กดแล้ว error แต่แสดงข้อความ deferred upgrade แทน
+  - `normalizeSubscription()` เปลี่ยน `trialing/active` เป็น `past_due` เมื่อเลย `trialEndsAt/renewsAt`
+  - อัปเดต docs และ regression markers สำหรับ Starter/Pro launch
+  - ทดสอบผ่าน: `node --check src/public/app.js`, `node --check src/services/authService.js`, `node --check src/routes/authRoutes.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run test:subscription-lifecycle`, `npm run test:entitlements`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - public launch scope ตอนนี้คือขาย/ทดลองใช้งานจริงเฉพาะ Starter และ Pro ก่อน
+  - ห้ามทำให้ Advisor กลับมาเป็น public checkout plan จนกว่าจะมี requirement ใหม่
+  - backend ยังเก็บ Advisor entitlement/workspace/approval regression เป็น internal prototype เพื่อไม่ให้ระบบเดิมพัง
+  - ถ้าแก้ subscription ให้ตรวจ `trialEndsAt`, `renewsAt`, public plan API และ checkout guard ด้วย `npm run test:web-smoke`, `npm run test:subscription-lifecycle`, `npm run test:entitlements`
+
+### T105 - Manual Subscription Admin Controls
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-18 13:37:03 +07:00
+- เสร็จเมื่อ: 2026-06-18 13:43:27 +07:00
+- เหตุผล:
+  - ถ้ายังไม่เปิด online payment เต็มรูปแบบ owner/admin ต้องจัดการแพ็กเกจให้ลูกค้าแบบ manual ได้จากหน้าเว็บ
+  - ช่วง launch ควรจำกัด manual package ให้เลือก Starter/Pro ก่อน เพื่อให้ product ง่ายและ support ง่าย
+  - การเปลี่ยนแพ็กเกจควรมี audit trail และไม่ต้องแก้ไฟล์ฐานข้อมูลเอง
+- งานที่ต้องทำ:
+  - [x] เพิ่ม service สำหรับ owner/admin update subscription ของ user เป็น Starter/Pro พร้อม status และวันหมดอายุ
+  - [x] เพิ่ม API admin สำหรับ update package แบบ manual
+  - [x] เพิ่ม controls ใน User Management ให้เลือก package/status/expiry และ save ได้
+  - [x] เพิ่ม docs/regression markers และทดสอบ targeted commands
+- ผลลัพธ์:
+  - เพิ่ม `updateUserSubscription()` ใน auth service เพื่อให้ owner/admin อัปเดต package แบบ manual เป็น Starter/Pro ได้
+  - เพิ่ม API `POST /api/admin/users/:userId/subscription`
+  - เพิ่ม controls ใน `Business` > `User Management` สำหรับเลือก plan, status, expiry date และปุ่ม `Save package`
+  - จำกัด manual launch package เป็น Starter/Pro เท่านั้น
+  - บันทึก audit event `team.subscription_update` พร้อม previous/next plan, status และ expiry
+  - เพิ่ม regression ใน `npm run test:subscription-lifecycle` ให้ตรวจ manual package update และ audit event
+  - ทดสอบผ่าน: `node --check src/services/authService.js`, `node --check src/routes/authRoutes.js`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run test:subscription-lifecycle`, `npm run test:entitlements`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T105 เสร็จแล้ว ถ้าแก้ต่อให้รักษา manual subscription management สำหรับ owner/admin ใน User Management โดยจำกัด launch plan เป็น Starter/Pro และต้องมี audit event
+  - ตรวจด้วย `npm run check`, `node --check src/services/authService.js`, `node --check src/routes/authRoutes.js`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+
+### T106 - Make Guide Profile Affect User Guidance
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-18 13:50:24 +07:00
+- เสร็จเมื่อ: 2026-06-18 13:55:53 +07:00
+- เหตุผล:
+  - ผู้ใช้พบว่า Guide กรอกแล้วไม่เห็นผล ทำให้มือใหม่ไม่เข้าใจว่ากรอกไปทำไม
+  - Guide ควรเปลี่ยนสิ่งที่ผู้ใช้เห็นจริงใน Portfolio, Screener และ Simulation โดยไม่ต้องอธิบายซ้ำ
+  - ช่วงแรกควรทำ personalization ฝั่ง UI ก่อน เพื่อไม่เปลี่ยนสูตรวิเคราะห์เดิมและลด risk regression
+- งานที่ต้องทำ:
+  - [x] เพิ่ม personalized guide summary ที่บอกชัดว่า Guide ส่งผลกับอะไรบ้าง
+  - [x] เพิ่ม personalized guidance ในหน้า Portfolio จาก goal/experience/risk/budget/horizon
+  - [x] ปรับค่า default filter/ข้อความแนะนำใน Screener ตาม risk/experience
+  - [x] ปรับ default Simulation buy mode/tranches/capital hint ตาม risk/monthly budget/horizon
+  - [x] เพิ่ม docs/regression markers และทดสอบ targeted commands
+- ผลลัพธ์:
+  - เพิ่ม `effectiveGuideProfile()` และ `guidePolicy()` เพื่อแปล Guide profile เป็นค่า Score/RRR/D/E, จำนวนไม้, ระยะห่างไม้ และเงินจำลอง
+  - หน้า Guide แสดง `Guide changes your app` เพื่อบอกว่าการกรอก profile จะเปลี่ยน Portfolio, Screener และ Simulation อย่างไร
+  - หน้า Portfolio เพิ่ม `Guide personalization` และ `Personalized guidance` เพื่อบอกหุ้นที่ต้องระวัง, หุ้นที่ผ่านเกณฑ์ profile, เงินต่อไม้ และ action ที่ควรเริ่มดูก่อน
+  - หน้า Screener ใช้ default filter จาก profile เช่น risk ต่ำใช้ Score 70+, RRR 1.5+, D/E <= 0.7
+  - หน้า Simulation ใช้ monthly budget/risk/horizon เพื่อตั้ง initial capital, years back, buy mode, tranches และ tranche interval
+  - อัปเดต docs และ regression markers `data-guide-impact-summary`, `data-guide-profile-impact`, `data-profile-portfolio-guidance`, `data-profile-default-filter`, `data-profile-simulation-default`
+  - ทดสอบผ่าน: `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T106 เสร็จแล้ว ถ้าแก้ต่อให้รักษาหลักการว่า Guide ต้องมีผลที่ผู้ใช้เห็นจริงใน Portfolio/Screener/Simulation โดยไม่เปลี่ยนสูตร scoring/backtest เดิมโดยไม่จำเป็น
+  - ตรวจด้วย `npm run check`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+
+### T107 - Hide Guide From Launch UI and Declutter Portfolio
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-18 14:07:15 +07:00
+- เสร็จเมื่อ: 2026-06-18 14:16:49 +07:00
+- เหตุผล:
+  - ผู้ใช้ยังไม่เห็นประโยชน์ของ Guide แม้ปรับ personalization แล้ว จึงไม่ควรแสดงใน launch UI เพราะทำให้ผู้ใช้มือใหม่สับสน
+  - หน้า Portfolio ควรโฟกัสข้อมูลที่ตัดสินใจได้จริง ไม่ควรมี panel ที่อธิบายระบบมากเกินไป
+  - ควรซ่อน Guide จาก UI โดยยังเก็บ backend/profile foundation ไว้สำหรับอนาคต ไม่ลบข้อมูลเดิม
+- งานที่ต้องทำ:
+  - [x] ซ่อนปุ่ม Guide จาก navigation และตัด route/view frontend ที่ผู้ใช้เปิดได้
+  - [x] ถอด Guide personalization ออกจาก Portfolio, Screener และ Simulation
+  - [x] ลดความรกหน้า Portfolio โดยเอา panel ที่ไม่จำเป็นออก เหลือ metric, visual filter, recommended actions และคำแนะนำสั้นที่ไม่อ้าง Guide
+  - [x] อัปเดต docs/regression markers ให้ตรงกับ launch UI ใหม่
+  - [x] ทดสอบ syntax, frontend viewport และ web smoke
+- ผลลัพธ์:
+  - ถอดปุ่ม `Guide` จาก navigation ใน `src/public/index.html`
+  - หยุดโหลด investor profile ใน frontend และถอด route/view `onboarding` ออกจาก `renderActiveView()`
+  - ถอด Guide personalization, profile-based Screener default และ profile-based Simulation default ออกจาก `src/public/app.js`
+  - หน้า Portfolio เหลือ `portfolio-summary-strip` 3 ช่องแบบสั้น ไม่อ้าง Guide และลด panel ซ้ำซ้อน
+  - ถอด profile completion/Guide column จาก Business/User Management UI ที่ทำให้ผู้ใช้สับสนเมื่อไม่มีหน้า Guide แล้ว
+  - เก็บ backend investor profile service ไว้ภายในสำหรับอนาคต ไม่ลบข้อมูลเก่า
+  - อัปเดต docs ให้ระบุว่า Guide ถูกซ่อนจาก launch UI และ frontend smoke guard ว่า navigation ต้องไม่มี `data-view="onboarding"`
+  - ทดสอบผ่าน: `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T107 เสร็จแล้ว ถ้าแก้ต่อให้รักษาหลักการว่า launch UI ไม่มี Guide และ Portfolio ต้องไม่กลับไปรกด้วย personalization panel ที่ผู้ใช้ไม่เห็นประโยชน์
+  - ตรวจด้วย `npm run check`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+
+### T108 - Hide Approvals From Starter/Pro Launch UI
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-18 18:51:02 +07:00
+- เสร็จเมื่อ: 2026-06-18 18:55:23 +07:00
+- เหตุผล:
+  - ตอนนี้ launch scope เปิดขาย/ทดลองใช้งานจริงเฉพาะ Starter และ Pro ก่อน ส่วน Advisor ถูก defer ไว้
+  - เมนู `Approvals` เป็น workflow สำหรับ Advisor/ทีมบริการที่ต้องให้ลูกค้ายืนยัน action สำคัญ จึงทำให้ผู้ใช้มือใหม่สับสนเมื่อยังไม่มี Advisor workflow จริง
+  - ควรซ่อนจาก main navigation และเอกสาร launch UI แต่ยังคง backend approval foundation/regression ไว้สำหรับอนาคต
+- งานที่ต้องทำ:
+  - [x] ซ่อนปุ่ม `Approvals` จาก navigation
+  - [x] ป้องกัน frontend route `approvals` ไม่ให้เป็น active view จาก UI ปกติ และไม่ให้ smoke test คาดหวังเมนูนี้
+  - [x] ปรับ Business/เอกสารให้สื่อว่า approval workflow เป็น internal/deferred Advisor foundation ไม่ใช่ feature launch phase
+  - [x] อัปเดต regression marker ให้ยืนยันว่า launch navigation ไม่มี `data-view="approvals"`
+  - [x] ทดสอบ syntax, frontend viewport, web smoke และ check
+- ผลลัพธ์:
+  - ถอดปุ่ม `Approvals` จาก main navigation ใน `src/public/index.html`
+  - ถอด route branch, account pending approval text, Business approval metrics และ Business approval workspace ออกจาก launch frontend surface
+  - หยุด frontend โหลด `/api/approvals` ใน startup/analysis/admin refresh path ที่ไม่จำเป็นต่อ launch UI
+  - คง backend approval functions/API/regression foundation ไว้สำหรับ Advisor phase ภายหลัง
+  - อัปเดต docs ให้ระบุว่า approval workflow เป็น internal/deferred foundation และ public launch package table เหลือ Starter/Pro
+  - เพิ่ม regression guard ว่า launch navigation ต้องไม่มี `data-view="approvals"`
+  - ทดสอบผ่าน: `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T108 เสร็จแล้ว: `Approvals` ถูกซ่อนจาก launch UI เพราะ Starter/Pro phase ยังไม่ควรโชว์ workflow Advisor
+  - ห้ามลบ backend approval service/regression โดยไม่มี requirement ใหม่ เพราะยังเป็น foundation สำหรับ Advisor phase ภายหลัง
+  - ตรวจด้วย `npm run check`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+
+### T109 - Fix Workspace Hero Stretch on Simulation View
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-18 19:02:33 +07:00
+- เสร็จเมื่อ: 2026-06-18 19:03:20 +07:00
+- เหตุผล:
+  - เมื่อกด `Simulation` พื้นที่ hero/snapshot ด้านบนยืดยาวผิดปกติ ทำให้หน้าจอดูเหมือน layout พัง
+  - สาเหตุจาก `.workspace` เป็น grid item ที่ถูก stretch สูงเท่าคอลัมน์ซ้าย และ grid ด้านในกระจายพื้นที่ว่างให้ row ด้านบน
+  - ต้องทำให้ workspace rows สูงตามเนื้อหาจริงและเริ่มชิดด้านบน เพื่อให้ทุก view รวมถึง Simulation ดูสม่ำเสมอ
+- งานที่ต้องทำ:
+  - [x] ปรับ CSS ของ `.left-rail`/`.workspace` ให้ grid content ไม่ stretch row สูงเกินเนื้อหา
+  - [x] ปรับ `.hero-panel`/`.snapshot-card` ให้ card ไม่ยืดเต็มความสูงผิดปกติ
+  - [x] เพิ่ม regression marker/guard ใน frontend viewport test เพื่อกัน layout stretch regression
+  - [x] ทดสอบ syntax, frontend viewport, web smoke และ check
+- ผลลัพธ์:
+  - เพิ่ม `align-content: start` และ `align-items: start` ให้ `.left-rail`/`.workspace` เพื่อกัน CSS grid กระจาย row ตามความสูงคอลัมน์
+  - เปลี่ยน `.hero-panel` จาก stretch เป็น start และเพิ่ม `align-self: start` เพื่อให้ hero สูงตามเนื้อหา
+  - เพิ่ม `align-self: start` ให้ `.snapshot-card` เพื่อไม่ให้ card ด้านขวายืดเต็มพื้นที่ว่าง
+  - เพิ่ม regression guard ใน `scripts/frontendViewportRegression.js`
+  - ทดสอบผ่าน: `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T109 เสร็จแล้ว: hero/snapshot ด้านบนไม่ควรยืดยาวเมื่อเข้า Simulation เพราะ workspace grid ถูกล็อกให้เริ่มด้านบนและสูงตามเนื้อหา
+  - ตรวจด้วย `npm run check`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+
+### T110 - Manual Admin Package Assignment Flow
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-18 19:27:44 +07:00
+- เสร็จเมื่อ: 2026-06-18 19:32:31 +07:00
+- เหตุผล:
+  - ช่วงแรกยังไม่ต้องรับชำระเงินผ่านเว็บ ผู้ใช้ควรสมัครสมาชิกก่อน แล้ว admin เป็นคนกำหนด package ให้ภายหลัง
+  - Flow ปัจจุบันยังสื่อเหมือนมี checkout/local payment และสมาชิกใหม่ได้ Pro trial ทำให้ไม่ตรงกับการขายแบบ manual admin assignment
+  - ต้องทำให้หน้า admin จัดการ package ชัดเจนขึ้น และให้ผู้ใช้ใหม่รู้ว่ารอ admin เปิดสิทธิ์
+- งานที่ต้องทำ:
+  - [x] ปรับ default subscription ของสมาชิกใหม่ให้เป็น manual pending/inactive package ยกเว้น owner คนแรกที่ต้องเข้า Business ได้
+  - [x] ปรับหน้า auth/pricing ให้บอกชัดว่า signup คือการขอเข้าใช้งาน และ admin จะกำหนด Starter/Pro ให้ภายหลัง
+  - [x] ปรับหน้า `Business > User Management` ให้เป็น admin package management ที่ชัดขึ้น พร้อม quick guide และสถานะรอเปิดสิทธิ์
+  - [x] ปรับ docs/regression ให้ครอบคลุม manual assignment flow และปุ่ม/marker ของ admin package management
+  - [x] ทดสอบ syntax, subscription lifecycle, frontend viewport, web smoke และ check
+- ผลลัพธ์:
+  - สมาชิกใหม่หลัง owner คนแรกจะได้ subscription `Starter` status `inactive` provider `manual_admin_pending` เพื่อรอ admin กำหนด package
+  - owner คนแรกยังได้ Pro trial เพื่อเข้า Business dashboard และจัดการระบบได้
+  - หน้า Member Access อธิบายว่าเป็นการสมัครเพื่อให้ admin เปิด Package
+  - หน้า Monthly Plans แสดง Starter/Pro เป็นข้อมูลราคาเท่านั้น ปุ่ม plan disabled และข้อความบอกว่า admin จะกำหนด package จาก `Business > User Management`
+  - ปิด public `/api/subscription/checkout` และ `/api/subscription/payment-session` ใน launch phase โดยตอบ `manual_admin_assignment`
+  - หน้า `Business > User Management` มี guide `data-admin-package-management` พร้อมจำนวน account ที่รอ package และแถว user inactive แสดง `Waiting admin`
+  - อัปเดต docs และ regression markers `data-manual-package-flow`, `data-admin-package-management`, `manual_admin_pending`
+  - ทดสอบผ่าน: `node --check src/services/authService.js`, `node --check src/routes/authRoutes.js`, `node --check src/public/app.js`, `npm run test:subscription-lifecycle`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T110 เสร็จแล้ว: launch flow เป็นสมัครบัญชีก่อน แล้ว owner/admin กำหนด Starter/Pro, status และ expiry จาก `Business > User Management`
+  - ห้ามเปิด payment checkout เป็น flow หลักใน launch phase จนกว่าจะมี requirement ใหม่
+  - ตรวจด้วย `npm run check`, `node --check src/public/app.js`, `npm run test:subscription-lifecycle`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+
+### T111 - Simplify Business Admin Cockpit
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-18 20:05:52 +07:00
+- เสร็จเมื่อ: 2026-06-18 20:09:37 +07:00
+- เหตุผล:
+  - ผู้ใช้เปิดหน้า Business แล้วเจอ panel/เมนูจำนวนมากเกินไป ทำให้ไม่รู้ว่าต้องเริ่มทำอะไร
+  - Launch phase ตอนนี้ควรเน้นงานหลักของ admin คือจัดการ Package ให้สมาชิกก่อน ไม่ใช่แสดงระบบหลังบ้านทั้งหมดพร้อมกัน
+  - ต้องแยก Business เป็น cockpit แบบเลือกหมวด เพื่อให้มือใหม่เห็นเฉพาะงานที่ต้องทำในขณะนั้น
+- งานที่ต้องทำ:
+  - [x] เพิ่ม state/controls สำหรับเลือกหมวด Business เช่น Package, System, Data Health, Go-live
+  - [x] ทำให้หน้า Business default เปิดที่ Package Management และซ่อน panel อื่นไว้จนกว่าจะเลือก
+  - [x] ลด metric ด้านบนให้เหลือเฉพาะตัวเลขที่ admin ใช้ตัดสินใจเร็ว
+  - [x] คงฟังก์ชัน System/Data Health/Launch Evidence ไว้ แต่แยกไปอยู่ในหมวดเฉพาะ
+  - [x] อัปเดต CSS/docs/regression markers
+  - [x] ทดสอบ syntax, frontend viewport, web smoke และ check
+- ผลลัพธ์:
+  - เพิ่ม `state.businessSection` และ controls `data-business-section-tabs` สำหรับเลือกหมวด Business
+  - หน้า Business default เป็น `Package Management` พร้อม guide 3 ขั้นตอนและ User Management table
+  - ลด KPI ด้านบนเหลือ Waiting Package, Users, Active Paid, MRR, Portfolios และ System
+  - แยก `Users & Workspace`, `Data Health`, `Go-live Readiness` ออกเป็นหมวดที่กดเลือกได้
+  - คง panel เดิมไว้แต่ไม่แสดงทั้งหมดพร้อมกัน ได้แก่ System Admin, Tenant/Workspace, Portfolio Data Health, Database Mode Advisor, Reference Master, Production Environment, Operational Readiness และ Launch Evidence
+  - เพิ่ม CSS `.business-admin-cockpit`, `.business-section-tabs`, `.business-section-body` และ responsive guard
+  - อัปเดต docs และ regression markers `data-business-admin-cockpit`, `data-business-section-tabs`, `data-business-section-default`
+  - ทดสอบผ่าน: `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T111 เสร็จแล้ว: หน้า Business เป็น admin cockpit แบ่งหมวด และ default เข้า Package Management เพื่อลดความรก
+  - ห้ามลบ backend/admin tools เดิมโดยไม่มี requirement ใหม่ ให้ซ่อน/จัดกลุ่มใน UI แทน
+  - ตรวจด้วย `npm run check`, `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+
+### T112 - Verify Admin Package Management Flow
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-18 20:26:13 +07:00
+- เสร็จเมื่อ: 2026-06-18 20:29:04 +07:00
+- เหตุผล:
+  - ผู้ใช้ต้องการตรวจสอบว่า admin ทำงานถูกต้องหรือไม่ หลังปรับ Business เป็น admin cockpit และ manual package assignment
+  - ต้องยืนยันทั้งสิทธิ์ owner/admin, การกัน customer, การกำหนด package, audit event และ frontend marker ที่ใช้จริง
+- งานที่ต้องทำ:
+  - [x] ตรวจโค้ด route/service ของ admin users และ subscription update
+  - [x] รัน regression ที่เกี่ยวกับ subscription lifecycle และ admin package update
+  - [x] รัน frontend/web smoke เพื่อยืนยัน Business cockpit, Package Management และ User Management markers
+  - [x] ถ้าพบปัญหาให้แก้และทดสอบซ้ำ
+  - [x] อัปเดต `plan.md` พร้อมผลตรวจและ prompt handoff
+- ผลตรวจ:
+  - `updateUserSubscription()` จำกัดสิทธิ์เฉพาะ owner/admin และบันทึก audit event `team.subscription_update`
+  - API `POST /api/admin/users/:userId/subscription` ใช้ service เดียวกันและ customer ถูกปฏิเสธ
+  - เพิ่ม API-level regression ใน `scripts/frontendAuthenticatedSmokeRegression.js`: customer ใหม่ต้องเป็น `inactive/manual_admin_pending`, owner update เป็น Pro active ได้, customer update package เองต้องได้ 403
+  - พบ regression เดิมใน `scripts/tenantAccessRegression.js`: test ยัง save portfolio ก่อนเปิด package ให้ customer หลัง T110 จึง fail ด้วย `PLAN_UPGRADE_REQUIRED`
+  - แก้ regression โดยให้ test เปิด package ให้ customer ก่อน save portfolio ตาม flow ใหม่
+  - ผลทดสอบยืนยัน owner/admin admin flow ทำงานถูกต้อง และ tenant/customer guard ยังทำงาน
+- ทดสอบผ่าน:
+  - `npm run test:subscription-lifecycle`
+  - `npm run test:tenant-access`
+  - `npm run test:frontend-auth`
+  - `npm run test:frontend-viewport`
+  - `npm run test:web-smoke`
+  - `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T112 เสร็จแล้ว: admin package flow ผ่าน test แล้ว owner update package ให้สมาชิกได้ customer update เองไม่ได้ และ regression tenant access ถูกปรับให้ตรงกับ manual package flow
+  - ตรวจด้วย `npm run test:subscription-lifecycle`, `npm run test:tenant-access`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run check`
+
+### T113 - Add Safe Admin User Deletion
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-18 20:38:28 +07:00
+- เสร็จเมื่อ: 2026-06-18 20:46:47 +07:00
+- เหตุผล:
+  - หน้า User Management ยังไม่มีเมนูลบ User ทำให้ admin จัดการสมาชิกที่สมัครผิด/ทดสอบระบบ/เลิกใช้บริการไม่ได้
+  - การลบ User เป็น action เสี่ยง ต้องมี guard ชัดเจนและ audit trail
+  - ต้องลบข้อมูลที่ผูกกับ user อย่างเหมาะสมโดยไม่ทำลาย audit history
+- งานที่ต้องทำ:
+  - [x] เพิ่ม service สำหรับ owner/admin ลบ user แบบปลอดภัย
+  - [x] เพิ่ม API route สำหรับลบ user พร้อม guard ห้ามลบตัวเองและห้ามลบ owner คนสุดท้าย
+  - [x] เพิ่มปุ่ม Delete user ใน User Management พร้อม confirm dialog
+  - [x] ลบ/cleanup records ที่ผูกกับ user เช่น sessions, profile, portfolio snapshot และ advisor assignment พร้อมบันทึก audit `team.user_deleted`
+  - [x] ใช้ soft delete/anonymize user แทน hard delete เพื่อไม่ทำลาย audit history และไม่ทำให้ประวัติธุรกรรม/หลักฐานย้อนหลังหาย
+  - [x] เพิ่ม/อัปเดต regression สำหรับ admin delete user และ customer guard
+  - [x] อัปเดต docs/WEB_APP_USAGE.md อธิบายวิธีลบ user และข้อจำกัด
+  - [x] ทดสอบ syntax, frontend auth, tenant access, frontend viewport, web smoke และ check
+- ผลลัพธ์:
+  - owner/admin เห็นปุ่ม `Delete user` ใน Business > User Management
+  - ระบบ confirm ก่อนลบ และเรียก `DELETE /api/admin/users/:userId`
+  - customer เรียก API ลบ user เองไม่ได้
+  - admin/owner ลบ account ตัวเองไม่ได้ และลบ owner คนสุดท้ายไม่ได้
+  - user ที่ถูกลบถูกตัด session ทันที, login ใหม่ไม่ได้, ถูกซ่อนจาก user list/business metrics และถูก anonymize
+  - ระบบ cleanup sessions, portfolio snapshots, investor profiles และ advisor assignments ที่ผูกกับ user นั้น
+  - ระบบบันทึก audit event `team.user_deleted`
+- ทดสอบผ่าน:
+  - `node --check src/services/authService.js`
+  - `node --check src/routes/authRoutes.js`
+  - `node --check src/public/app.js`
+  - `node --check scripts/frontendAuthenticatedSmokeRegression.js`
+  - `npm run test:frontend-auth`
+  - `npm run test:tenant-access`
+  - `npm run test:frontend-viewport`
+  - `npm run test:web-smoke`
+  - `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T113 เสร็จแล้ว: เพิ่ม admin safe user deletion แบบ soft delete/anonymize ใน Business > User Management
+  - ห้ามเปลี่ยนเป็น hard delete โดยไม่มี requirement ใหม่ เพราะ audit/billing/history ต้องตรวจย้อนหลังได้
+  - ถ้าทำต่อเรื่อง admin ให้รักษา guard เดิม: owner/admin only, customer forbidden, ห้ามลบตัวเอง, ห้ามลบ owner คนสุดท้าย
+  - ตรวจด้วย `npm run test:frontend-auth`, `npm run test:tenant-access`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run check`
+
+### T114 - Require Login Before Download, Browse, or Analysis Actions
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-19 07:56:34 +07:00
+- เสร็จเมื่อ: 2026-06-19 08:00:46 +07:00
+- เหตุผล:
+  - ตอนยังไม่ login หน้า Run Analysis ยังให้กด download template และ browse ไฟล์ได้ ทำให้ผู้ใช้เข้าใจผิดว่าสามารถใช้งานได้แล้ว
+  - ระบบควรบังคับเส้นทางใช้งานง่ายๆ คือสมัคร/เข้าสู่ระบบก่อน แล้วค่อย download template, upload file และ run analysis
+  - ต้องล็อกทั้ง frontend และ backend เพราะการซ่อนปุ่มอย่างเดียวไม่พอ ผู้ใช้อาจเรียก URL download โดยตรงได้
+- งานที่ต้องทำ:
+  - [x] ปรับ frontend ให้ปุ่ม download template, file input และ Analyze disabled เมื่อยังไม่ login
+  - [x] แสดงข้อความชัดเจนว่า `Sign in required` ก่อนใช้งาน Run Analysis
+  - [x] เพิ่ม backend guard ให้ endpoint download template/output/report ต้อง login ก่อน
+  - [x] อัปเดต regression test ให้ anonymous download ถูกปฏิเสธ และ logged-in owner/customer download ได้
+  - [x] อัปเดต docs ให้บอกว่าต้อง login ก่อน download/upload/analyze
+  - [x] รันทดสอบ frontend viewport, web smoke, frontend auth และ check
+- ผลลัพธ์:
+  - ก่อน login ลิงก์ download template ไม่มี `href`, ถูกตั้ง `aria-disabled`, file input ถูก disabled และปุ่มเป็น `Sign in to analyze`
+  - หน้า Run Analysis แสดงข้อความ `Sign in required` และบอกให้ login ก่อน download, browse/upload หรือ run analysis
+  - หลัง login ระบบ restore link download และเปิด file input/button ให้ใช้งาน
+  - backend บังคับ login สำหรับ `/api/analysis/template/*`, `/api/analysis/raw`, `/api/analysis/recommended`, `/api/analysis/coverage` และ `/api/analysis/report/:fileName`
+  - anonymous เรียก download URL โดยตรงจะได้ 401
+- ทดสอบผ่าน:
+  - `node --check src/routes/analysisRoutes.js`
+  - `node --check src/public/app.js`
+  - `node --check scripts/webAppSmokeRegression.js`
+  - `node --check scripts/frontendViewportRegression.js`
+  - `npm run test:web-smoke`
+  - `npm run test:frontend-viewport`
+  - `npm run test:frontend-auth`
+  - `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T114 เสร็จแล้ว: Run Analysis ถูกล็อกก่อน login ทั้ง frontend และ backend
+  - ห้ามเปิด anonymous download/browse/analyze กลับมาโดยไม่มี requirement ใหม่
+  - ตรวจด้วย `npm run test:frontend-auth`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run check`
+
+### T115 - Fix Single-Stock Display Across Portfolio, Screener, and Sector
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-19 08:07:35 +07:00
+- เสร็จเมื่อ: 2026-06-19 08:11:03 +07:00
+- เหตุผล:
+  - ผู้ใช้พบว่า Portfolio, Screener และ Sector แสดงผลเหมือนเหลือหุ้นตัวเดียว
+  - ต้องแยกให้ชัดว่าเกิดจากข้อมูลที่ run ล่าสุดมี symbol เดียวจริง, snapshot ล่าสุดถูกบันทึกทับ, หรือ frontend filter/render กรองผิด
+  - ต้องไม่ลบ `plan.md` และต้องรักษา output/snapshot เดิมถ้ายังจำเป็นต่อการตรวจสอบ
+- งานที่ต้องทำ:
+  - [x] ตรวจจำนวนแถวใน `recommended_stocks.csv`, `siamchart_raw.csv` และ saved snapshot ล่าสุด
+  - [x] ตรวจ frontend filter/render state ของ Portfolio/Screener/Sector ว่ามี filter ค้างหรือจำกัดแถวผิดหรือไม่
+  - [x] ปรับ Screener default ให้แสดงหุ้นทั้งหมดก่อน ไม่กรองด้วย Score/RRR/D/E ทันที
+  - [x] ปรับ Sector default เป็น `All sectors overview` เพื่อแสดงหุ้นทุก sector ก่อน แล้วค่อยเลือก sector เพื่อเจาะลึก
+  - [x] เพิ่มข้อความหน้า Portfolio กรณีมี recommendations แต่ไม่มี portfolio holdings ว่าเป็น watchlist-only run ไม่ใช่ข้อมูลหาย
+  - [x] เพิ่ม regression guard สำหรับ default-all stock view
+  - [x] รันทดสอบที่เกี่ยวข้องและอัปเดต `plan.md`
+- ผลตรวจ:
+  - `data/outputs/recommended_stocks.csv` มี 10 หุ้น
+  - `data/outputs/siamchart_raw.csv` มี 10 หุ้น
+  - saved snapshot ล่าสุดมี recommendations 10 แถว แต่ portfolioRows 0 แถว เพราะรอบล่าสุดไม่มี portfolio holdings
+  - default filter เดิมของ Screener คือ Score >= 60, RRR >= 1.5, D/E <= 1.0 ทำให้ชุดข้อมูลล่าสุดเหลือ BDMS ตัวเดียว จึงดูเหมือนระบบแสดงหุ้นเดียว
+- ผลลัพธ์:
+  - Screener ค่าเริ่มต้นแสดงทุกหุ้นจาก analysis ล่าสุดก่อน แล้วผู้ใช้ค่อยกรองเอง
+  - Sector ค่าเริ่มต้นแสดง `All sectors overview` และตารางหุ้นทุกตัวจาก analysis ล่าสุดก่อน
+  - Portfolio ถ้าไม่มี holdings จะบอกชัดว่า analysis ล่าสุดมี recommendations กี่ตัว แต่ยังไม่ได้ upload portfolio Excel
+- ทดสอบผ่าน:
+  - `node --check src/public/app.js`
+  - `node --check scripts/frontendViewportRegression.js`
+  - `node --check scripts/webAppSmokeRegression.js`
+  - `npm run test:frontend-viewport`
+  - `npm run test:web-smoke`
+  - `npm run test:frontend-auth`
+  - `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T115 เสร็จแล้ว: ปัญหาแสดงหุ้นตัวเดียวเกิดจาก default filter เข้มเกินไป ไม่ใช่ CSV เหลือหุ้นเดียว
+  - รักษา default ของ Screener/Sector ให้เริ่มจากแสดงทุกหุ้นก่อน เพื่อไม่ให้ผู้ใช้มือใหม่เข้าใจผิดว่าข้อมูลหาย
+  - ห้ามลบ output/snapshot จริงโดยไม่จำเป็น
+
+### T116 - Preserve Portfolio Holdings During Watchlist-only Analysis
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-19 08:14:58 +07:00
+- เสร็จเมื่อ: 2026-06-19 08:18:33 +07:00
+- เหตุผล:
+  - ผู้ใช้มีไฟล์ portfolio อยู่แล้ว แต่หน้า Portfolio ขึ้น `No portfolio holdings loaded yet`
+  - audit ล่าสุดของ user แสดง `hasPortfolio: false` และ `portfolioRows: 0` หลายครั้ง แปลว่า watchlist-only run ไป overwrite saved snapshot เดิม
+  - watchlist-only analysis ควรอัปเดต recommendations/screener ได้ แต่ไม่ควรล้าง holdings เดิมของ Portfolio
+- งานที่ต้องทำ:
+  - [x] ตรวจ audit/snapshot ล่าสุดว่า run มี portfolio file จริงหรือไม่
+  - [x] แก้ snapshot save logic ให้ preserve existing portfolioRows เมื่อ run ไม่มี portfolio file
+  - [x] รักษา output portfolio report เดิมถ้า watchlist-only run ไม่มี report ใหม่
+  - [x] เพิ่ม regression guard ว่า watchlist-only analysis ไม่ล้าง holdings เดิม
+  - [x] กู้ snapshot ปัจจุบันของ user ที่ถูก overwrite จาก `portfolio_aom_analysis_report.xlsx`
+  - [x] รันทดสอบ state patch/frontend/web smoke/check และอัปเดต `plan.md`
+- ผลตรวจ:
+  - audit ของ user `882199f9-d31c-4c3f-b493-cbf43bcf779f` มี watchlist-only run หลายครั้ง: `hasPortfolio: false`, `portfolioRows: 0`
+  - ก่อนแก้ `saveCustomerPortfolioSnapshot()` จะ upsert snapshot ใหม่ด้วย `portfolioRows: []` จึงล้าง holdings เดิม
+  - มี report เดิม `data/outputs/portfolio_aom_analysis_report.xlsx` ที่มี 17 holdings ตรงกับช่วงก่อนถูกทับ
+- ผลลัพธ์:
+  - watchlist-only analysis ส่ง `preserveExistingPortfolioRows: true` ไปที่ snapshot service
+  - snapshot service จะใช้ `existing.portfolioRows` เดิมและคง `portfolioReport` เดิมเมื่อ run ไม่มี portfolio file
+  - snapshot ปัจจุบันถูกกู้แล้ว: holdings 17 แถว, recommendations 10 แถว, market value 178,365.6 THB
+  - สร้าง backup state ชั่วคราวไว้ที่ `data/app-state.before-t116-portfolio-restore.json`
+- ทดสอบผ่าน:
+  - `node --check src/services/authService.js`
+  - `node --check src/routes/analysisRoutes.js`
+  - `node --check scripts/statePatchRegression.js`
+  - `npm run test:state-patch`
+  - `npm run test:frontend-auth`
+  - `npm run test:frontend-viewport`
+  - `npm run test:web-smoke`
+  - `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T116 เสร็จแล้ว: watchlist-only analysis จะไม่ล้าง saved portfolio holdings เดิมอีก
+  - ถ้าผู้ใช้เห็น holdings หายอีก ให้ตรวจ audit `analysis.run` ว่า `hasPortfolio` เป็น false หรือ parser ได้ `portfolioRows: 0`
+  - ห้ามให้ `portfolioRows: []` จาก run ที่ไม่มี portfolio file ทับ holdings เดิมอีก
+
+### T117 - Return Preserved Portfolio Rows in Analysis Response
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-19 08:23:03 +07:00
+- เสร็จเมื่อ: 2026-06-19 08:24:25 +07:00
+- เหตุผล:
+  - หลัง T116 snapshot ถูก preserve แล้ว แต่ frontend ยังอาจแสดง `No portfolio holdings loaded yet` ทันทีหลัง watchlist-only run
+  - สาเหตุคือ `/api/analysis/run` ยังตอบ `portfolioRows` จากตัวแปร local ซึ่งเป็น `[]` เมื่อไม่มี portfolio file แม้ `customerSnapshot.portfolioRows` จะถูก preserve แล้ว
+  - frontend ใช้ `data.portfolioRows` อัปเดต state ทันที จึงเห็น holdings ว่างจนกว่าจะ reload หรือโหลด snapshot ใหม่
+- งานที่ต้องทำ:
+  - [x] แก้ API response ให้คืน portfolioRows จาก `customerSnapshot.portfolioRows`
+  - [x] ถ้า watchlist-only preserve holdings ให้ `portfolioReport`/outputs สะท้อน report เดิมจาก snapshot
+  - [x] เพิ่ม regression ใน analysis portfolio flow ว่า watchlist-only response ไม่ส่ง portfolioRows ว่างเมื่อมี snapshot เดิม
+  - [x] รันทดสอบ analysis portfolio flow, frontend auth/viewport/web smoke/check
+- ผลลัพธ์:
+  - `/api/analysis/run` จะตอบ `portfolioRows` จาก snapshot ที่บันทึกจริง ไม่ใช่ตัวแปร local ที่ว่างตอนไม่มี portfolio file
+  - ถ้า run แบบ watchlist-only หลังมี saved portfolio แล้ว response จะบอกว่า existing portfolio holdings were kept
+  - `portfolioReport` จะคืน metadata ของ report เดิมพร้อม `preserved: true`
+  - ตรวจ state จริงแล้ว `aaa@gmail.com` มี 17 holdings และ `sarawut.shi@mahidol.ac.th` มี 27 holdings
+- ทดสอบผ่าน:
+  - `node --check src/routes/analysisRoutes.js`
+  - `node --check scripts/analysisPortfolioFlowRegression.js`
+  - `npm run test:analysis-portfolio-flow`
+  - `npm run test:frontend-auth`
+  - `npm run test:frontend-viewport`
+  - `npm run test:web-smoke`
+  - `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T117 เสร็จแล้ว: response หลัง watchlist-only run คืน preserved portfolio rows ให้ frontend แล้ว
+  - ตรวจ endpoint `/api/analysis/run` ไม่ใช่แค่ saved snapshot
+  - ถ้าผู้ใช้ยังเห็นข้อความเดิมหลังแก้ ให้ refresh/restart server เพื่อโหลด JS/API version ใหม่ แล้วตรวจ `/api/customer/portfolio` ของ account นั้น
+
+### T121 - Simplify Owner Admin Package Management UX
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-19 09:16:18 +07:00
+- เสร็จเมื่อ: 2026-06-19 09:20:08 +07:00
+- เหตุผล:
+  - งานถัดไปหลังยืนยัน upload คือทำหน้า Admin/Business ให้ง่ายขึ้นสำหรับ owner
+  - เมนู Business เดิมมีหลายหมวดและข้อมูลหลังบ้านเยอะ ทำให้ผู้ใช้ใหม่ไม่รู้ว่าต้องทำอะไรก่อน
+  - ช่วงเปิดตัวควรโฟกัสงานจริง: จัดการสมาชิก, เลือก Starter/Pro, ตั้งวันหมดอายุ, ลบ user
+- งานที่ต้องทำ:
+  - [x] ปรับ Business default section ให้เป็น Member Management ที่ตรงกับงาน owner
+  - [x] ลด/ซ่อน tab ที่ไม่จำเป็นจาก first-view แต่ยังให้เข้าถึง Advanced Ops ได้
+  - [x] เพิ่ม summary สำหรับสมาชิก waiting/admin action/active/expired
+  - [x] ปรับ copy และ table ใน User Management ให้เข้าใจง่ายขึ้น
+  - [x] เพิ่ม regression markers สำหรับ UX ใหม่
+  - [x] รันทดสอบและอัปเดต `plan.md`
+- ผลลัพธ์:
+  - หน้า Business เปลี่ยนจาก `Business Control Center` เป็น `Member Control Center`
+  - ลด tab จาก 4 หมวดเหลือ 2 หมวด: `Members` และ `Advanced Ops`
+  - default section เป็น `Member Management` สำหรับงาน owner ที่ใช้จริงช่วงเปิดตัว
+  - ตาราง default แสดงเฉพาะ `Member`, `Package / Expiry`, `Status`, `Portfolio`, `Actions`
+  - ปุ่มหลักใน default table เหลือ `Save package` และ `Delete user` เพื่อลดความสับสน
+  - role/workspace/advisor/data health/readiness/audit ยังไม่ถูกลบ แต่ย้ายเข้า `Advanced Ops`
+  - เพิ่ม summary: waiting package, active members, expired/check date
+  - อัปเดต docs `WEB_APP_USAGE.md` และ regression markers `data-member-management-focus`, `data-business-advanced-ops`, `data-member-management-row`
+  - ทดสอบผ่าน: `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run test:frontend-auth`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T121 เสร็จแล้ว หน้า Business/Admin ถูกลดความซับซ้อนเป็น Members/Advanced Ops โดย default ให้ owner จัดการสมาชิกและ package ก่อน
+  - ห้ามนำ tab System/Data/Launch กลับมาแสดงพร้อมกันใน first-view โดยไม่มี requirement ใหม่
+  - งานถัดไปที่เหมาะสมคือทดสอบด้วย browser จริง/visual QA หน้า Run Analysis และ Business หลัง restart server
+
+### T120 - Real Upload Analyze Flow Verification
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-19 09:00:35 +07:00
+- เสร็จเมื่อ: 2026-06-19 09:15:47 +07:00
+- เหตุผล:
+  - หลังแก้ T118/T119 ต้องยืนยันด้วย flow ใกล้เคียงผู้ใช้จริงว่าเลือกไฟล์แล้ว backend ได้รับไฟล์จริง
+  - ต้องตรวจว่า upload `watchlist` และ `portfolio` แล้ว response มี `uploadSummary`, จำนวน holdings และข้อมูล portfolio ไม่หาย
+  - งานนี้เป็นขั้นแรกของงานถัดไปที่แนะนำก่อนปรับ Admin/Package เพิ่ม
+- งานที่ต้องทำ:
+  - [x] ตรวจ endpoint auth และสร้าง/ใช้ test user สำหรับ authenticated analysis
+  - [x] รัน server ชั่วคราวหรือใช้ test harness เพื่อยิง `/api/analysis/run` ด้วยไฟล์จริงใน workspace
+  - [x] ตรวจ response ว่ามี `uploadSummary.watchlist`, `uploadSummary.portfolio`, `parsedSymbols`, `holdings`, `portfolioRows`
+  - [x] ตรวจว่า flow ไม่มี error `Please choose a watchlist or portfolio file before running analysis.`
+  - [x] รัน regression ที่เกี่ยวข้องหลังทดสอบจริง
+  - [x] อัปเดต `plan.md` พร้อมผลลัพธ์และคำแนะนำถัดไป
+- ผลลัพธ์:
+  - ทดสอบผ่าน server in-process ด้วย authenticated test user และ multipart upload จริง
+  - ไฟล์ `portfolio_aom.xlsx` ไม่มีใน workspace ปัจจุบันแล้ว จึงใช้ไฟล์จริงที่ยังอยู่คือ `portfolio.xlsx`
+  - Upload จริงที่ทดสอบ: `watchlist.txt` + `portfolio.xlsx`
+  - Response จาก `/api/analysis/run` ได้ `httpStatus: 200`, `ok: true`
+  - `uploadSummary.watchlist.fileName = watchlist.txt`, `parsedSymbols = 909`
+  - `uploadSummary.portfolio.fileName = portfolio.xlsx`, `parsedSymbols = 14`, `holdings = 14`
+  - `combinedSymbols = 909`, `portfolioRows = 14`, `portfolioReport.count = 14`, `recommendations = 909`
+  - ไม่พบ error `Please choose a watchlist or portfolio file before running analysis.`
+  - ทดสอบนี้ใช้ mocked Yahoo market response เพื่อ isolate ว่า upload/read file ทำงานจริง โดยไม่พึ่ง network ภายนอก
+  - Regression ผ่าน: `npm run test:analysis-portfolio-flow`, `npm run test:frontend-auth`, `npm run test:web-smoke`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T120 เสร็จแล้ว upload/analyze ด้วยไฟล์จริงใน workspace ผ่าน โดยใช้ `uploadSummary` เป็นหลักฐานว่า backend อ่านไฟล์จริง
+  - งานถัดไปที่เหมาะสมคือปรับหน้า Admin/Business ให้ใช้ง่ายขึ้นสำหรับ owner โดยโฟกัสเมนูจัดการสมาชิก, package, วันหมดอายุ และลบ user
+
+### T119 - Fix Analyze Button Not Sending Selected Upload Files
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-19 08:37:13 +07:00
+- เสร็จเมื่อ: 2026-06-19 08:39:33 +07:00
+- เหตุผล:
+  - ผู้ใช้เลือกไฟล์แล้วกด `Analyze my portfolio` แต่ backend ตอบว่า `Please choose a watchlist or portfolio file before running analysis.`
+  - อาการนี้แปลว่า request ไปถึง backend แต่ `multer` ไม่ได้รับ field `watchlist` หรือ `portfolio`
+  - ต้องตรวจว่า file input ถูก enable หลัง login จริงไหม และ `FormData` ที่ส่งมีไฟล์จริงหรือไม่
+- งานที่ต้องทำ:
+  - [x] ตรวจ frontend auth lock/unlock ของ file inputs และ submit button
+  - [x] ตรวจ `runAnalysis()` ว่าสร้าง `FormData` จาก form ที่มีไฟล์จริงหรือไม่
+  - [x] เพิ่ม client-side guard ถ้า input แสดงชื่อไฟล์แต่ `FormData` ไม่มีไฟล์ ให้แจ้ง error ชัดเจนก่อนยิง API
+  - [x] ปรับ backend/frontend ถ้าพบว่าการตั้ง `disabled` ทำให้ไฟล์ไม่ถูกส่ง
+  - [x] เพิ่ม regression สำหรับ authenticated upload ต้องมี multipart fields `watchlist`/`portfolio`
+  - [x] รันทดสอบและอัปเดต `plan.md`
+- ผลลัพธ์:
+  - พบ root cause จริงใน `runAnalysis()`: โค้ดเรียก `setAnalysisButtonLoading(true)` ก่อน `new FormData(analysisForm)`
+  - `setAnalysisButtonLoading(true)` disable file inputs ทันที และ browser จะไม่รวม disabled file inputs ใน `FormData`
+  - แก้ให้ตรวจไฟล์และสร้าง `FormData` ก่อน disable input เพื่อให้ request แนบ field `watchlist`/`portfolio` ไปถึง backend
+  - เพิ่ม guard `getAnalysisSelectedFiles()` ถ้ายังไม่มีไฟล์ หรือเลือกไฟล์แล้วแต่แนบไม่ได้ จะแจ้ง error ที่ frontend ก่อนยิง API
+  - เพิ่ม regression marker `analysis-upload-formdata-before-disable` เพื่อกันไม่ให้บั๊กนี้กลับมา
+  - ทดสอบผ่าน: `node --check src/public/app.js`, `node --check scripts/frontendViewportRegression.js`, `node --check scripts/webAppSmokeRegression.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run test:analysis-portfolio-flow`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T119 เสร็จแล้ว สาเหตุคือ frontend disable file inputs ก่อนสร้าง `FormData` ทำให้ backend ไม่ได้รับไฟล์
+  - ถ้าผู้ใช้ยังเจอปัญหาเดิม ให้ restart server/refresh browser hard reload แล้วตรวจ network request `/api/analysis/run` ว่ามี multipart fields `watchlist` หรือ `portfolio`
+
+### T118 - Prove Upload Files Are Read and Stop Silent Default Fallback
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-19 08:29:32 +07:00
+- เสร็จเมื่อ: 2026-06-19 08:33:47 +07:00
+- เหตุผล:
+  - ผู้ใช้เลือกไฟล์อื่นแล้วผลไม่เปลี่ยน จึงต้องตรวจว่าโปรแกรมอ่านไฟล์จริงหรือไม่
+  - พบความเสี่ยงใน `collectSymbolsFromFiles()` เพราะถ้าอ่าน symbol ไม่ได้จะ fallback เป็น DEFAULT_SYMBOLS 10 ตัว ทำให้ดูเหมือนระบบไม่อ่านไฟล์
+  - สำหรับ web upload จริงควร fail ชัดเจนเมื่อไฟล์ว่าง/ผิด format ไม่ควรใช้ default โดยเงียบๆ
+- งานที่ต้องทำ:
+  - [x] แยกผลอ่านไฟล์เป็น watchlistSymbols และ portfolioSymbols พร้อม metadata
+  - [x] ปิด default fallback ใน `/api/analysis/run`
+  - [x] ถ้า upload portfolio แล้วอ่าน Symbol ไม่ได้ ให้แจ้ง error ชัดเจน
+  - [x] ส่ง metadata กลับ frontend ว่า server ได้รับไฟล์อะไร ขนาดเท่าไหร่ อ่านได้กี่ symbols/holdings
+  - [x] แสดง metadata นี้ในหน้าเว็บหลัง run เพื่อให้ผู้ใช้เห็นว่าอ่านไฟล์จริง
+  - [x] เพิ่ม regression: portfolio A/B ต้องให้ผล symbols/rows ต่างกัน และ empty file ต้อง error ไม่ fallback
+  - [x] รันทดสอบและอัปเดต `plan.md`
+- ผลลัพธ์:
+  - แก้ให้ web analysis ไม่ fallback เป็น `DEFAULT_SYMBOLS` แบบเงียบๆ เมื่อมี upload แต่ไฟล์ว่างหรืออ่าน Symbol ไม่ได้
+  - เพิ่ม `collectInputSymbolsFromFiles()` เพื่อแยกจำนวน symbol จาก watchlist และ portfolio ชัดเจน
+  - `/api/analysis/run` จะ reject เมื่อไม่เลือกไฟล์เลย หรือ upload portfolio แล้วไม่มีค่า `Symbol`
+  - API ส่ง `uploadSummary` กลับมา เช่น `fileName`, `sizeBytes`, `parsedSymbols`, `holdings`, `combinedSymbols`, `sampleSymbols`
+  - หน้าเว็บแสดงหลักฐานหลัง run เช่น `Read portfolio file "portfolio_aom.xlsx": 17 symbol(s), 17 holding row(s).`
+  - เพิ่ม regression ว่า upload portfolio คนละไฟล์ต้องเปลี่ยนผลลัพธ์ และ portfolio ว่างต้อง error ไม่ใช้ default
+  - ทดสอบผ่าน: `node --check src/services/inputService.js`, `node --check src/routes/analysisRoutes.js`, `node --check src/public/app.js`, `node --check scripts/analysisPortfolioFlowRegression.js`, `npm run test:analysis-portfolio-flow`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run test:frontend-auth`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T118 เสร็จแล้ว ถ้าผู้ใช้ยังบอกว่าค่าไม่เปลี่ยน ให้ตรวจ `uploadSummary` ใน response/audit ก่อนว่า backend ได้รับไฟล์อะไรและอ่านได้กี่ symbols/holdings
+  - ห้ามให้ web analysis fallback เป็น DEFAULT_SYMBOLS แบบเงียบๆ เมื่อไฟล์ upload อ่านไม่ได้
+  - ถ้าต้อง debug เพิ่ม ให้เช็ก network response ของ `/api/analysis/run` และข้อความในหน้าเว็บที่ขึ้นต้น `Read watchlist file`, `Read portfolio file`, `Combined unique symbols`
+
 ### T66 - Analysis Run Loading and Progress UX
 
 - สถานะ: Done
@@ -1590,6 +2330,36 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 - 2026-06-18 08:27:10 +07:00 - เริ่ม T97: เพิ่ม Simulation แบบแบ่งซื้อหลายไม้เพื่อเทียบกับซื้อครั้งเดียว
 - 2026-06-18 08:31:09 +07:00 - ทำ T97 เสร็จ: เพิ่ม Buy Mode แบบ Lump Sum/Split Buy, จำนวนไม้, trading-day interval, metrics/trade history เพิ่มเติม, docs/regression และ targeted tests ผ่าน
 - 2026-06-18 08:39:27 +07:00 - commit/push T94-T97 สำเร็จ: `31fcdb8 Improve chart focus and split-buy simulation`
+- 2026-06-18 08:43:00 +07:00 - เริ่ม T98: ยกระดับหน้า Sector Analysis ให้ต่างจาก Screener และคุ้มกับแพ็กเกจ Pro
+- 2026-06-18 08:46:33 +07:00 - ทำ T98 เสร็จ: เพิ่ม Pro Sector Intelligence, Sector Score Ranking, Rotation Signal, Portfolio Sector Risk, docs/regression markers และ targeted tests ผ่าน
+- 2026-06-18 08:54:09 +07:00 - เริ่ม T99: วิเคราะห์และปรับหน้า Sector หลังพบว่า Pro Sector Intelligence ใช้งานยากสำหรับมือใหม่
+- 2026-06-18 08:57:14 +07:00 - ทำ T99 เสร็จ: เพิ่ม beginner summary/next step, ลด panel ที่แสดงพร้อมกัน, ซ่อนตารางขั้นสูงใน details, ปรับ label เป็นภาษาง่าย และ targeted tests ผ่าน
+- 2026-06-18 09:22:14 +07:00 - เริ่ม T100: เพิ่ม hint ใน header ตารางเพื่ออธิบายความหมาย ค่าแนะนำ และข้อควรระวังของคอลัมน์การลงทุน
+- 2026-06-18 09:32:39 +07:00 - ทำ T100 เสร็จ: เพิ่ม table header tooltip สำหรับคอลัมน์สำคัญ, CSS/docs/regression markers และ targeted tests ผ่าน
+- 2026-06-18 09:51:54 +07:00 - เริ่ม T101: แก้ error `tableColumnTips` ถูกเรียกก่อน initialization
+- 2026-06-18 09:53:21 +07:00 - ทำ T101 เสร็จ: ย้าย `tableColumnTips` ไปก่อน `await initialize()`, เพิ่ม regression initialization order และ targeted tests ผ่าน
+- 2026-06-18 09:58:42 +07:00 - เริ่ม T102: ตรวจ `Other` ใน Portfolio Sector exposure และแก้ UX ที่รวม sector ที่เหลือจนผู้ใช้เข้าใจผิด
+- 2026-06-18 10:00:57 +07:00 - ทำ T102 เสร็จ: ยืนยัน `Other` เดิมเป็นผลรวม sector ที่เหลือ, ปรับ Sector exposure ให้แสดง sector จริงทั้งหมด, เพิ่ม docs/regression markers และ targeted tests ผ่าน
+- 2026-06-18 10:34:26 +07:00 - เริ่ม T103: เพิ่มกราฟ Simulation แบบ Python version เพื่อเทียบ Strategy กับ Buy & Hold
+- 2026-06-18 10:37:13 +07:00 - ทำ T103 เสร็จ: เพิ่ม SVG chart Portfolio Growth Strategy vs Buy & Hold, legend, winner card, วิธีอ่านกราฟ, docs/regression markers และ targeted tests ผ่าน
+- 2026-06-18 13:27:57 +07:00 - เริ่ม T104: ปรับ launch scope ให้ขายจริงเฉพาะ Starter/Pro ก่อน และตรวจ package validity ให้เหมาะกับการใช้งานจริง
+- 2026-06-18 13:32:52 +07:00 - ทำ T104 เสร็จ: public API/pricing/checkout เปิดเฉพาะ Starter/Pro, Advisor เป็น coming soon/manual contact, เพิ่ม expiry check จาก `trialEndsAt`/`renewsAt`, docs/regression และ targeted tests ผ่าน
+- 2026-06-18 13:37:03 +07:00 - เริ่ม T105: เพิ่ม manual subscription admin controls เพื่อให้ owner/admin จัดการแพ็กเกจได้แม้ยังไม่มี online payment เต็มรูปแบบ
+- 2026-06-18 13:43:27 +07:00 - ทำ T105 เสร็จ: เพิ่ม service/API/UI สำหรับ manual package update Starter/Pro, status, expiry date, audit event `team.subscription_update`, docs/regression และ targeted tests ผ่าน
+- 2026-06-18 13:50:24 +07:00 - เริ่ม T106: ทำให้ Guide profile มีผลที่ผู้ใช้เห็นจริงใน Portfolio/Screener/Simulation
+- 2026-06-18 13:55:53 +07:00 - ทำ T106 เสร็จ: Guide แสดงผลกระทบชัดเจน, Portfolio มี personalized guidance, Screener ใช้ default filter จาก profile, Simulation ตั้งเงิน/ไม้จาก budget/risk/horizon, docs/regression และ targeted tests ผ่าน
+- 2026-06-18 14:07:15 +07:00 - เริ่ม T107: ซ่อน Guide จาก launch UI และลดความรกในหน้า Portfolio ตาม feedback ผู้ใช้
+- 2026-06-18 14:16:49 +07:00 - ทำ T107 เสร็จ: ถอด Guide navigation/frontend route/personalization, คืน Screener/Simulation default แบบชัดเจน, ลด Portfolio เหลือ quick guidance 3 ช่อง, ลบ profile completion UI ที่สับสน, docs/regression และ targeted tests ผ่าน
+- 2026-06-18 18:51:02 +07:00 - เริ่ม T108: ซ่อน Approvals จาก Starter/Pro launch UI เพราะ Advisor workflow ยัง defer และทำให้ผู้ใช้มือใหม่สับสน
+- 2026-06-18 18:55:23 +07:00 - ทำ T108 เสร็จ: ถอด Approvals navigation/account text/Business approval panel, หยุด frontend load approval data ที่ไม่จำเป็น, docs/regression guard และ targeted tests ผ่าน โดยคง backend approval foundation ไว้สำหรับ Advisor phase
+- 2026-06-18 19:02:33 +07:00 - เริ่ม T109: แก้ layout hero/snapshot ด้านบนที่ยืดยาวผิดปกติเมื่อเข้า Simulation
+- 2026-06-18 19:03:20 +07:00 - ทำ T109 เสร็จ: ปรับ workspace/hero/snapshot CSS ให้ไม่ stretch row ตามความสูงคอลัมน์ซ้าย, เพิ่ม viewport regression guard และ targeted tests ผ่าน
+- 2026-06-18 19:27:44 +07:00 - เริ่ม T110: ปรับ flow สมัครสมาชิกเป็น manual admin package assignment เพราะช่วงแรกยังไม่รับชำระผ่านเว็บ
+- 2026-06-18 19:32:31 +07:00 - ทำ T110 เสร็จ: สมาชิกใหม่รอ admin package, owner คนแรกยังเข้า Business ได้, หน้า plan ไม่ checkout, ปิด checkout/payment-session route ชั่วคราว, เพิ่ม admin package guide ใน User Management, docs/regression และ targeted tests ผ่าน
+- 2026-06-18 20:05:52 +07:00 - เริ่ม T111: ลดความรกหน้า Business เพราะ admin มือใหม่เห็น panel/เมนูเยอะเกินไปและไม่รู้ต้องเริ่มตรงไหน
+- 2026-06-18 20:09:37 +07:00 - ทำ T111 เสร็จ: เปลี่ยน Business เป็น admin cockpit แบ่งหมวด Package/System/Data Health/Go-live, default เข้า Package Management, ลด KPI ด้านบน และ targeted tests ผ่าน
+- 2026-06-18 20:26:13 +07:00 - เริ่ม T112: ตรวจสอบการทำงานของ admin package management ว่า owner/admin กำหนด package ได้และ customer ถูกกันสิทธิ์
+- 2026-06-18 20:29:04 +07:00 - ทำ T112 เสร็จ: เพิ่ม API-level regression สำหรับ admin package update, แก้ tenant regression ให้เปิด package ก่อน save portfolio ตาม flow ใหม่ และทดสอบ subscription/tenant/frontend/web/check ผ่าน
 - 2026-06-11 14:30:04 +07:00 - เริ่ม T73: แก้ bug `recommendedActionSortFields` ยังไม่ initialize ตอนหน้า Portfolio render หลัง analysis/saved portfolio
 - 2026-06-11 14:33:44 +07:00 - ทำ T73 เสร็จ: ย้าย `recommendedActionFields` และ `recommendedActionSortFields` ไปก่อน `await initialize()`, เพิ่ม regression ตรวจ initialization order และ `npm run ci:quality` ผ่าน
 - 2026-06-11 14:15:49 +07:00 - เริ่ม T72: เพิ่ม filter, field picker และ order by ให้ตาราง Recommended actions ในหน้า Portfolio โดยไม่เปลี่ยนสูตรวิเคราะห์เดิม
@@ -5721,8 +6491,23 @@ Excel report:
 - T95 Done: เพิ่มสีเขียวให้ `Top ideas` ในหน้า Screener ทั้ง bar และจุดหุ้นเดียวกันใน `Quality vs reward` scatter เพื่อสื่อว่าเป็นหุ้น recommend และ focus ง่ายขึ้น
 - T96 Done: ปรับ scope สีเขียวของ Top ideas ให้เหลือเฉพาะจุดวงกลมใน `Quality vs reward` ที่เป็นหุ้นตัวเดียวกับ Top ideas; `Top ideas` bar ใช้สีเดิมแต่ยังคลิก highlight ตารางได้
 - T97 Done: เพิ่ม Simulation แบบแบ่งซื้อหลายไม้ โดยคง Lump Sum เดิม, เพิ่ม Split Buy ที่กำหนดจำนวนไม้/ระยะห่าง trading days, backend ปล่อยเงินแต่ละไม้เข้า strategy, frontend แสดง average cost/completed tranches/deployed capital/Split Buy Plan และเพิ่ม regression `npm run test:simulation-split-buy`; commit/push สำเร็จใน `31fcdb8 Improve chart focus and split-buy simulation`
+- T98 Done: ยกระดับ `Sector Analysis` เป็น Pro Sector Intelligence โดยเพิ่ม Sector Score Ranking, Rotation Signal, Portfolio Sector Risk และ Quality vs Valuation Context เพื่อแยกบทบาทจาก Screener ให้ชัดเจน; งานนี้ยังเป็น working tree change หากยังไม่ได้ commit หลังเวลาจบ 2026-06-18 08:46:33 +07:00
+- T99 Done: ปรับ `Sector Analysis` ให้มือใหม่ใช้ง่ายขึ้น โดยเพิ่ม beginner summary 3 ช่อง, ลด panel เหลือคำถามหลัก, ซ่อนตารางขั้นสูงใน details และแปล signal/risk เป็นภาษาง่าย โดยคง logic Pro Sector Intelligence เดิม; งานนี้ยังเป็น working tree change หากยังไม่ได้ commit หลังเวลาจบ 2026-06-18 08:57:14 +07:00
+- T100 Done: เพิ่ม hint ใน header ตารางผ่าน `tableColumnTips` และ `renderTableHeader()` สำหรับคอลัมน์ลงทุนหลัก เช่น Score/RRR/PE/ROE/D/E/RSI/Portfolio Risk พร้อม tooltip ภาษาง่ายที่บอกความหมาย ค่าแนะนำ และข้อควรระวัง; งานนี้ยังเป็น working tree change หากยังไม่ได้ commit หลังเวลาจบ 2026-06-18 09:32:39 +07:00
+- T101 Done: แก้ error `can't access lexical declaration 'tableColumnTips' before initialization` โดยย้าย `tableColumnTips` ไปก่อน `await initialize()` และเพิ่ม regression guard; งานนี้ยังเป็น working tree change หากยังไม่ได้ commit หลังเวลาจบ 2026-06-18 09:53:21 +07:00
+- T102 Done: ตรวจ `Other` ใน Portfolio Sector exposure แล้วพบว่าเป็นการรวม sector ที่เหลือจาก limit เดิม ไม่ใช่ sector จริง; ปรับให้แสดง sector จริงทั้งหมดในพอร์ตและเพิ่มข้อความ/marker ว่าไม่มีการรวมเป็น Other; งานนี้ยังเป็น working tree change หากยังไม่ได้ commit หลังเวลาจบ 2026-06-18 10:00:57 +07:00
+- T103 Done: เพิ่มกราฟ Simulation แบบ Python version ในหน้าเว็บ โดยใช้ native SVG แสดง `Portfolio_Value` เทียบ `Buy_Hold_Value`, legend, winner card และ guide วิธีอ่านสำหรับมือใหม่ โดยไม่เปลี่ยน backend calculation; งานนี้ยังเป็น working tree change หากยังไม่ได้ commit หลังเวลาจบ 2026-06-18 10:37:13 +07:00
+- T104 Done: ปรับ launch scope ให้ขายจริงเฉพาะ Starter 790 THB/month และ Pro 1,490 THB/month ก่อน โดย public pricing/API/checkout เปิดแค่สองแพ็กเกจ, Advisor แสดงเป็น coming soon/manual contact, backend ยังเก็บ internal entitlement สำหรับอนาคต และเพิ่ม package expiry check จาก `trialEndsAt`/`renewsAt`; งานนี้ยังเป็น working tree change หากยังไม่ได้ commit หลังเวลาจบ 2026-06-18 13:32:52 +07:00
+- T105 Done: เพิ่ม manual subscription admin controls ให้ owner/admin จัดการ package Starter/Pro, status และ expiry date จาก User Management ได้ แม้ยังไม่มี online payment เต็มรูปแบบ พร้อม audit event `team.subscription_update`; งานนี้ยังเป็น working tree change หากยังไม่ได้ commit หลังเวลาจบ 2026-06-18 13:43:27 +07:00
+- T106 Done: ทำให้ Guide profile มีผลที่ผู้ใช้เห็นจริงใน Portfolio/Screener/Simulation โดยเพิ่ม Guide impact summary, personalized portfolio guidance, Screener default filter จาก risk/experience และ Simulation default จาก monthly budget/risk/horizon; งานนี้ยังเป็น working tree change หากยังไม่ได้ commit หลังเวลาจบ 2026-06-18 13:55:53 +07:00
+- T107 Done: ซ่อน Guide จาก launch UI, ถอด Guide personalization ออกจาก Portfolio/Screener/Simulation, ลดความรกหน้า Portfolio เหลือ quick guidance 3 ช่องและเอา profile completion UI ที่ไม่มีที่กรอกแล้วออก; งานนี้ยังเป็น working tree change หากยังไม่ได้ commit หลังเวลาจบ 2026-06-18 14:16:49 +07:00
+- T108 Done: ซ่อน Approvals จาก Starter/Pro launch UI, ถอด account pending text และ Business approval panel ออก, หยุด frontend load approval data ที่ไม่จำเป็น และคง backend approval foundation ไว้สำหรับ Advisor phase; งานนี้ยังเป็น working tree change หากยังไม่ได้ commit หลังเวลาจบ 2026-06-18 18:55:23 +07:00
+- T109 Done: แก้ hero/snapshot ด้านบนยืดยาวเมื่อเข้า Simulation โดยล็อก workspace grid/hero/snapshot ให้ align ด้านบนและสูงตามเนื้อหา พร้อม viewport regression guard; งานนี้ยังเป็น working tree change หากยังไม่ได้ commit หลังเวลาจบ 2026-06-18 19:03:20 +07:00
+- T110 Done: เปลี่ยน launch flow เป็น manual admin package assignment โดยสมาชิกใหม่เป็น Starter inactive/manual pending, หน้า plan ไม่ checkout, checkout/payment-session route ถูกปิดชั่วคราว และ owner/admin กำหนด Starter/Pro/status/expiry ใน Business > User Management; งานนี้ยังเป็น working tree change หากยังไม่ได้ commit หลังเวลาจบ 2026-06-18 19:32:31 +07:00
+- T111 Done: ลดความรกหน้า Business โดยเปลี่ยนเป็น admin cockpit แบ่งหมวด Package Management, Users & Workspace, Data Health และ Go-live Readiness พร้อม default เข้า Package Management; งานนี้ยังเป็น working tree change หากยังไม่ได้ commit หลังเวลาจบ 2026-06-18 20:09:37 +07:00
+- T112 Done: ตรวจ admin package flow แล้วผ่าน โดย owner/admin update package ให้สมาชิกได้, customer update เองไม่ได้, audit `team.subscription_update` ยังบันทึก และ tenant regression ถูกปรับให้ตรงกับ manual package flow; งานนี้ยังเป็น working tree change หากยังไม่ได้ commit หลังเวลาจบ 2026-06-18 20:29:04 +07:00
 - Task list ชุดนี้เหลือ T47 ที่ถูก defer เฉพาะขั้น force push ไป GitHub และ T59 ที่ต้องรอ Browser/in-app browser ใช้งานได้
 - งานต่อยอดที่แนะนำถ้ายังไม่กลับไปทำ GitHub: กลับมาทำ T59 Browser Visual QA เมื่อ Browser สามารถเปิด localhost ได้, ตั้งค่า operational alert webhook ไปยัง Slack/email/APM/uptime monitor จริงใน staging/production, ซ้อม Postgres restore จริงใน staging/production-like environment หรือ run deployment checklist แบบ strict ใน staging ที่ตั้ง env จริง
 
-ให้เริ่มจากอ่าน plan.md ก่อนเสมอ หากต้องการทดลอง SQLite ให้ตั้ง `APP_STATE_REPOSITORY=sqlite` และ `SQLITE_DATABASE_PATH=data/stockflix.sqlite`; หากต้องการ promote จาก SQLite trial ไป Postgres ให้รัน `npm run sqlite:promote -- --sqlite data/stockflix.sqlite --dry-run --format text` ก่อน แล้วตั้ง `APP_STATE_REPOSITORY=postgres`, `DATABASE_URL`, `SQLITE_TO_POSTGRES_PG_DRIVER_READY=true`, `SQLITE_TO_POSTGRES_BACKUP_EVIDENCE=<snapshot-or-pgdump-id>`, `SQLITE_TO_POSTGRES_PROMOTION_REVIEWED=true` ก่อนใช้ `--confirm`; Business dashboard มี System Admin/User Management สำหรับ owner/admin แล้ว โดยแสดง user, role, package, workspace, advisor assignment, quick actions, Database Mode Advisor, Production Environment Advisor และ Portfolio Data Health สำหรับตรวจ saved portfolio snapshot ที่ healthy/repairable/skipped พร้อม customer name/email/workspace/plan, search/filter/sort/reset controls, API `GET /api/admin/portfolio-health`, CSV export `GET /api/admin/portfolio-health/export`, audit action `portfolio_health.export` และ command dry-run/confirm แบบ read-only บนหน้าเว็บ; หน้า Portfolio มี `Sector exposure`, `Action mix` และ `Score distribution` ที่คลิกเพื่อกรอง Recommended actions ตาม sector, action group หรือ score band ได้ โดย Reset view ต้องล้าง visual filter ด้วย; หน้า Run Analysis มี Download blank portfolio template และ Download watchlist guide template แล้ว โดย portfolio template ต้องไม่มี holding data แถวตัวอย่าง ส่วน watchlist template มีคำแนะนำแบบ `#` และ parser ต้อง ignore บรรทัด `#`; raw CSV download จากหน้าเว็บต้องได้ชื่อ `raw_CSV.csv` แม้ internal compatibility file ยังชื่อ `siamchart_raw.csv`; coverage report JSON ที่ผู้ใช้ดาวน์โหลดต้องให้ `source.targetFile` เป็น `raw_CSV.csv` และให้ `source.fallbackReference` เป็นชื่อไฟล์กลาง เช่น `market-reference-master.json -> recommended_stocks.csv` โดยห้าม expose absolute path หรือ internal name `siamchart_raw.csv`; analysis run ต้องไม่ทับ raw/recommended/snapshot เดิมถ้า live market fetch ได้ 0 rows และควรใช้ reference fallback เมื่อมี reference row เพื่อไม่ให้หน้า Portfolio กลายเป็นข้อมูลว่าง ให้ตรวจด้วย `npm run test:analysis-portfolio-flow`; ถ้าพบ snapshot เก่าที่ market value เป็น 0/No Data ให้ดู Portfolio Data Health หรือรัน `npm run portfolio:recover-zero-market -- --format text` แบบ dry-run ก่อน และใช้ `--confirm` เฉพาะหลังตรวจผลแล้ว ให้ระวัง regression ที่มี injected state ต้องไม่แตะ `data/app-state.json` จริงและควรตรวจด้วย `npm run test:portfolio-recovery`. commit/push ล่าสุดบน GitHub คือ `31fcdb8 Improve chart focus and split-buy simulation`; ยังไม่ได้สร้าง PR/merge เข้า `main`. หากเป็น production ให้ใช้ `APP_STATE_REPOSITORY=postgres` และตั้ง `DATABASE_URL`/SSL/backup/Stripe/external audit/ops alert ตาม docs. หากต้องการทำ T47 ต่อ ให้แก้ GitHub auth ก่อนโดยเพิ่ม SSH public key ใน GitHub หรือซ่อม Git HTTPS แล้วเปิด PowerShell ที่ `C:\Users\saraw\AppData\Local\Temp\stockinvestment-commit-f3edadec9fef4a1599330dee2055a890\repo` จากนั้นรัน force push แบบมี lease ตามผลลัพธ์ T47 หากผู้ใช้ยังให้ข้าม GitHub ให้ทำงานต่อจาก T59 เมื่อ Browser/in-app browser สามารถเปิด localhost ได้ โดยเปิด Web App บน localhost, สมัคร owner account แรก, เปิด Business dashboard, ตรวจ System Admin/User Management, Database Mode Advisor, Production Environment Advisor, Portfolio Data Health/export/filters, Launch Evidence Center, Reference Master Review และ Reference master launch evidence ทั้ง desktop/mobile ว่า card, table, input, command และ metric ไม่ล้น/ทับกัน, ตรวจปุ่ม Download blank template ในหน้า Run Analysis, ตรวจ Portfolio visual click filters, ตรวจ customer access guard, ปรับ CSS/UI หากจำเป็น และบันทึกผลใน plan.md ห้าม revert `recommended_stocks.csv`, `siamchart_raw.csv`, `stock_analysis_dashboard.png` หรือ `__pycache__/stock_visualizer.cpython-312.pyc` โดยไม่ขออนุญาต เพราะเป็นไฟล์ modified ที่มีมาก่อนงาน T62/T63
+ให้เริ่มจากอ่าน plan.md ก่อนเสมอ หากต้องการทดลอง SQLite ให้ตั้ง `APP_STATE_REPOSITORY=sqlite` และ `SQLITE_DATABASE_PATH=data/stockflix.sqlite`; หากต้องการ promote จาก SQLite trial ไป Postgres ให้รัน `npm run sqlite:promote -- --sqlite data/stockflix.sqlite --dry-run --format text` ก่อน แล้วตั้ง `APP_STATE_REPOSITORY=postgres`, `DATABASE_URL`, `SQLITE_TO_POSTGRES_PG_DRIVER_READY=true`, `SQLITE_TO_POSTGRES_BACKUP_EVIDENCE=<snapshot-or-pgdump-id>`, `SQLITE_TO_POSTGRES_PROMOTION_REVIEWED=true` ก่อนใช้ `--confirm`; launch scope ตอนนี้คือขาย/ทดลองใช้งานจริงเฉพาะ Starter 790 THB/month และ Pro 1,490 THB/month ก่อน โดย `/api/subscription/plans` ส่ง public plans แค่ `starter,pro`, ส่ง Advisor ใน `deferredPlans`, frontend แสดง Advisor เป็น coming soon/manual contact, สมาชิกใหม่หลัง owner คนแรกเป็น Starter `inactive` provider `manual_admin_pending` เพื่อรอ admin เปิดสิทธิ์, และ public checkout/payment-session route ถูกปิดชั่วคราวด้วย `manual_admin_assignment` เพราะช่วงแรกยังไม่รับชำระผ่านเว็บ; subscription ต้องตรวจวันหมดอายุจาก `trialEndsAt` สำหรับ trialing และ `renewsAt` สำหรับ active ถ้าหมดอายุต้องเป็น `past_due`; owner/admin จัดการ package แบบ manual จาก Business > Package Management โดยเลือก Starter/Pro, status และ expiry date ผ่าน API `POST /api/admin/users/:userId/subscription` และต้องมี audit event `team.subscription_update`; admin flow ล่าสุดตรวจผ่านแล้ว ได้แก่ owner update customer เป็น Pro active ได้, customer update package เองโดน 403, tenant/customer guard ผ่าน และ regression ต้องเปิด package ให้ customer ก่อน save portfolio ตาม manual flow; หน้า Business ถูกลดความรกแล้ว เป็น admin cockpit แบ่งหมวด `Package Management`, `Users & Workspace`, `Data Health`, `Go-live Readiness` และ default เข้า Package Management ห้ามกลับไป render ทุก admin panel พร้อมกันในหน้าเดียวโดยไม่มี requirement ใหม่; Guide และ Approvals ถูกซ่อนจาก launch UI แล้ว ห้ามใส่กลับใน navigation โดยไม่มี requirement ใหม่ ส่วน backend investor profile service และ backend approval foundation ยังเก็บไว้ภายในสำหรับอนาคต; หน้า Portfolio ถูกลดความรกแล้ว เหลือ metric สรุป, warning ที่จำเป็น, quick guidance 3 ช่อง, visual filters และ Recommended actions controls โดยไม่อ้าง Guide personalization; hero/snapshot ด้านบนถูกแก้ layout แล้ว โดย workspace grid, hero panel และ snapshot card ต้อง align ด้านบนและสูงตามเนื้อหา ห้ามกลับไปใช้ stretch ที่ทำให้ Simulation view ดันพื้นที่ด้านบนยาวผิดปกติ; หน้า Portfolio มี `Sector exposure`, `Action mix` และ `Score distribution` ที่คลิกเพื่อกรอง Recommended actions ตาม sector, action group หรือ score band ได้ โดย Reset view ต้องล้าง visual filter ด้วย; หน้า Run Analysis มี Download blank portfolio template และ Download watchlist guide template แล้ว โดย portfolio template ต้องไม่มี holding data แถวตัวอย่าง ส่วน watchlist template มีคำแนะนำแบบ `#` และ parser ต้อง ignore บรรทัด `#`; raw CSV download จากหน้าเว็บต้องได้ชื่อ `raw_CSV.csv` แม้ internal compatibility file ยังชื่อ `siamchart_raw.csv`; coverage report JSON ที่ผู้ใช้ดาวน์โหลดต้องให้ `source.targetFile` เป็น `raw_CSV.csv` และให้ `source.fallbackReference` เป็นชื่อไฟล์กลาง เช่น `market-reference-master.json -> recommended_stocks.csv` โดยห้าม expose absolute path หรือ internal name `siamchart_raw.csv`; analysis run ต้องไม่ทับ raw/recommended/snapshot เดิมถ้า live market fetch ได้ 0 rows และควรใช้ reference fallback เมื่อมี reference row เพื่อไม่ให้หน้า Portfolio กลายเป็นข้อมูลว่าง ให้ตรวจด้วย `npm run test:analysis-portfolio-flow`; ถ้าพบ snapshot เก่าที่ market value เป็น 0/No Data ให้ดู Portfolio Data Health หรือรัน `npm run portfolio:recover-zero-market -- --format text` แบบ dry-run ก่อน และใช้ `--confirm` เฉพาะหลังตรวจผลแล้ว ให้ระวัง regression ที่มี injected state ต้องไม่แตะ `data/app-state.json` จริงและควรตรวจด้วย `npm run test:portfolio-recovery`. commit/push ล่าสุดบน GitHub คือ `31fcdb8 Improve chart focus and split-buy simulation`; ยังไม่ได้สร้าง PR/merge เข้า `main`. หากเป็น production ให้ใช้ `APP_STATE_REPOSITORY=postgres` และตั้ง `DATABASE_URL`/SSL/backup/Stripe/external audit/ops alert ตาม docs. หากต้องการทำ T47 ต่อ ให้แก้ GitHub auth ก่อนโดยเพิ่ม SSH public key ใน GitHub หรือซ่อม Git HTTPS แล้วเปิด PowerShell ที่ `C:\Users\saraw\AppData\Local\Temp\stockinvestment-commit-f3edadec9fef4a1599330dee2055a890\repo` จากนั้นรัน force push แบบมี lease ตามผลลัพธ์ T47 หากผู้ใช้ยังให้ข้าม GitHub ให้ทำงานต่อจาก T59 เมื่อ Browser/in-app browser สามารถเปิด localhost ได้ โดยเปิด Web App บน localhost, สมัคร owner account แรก, เปิด Business dashboard, ตรวจ System Admin/User Management, Database Mode Advisor, Production Environment Advisor, Portfolio Data Health/export/filters, Launch Evidence Center, Reference Master Review และ Reference master launch evidence ทั้ง desktop/mobile ว่า card, table, input, command และ metric ไม่ล้น/ทับกัน, ตรวจปุ่ม Download blank template ในหน้า Run Analysis, ตรวจ Portfolio visual click filters, ตรวจ customer access guard, ปรับ CSS/UI หากจำเป็น และบันทึกผลใน plan.md ห้าม revert `recommended_stocks.csv`, `siamchart_raw.csv`, `stock_analysis_dashboard.png` หรือ `__pycache__/stock_visualizer.cpython-312.pyc` โดยไม่ขออนุญาต เพราะเป็นไฟล์ modified ที่มีมาก่อนงาน T62/T63
 ```
