@@ -229,6 +229,43 @@ Web App มี visual dashboard ในตัวโดยไม่ต้องต
 
 ตัวเลขด้านบนถูกลดให้เหลือเฉพาะ KPI ที่ admin ใช้ตัดสินใจเร็ว เช่น waiting package, users, active paid, MRR, portfolios และ system status ส่วนรายละเอียดลึกจะอยู่ใน `Advanced Ops`
 
+## Owner Manual Launch Checklist
+
+ช่วงเปิดตัวระบบยังไม่รับชำระเงินผ่านเว็บโดยตรง ให้ owner/admin ใช้ flow แบบ manual ก่อน:
+
+1. สมาชิกสมัครบัญชีใหม่จากหน้า `Member Access`
+2. Owner/admin เข้าเมนู `Business`
+3. เปิด tab `Members`
+4. หาแถวสมาชิกที่ขึ้น `Waiting admin` หรือ package status เป็น `Inactive`
+5. เลือก package:
+   - `Starter` สำหรับผู้เริ่มต้น ใช้ Portfolio และ Screener
+   - `Pro` สำหรับผู้ที่ต้องใช้ Sector Analysis และ Simulation
+6. เลือก status:
+   - `Trialing` ถ้าให้ทดลองใช้ก่อน
+   - `Active` ถ้าตกลงจ่ายเงิน/โอนเงินนอกระบบแล้ว
+   - `Past due` ถ้าหมดรอบจ่ายเงินและต้องการหยุดสิทธิ์
+7. ตั้ง expiry date ให้ตรงกับรอบบริการ เช่น 30 วันหลังเริ่มใช้
+8. กด `Save package`
+9. ให้สมาชิก logout/login ใหม่ หรือ refresh browser เพื่อโหลดสิทธิ์ล่าสุด
+10. สมาชิก download template, upload watchlist/portfolio แล้วกด `Analyze my portfolio`
+
+จุดที่ owner ควรตรวจหลังสมาชิก run analysis:
+
+- หน้า Run Analysis ต้องแสดงข้อความ `Read watchlist file ...` หรือ `Read portfolio file ...`
+- `Read portfolio file` ต้องมีจำนวน `symbol(s)` และ `holding row(s)`
+- ถ้าไม่มี portfolio file ให้เปิด `Screener` เพื่อดู watchlist results
+- ถ้ามี portfolio file ให้เปิด `Portfolio` เพื่อดู holding-level actions
+- ถ้า user เป็น Pro ให้ตรวจ `Sector` และ `Simulation`
+
+Troubleshooting ที่พบบ่อย:
+
+- ถ้าขึ้น `Please choose a watchlist or portfolio file before running analysis.` ให้เลือกไฟล์ใหม่อีกครั้งและกด Analyze หลัง browser refresh
+- ถ้าขึ้นว่า portfolio ไม่มี `Symbol` ให้ใช้ blank portfolio template แล้วกรอกคอลัมน์ `Symbol`, `Quantity`, `Avg_Price`
+- ถ้าค่าไม่เปลี่ยนหลังเลือกไฟล์อื่น ให้ดูข้อความ `Read ... file` ว่า backend อ่านไฟล์ชื่อใหม่จริงหรือไม่
+- ถ้าปุ่ม download/upload ถูกปิด ให้ตรวจว่า user login แล้ว และ package ยังไม่หมดอายุ
+- ถ้าสมาชิกเข้า Sector หรือ Simulation ไม่ได้ ให้ตรวจว่า package เป็น `Pro` และ status เป็น `Active` หรือ `Trialing`
+- ถ้า owner ต้องลบ user ให้ใช้ปุ่ม `Delete user` ใน tab `Members`; audit history จะยังถูกเก็บไว้
+
 ## Launch Evidence Center
 
 หน้า `Business` ของ owner/admin มี Launch Evidence Center เพื่อรวม checklist ก่อนเปิดบริการแบบเก็บเงินรายเดือนจริง:

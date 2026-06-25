@@ -2145,6 +2145,90 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - ตรวจ endpoint `/api/analysis/run` ไม่ใช่แค่ saved snapshot
   - ถ้าผู้ใช้ยังเห็นข้อความเดิมหลังแก้ ให้ refresh/restart server เพื่อโหลด JS/API version ใหม่ แล้วตรวจ `/api/customer/portfolio` ของ account นั้น
 
+### T124 - Commit and Push T122-T123 QA and Owner Checklist
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-25 14:17:58 +07:00
+- เสร็จเมื่อ: 2026-06-25 14:19:02 +07:00
+- เหตุผล:
+  - หลัง T122-T123 เสร็จแล้ว ยังมีไฟล์ค้างใน working tree คือ `docs/WEB_APP_USAGE.md` และ `plan.md`
+  - ต้อง commit/push เพื่อเก็บงาน fallback QA และ owner manual launch checklist ขึ้น GitHub
+  - ต้องตรวจว่าไม่มีไฟล์ portfolio ส่วนตัวถูก stage
+- งานที่ต้องทำ:
+  - [x] ตรวจ `git status`
+  - [x] stage เฉพาะ `docs/WEB_APP_USAGE.md` และ `plan.md`
+  - [x] commit ด้วยข้อความที่อธิบายงาน T122-T123
+  - [x] push branch `codex-node-web-app-migration` ไป GitHub
+  - [x] อัปเดต `plan.md` พร้อมสถานะงานแพ็กขึ้น GitHub
+- ผลลัพธ์:
+  - ตรวจพบไฟล์ค้างเฉพาะ `docs/WEB_APP_USAGE.md` และ `plan.md`
+  - ไม่มีไฟล์ portfolio ส่วนตัวหรือไฟล์ข้อมูล `.xlsx`, `.csv`, `.png` ใน staged list
+  - เตรียม commit/push งาน T122-T123 ขึ้น branch `codex-node-web-app-migration`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T124 เสร็จแล้ว: งาน T122-T123 ถูกแพ็กเพื่อ commit/push ขึ้น GitHub
+  - ห้าม stage/commit ไฟล์ portfolio ส่วนตัว เช่น `portfolio_eak.xlsx`, `portfolio_aom.xlsx`, `.xlsx`, `.csv`, `.png`
+
+### T123 - Owner Manual Launch Checklist
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-25 14:14:34 +07:00
+- เสร็จเมื่อ: 2026-06-25 14:15:40 +07:00
+- เหตุผล:
+  - หลัง T122 fallback QA ผ่านแล้ว งานถัดไปควรทำคู่มือ owner ใช้งานจริงแบบทีละขั้น
+  - ระบบยังไม่มี online payment ดังนั้น owner ต้องรู้ flow manual: สมาชิกสมัคร -> owner เปิดแพ็กเกจ -> user upload/analyze -> ตรวจผล
+  - คู่มือต้องช่วยให้ผู้ไม่มีพื้นฐานระบบหลังบ้านเข้าใจว่าต้องกดอะไรและตรวจอะไร
+- งานที่ต้องทำ:
+  - [x] เพิ่ม checklist สำหรับ owner ใน docs
+  - [x] อธิบาย flow สมัครสมาชิกใหม่และ owner assign package
+  - [x] อธิบาย flow user upload/analyze และจุดตรวจผลลัพธ์
+  - [x] เพิ่ม troubleshooting สำหรับปัญหา upload/analyze ที่เพิ่งแก้
+  - [x] รัน docs/frontend regression ที่เกี่ยวข้อง
+  - [x] อัปเดต `plan.md`
+- ผลลัพธ์:
+  - เพิ่ม section `Owner Manual Launch Checklist` ใน `docs/WEB_APP_USAGE.md`
+  - คู่มืออธิบาย flow: สมาชิกสมัคร -> owner เข้า Business > Members -> เลือก Starter/Pro -> ตั้ง status/expiry -> Save package -> สมาชิก upload/analyze
+  - เพิ่มจุดตรวจหลัง run analysis เช่นข้อความ `Read watchlist file ...`, `Read portfolio file ...`, จำนวน symbol/holding rows
+  - เพิ่ม troubleshooting สำหรับ no file selected, portfolio ไม่มี Symbol, ค่าไม่เปลี่ยนหลังเลือกไฟล์อื่น, download/upload ถูกปิด, Pro feature เข้าไม่ได้, และ delete user
+  - ตรวจ docs marker ผ่านด้วย `rg`
+  - ทดสอบผ่าน: `npm run test:web-smoke`, `npm run test:frontend-auth`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T123 เสร็จแล้ว คู่มือ owner/manual launch checklist อยู่ใน `docs/WEB_APP_USAGE.md`
+  - งานถัดไปที่เหมาะสมคือ commit/push หรือถ้ายังไม่ commit ให้ตรวจ `git status` แล้วแพ็กงานล่าสุด T122-T123
+
+### T122 - Browser Visual QA Fallback for Run Analysis and Business
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-06-25 14:12:57 +07:00
+- เสร็จเมื่อ: 2026-06-25 14:14:07 +07:00
+- เหตุผล:
+  - T121 แนะนำงานถัดไปคือทดสอบด้วย browser จริง/visual QA หน้า Run Analysis และ Business หลัง restart server
+  - รอบนี้ `browser` control tool ไม่ถูก expose และไฟล์ skill browser ที่ประกาศไว้หาไม่พบ จึงต้องทำ fallback verification ด้วย local server + automated smoke/regression ก่อน
+  - ต้องยืนยันว่า Run Analysis และ Business/Admin UX ใหม่ยังโหลด marker สำคัญครบ
+- งานที่ต้องทำ:
+  - [x] ตรวจความพร้อมของ browser tooling ใน environment
+  - [x] รัน local server หรือ in-process server เพื่อตรวจหน้าเว็บจริงผ่าน HTTP
+  - [x] ยืนยัน marker หน้า Run Analysis: locked anonymous, upload summary, loading/progress, file guard
+  - [x] ยืนยัน markerหน้า Business: Member Management, Members/Advanced Ops, package save/delete user
+  - [x] รัน regression ที่เกี่ยวข้องหลัง restart/fallback QA
+  - [x] อัปเดต `plan.md` พร้อมผลและข้อจำกัด
+- ผลลัพธ์:
+  - ตรวจแล้วไม่มี Playwright/Puppeteer ใน repo และ `browser` control tool ไม่ถูก expose ในรอบนี้
+  - อ่าน browser skill จาก path ที่ประกาศไว้ไม่ได้ เพราะไฟล์ไม่อยู่ใน path นั้น
+  - จึงทำ fallback QA ด้วย in-process/local HTTP regression แทน screenshot
+  - `npm run test:frontend-viewport` ผ่าน และยืนยัน marker: upload loading, upload FormData before disabled, Run Analysis lock, Member Management/Advanced Ops
+  - `npm run test:web-smoke` ผ่าน และยืนยัน server/API/static/frontend markers
+  - `npm run test:frontend-auth` ผ่าน และยืนยัน owner/customer auth, owner update customer package เป็น Pro, delete user, alert count
+  - `npm run test:analysis-portfolio-flow` ผ่าน และยืนยัน authenticated analysis upload, portfolio rows, empty portfolio guard, watchlist-only preserve snapshot
+  - `npm run check` ผ่าน
+  - ข้อจำกัด: ยังไม่ได้ capture screenshot desktop/mobile เพราะไม่มี browser automation tool ใน environment นี้
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T122 เสร็จแล้วด้วย fallback QA เพราะ browser-control tool ไม่พร้อมใน environment นี้
+  - ถ้า browser tool กลับมาใช้ได้ ให้เปิด localhost แล้ว capture หน้า Run Analysis และ Business ทั้ง desktop/mobile
+  - งานถัดไปที่เหมาะสมคือเพิ่ม runbook/manual checklist สำหรับ owner: สมัครสมาชิกใหม่ -> owner เปิดแพ็กเกจ -> user upload/analyze -> ตรวจ portfolio/screener/sector/simulation
+
 ### T121 - Simplify Owner Admin Package Management UX
 
 - สถานะ: Done
