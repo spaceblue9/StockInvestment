@@ -2147,20 +2147,34 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T134 - Freeze Think.md Version Before Think2 Planning
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: 2026-07-03 11:50:48 +07:00
+- เสร็จเมื่อ: 2026-07-03 11:54:12 +07:00
 - เหตุผล:
   - ผู้ใช้ต้องการ commit version เดิมที่ยังยึดแนวคิด `think.md` ก่อนเริ่มงาน `Think2.md`
   - ต้องมี release/tag ให้ย้อนกลับได้หาก branch Think2 ทำให้ behavior เปลี่ยนมากเกินไป
   - `Think2.md` เป็น roadmap ใหม่ จึงไม่ควรปนเข้า release ของ Think.md stable version
 - งานที่ต้องทำ:
   - [x] ตรวจ working tree และยืนยัน branch ปัจจุบัน
-  - [ ] ตรวจ diff และรันทดสอบสำคัญก่อน commit
-  - [ ] Commit เฉพาะไฟล์ tracked ของ Think.md stable version โดย exclude `Think2.md` และไฟล์ส่วนตัว/runtime
-  - [ ] สร้าง git tag release สำหรับ Think.md version
-  - [ ] สร้าง branch ใหม่สำหรับ Think2 planning
-  - [ ] สร้าง `Task.md` ใน branch Think2 โดยยังไม่แก้โปรแกรม
-  - [ ] อัปเดต `plan.md` พร้อมผลลัพธ์และ prompt ส่งต่อ
+  - [x] ตรวจ diff และรันทดสอบสำคัญก่อน commit
+  - [x] Commit เฉพาะไฟล์ tracked ของ Think.md stable version โดย exclude `Think2.md` และไฟล์ส่วนตัว/runtime
+  - [x] สร้าง git tag release สำหรับ Think.md version
+  - [x] สร้าง branch ใหม่สำหรับ Think2 planning
+  - [x] สร้าง `Task.md` ใน branch Think2 โดยยังไม่แก้โปรแกรม
+  - [x] อัปเดต `plan.md` พร้อมผลลัพธ์และ prompt ส่งต่อ
+- ผลลัพธ์:
+  - Think.md stable baseline commit: `b8a6cb5 Freeze Think.md stable web app baseline`
+  - Think.md release tag: `think-md-v1.0.0`
+  - Branch ใหม่สำหรับ Think2 planning: `codex/think2-safety-layer-planning`
+  - สร้าง `Task.md` เป็น backlog สำหรับ Think2 แบบค่อยเป็นค่อยไป
+  - `Task.md` ย้ำว่า phase แรกต้องเพิ่ม safety layer โดยยังไม่รื้อ `Total_Score`, `RRR`, `Advice`, `Target_Action`
+  - ทดสอบก่อน baseline commit ผ่าน: `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md`, `Task.md`, `think.md`, และ `Think2.md` ก่อนเริ่มงานเสมอ
+  - Baseline เดิมที่ rollback ได้คือ tag `think-md-v1.0.0` commit `b8a6cb5`
+  - Branch ปัจจุบันสำหรับ Think2 คือ `codex/think2-safety-layer-planning`
+  - งานถัดไปให้เริ่มจาก `Task.md` ข้อ `T2-01` แล้วค่อยไป `T2-02`
+  - ห้ามแก้ decision engine หลักก่อน safety layer และ regression
 
 ### T133 - Improve Screener Scatter Chart Readability
 
