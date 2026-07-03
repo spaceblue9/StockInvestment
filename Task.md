@@ -257,19 +257,61 @@ Baseline เดิม: tag `think-md-v1.0.0`, commit `b8a6cb5`
 
 ### T2-08 - Split Technical RRR and Fundamental RRR Placeholder
 
-- สถานะ: Pending
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-03 12:31:08 +07:00
+- เสร็จเมื่อ: 2026-07-03 12:34:32 +07:00
 - แนวทาง:
   - `Technical_RRR` ใช้ 52W high/low เหมือนเดิม
   - `Fundamental_RRR` เริ่มเป็น `INSUFFICIENT_DATA` หากยังไม่มี fair value/EPS target
   - ห้ามสร้าง fundamental target ปลอมจากข้อมูลไม่พอ
+- ผลลัพธ์:
+  - เพิ่ม `Technical_RRR` โดย mirror ค่า `RRR` เดิมใน placeholder phase
+  - เพิ่ม `Fundamental_RRR`, `Fundamental_RRR_Status`, `Fundamental_RRR_Source`, `Fundamental_RRR_Note`
+  - `Fundamental_RRR` เป็น `null` และ status เป็น `INSUFFICIENT_DATA` จนกว่าจะมี fair value/EPS/analyst target จริง
+  - ส่งต่อ fields ไป Portfolio rows และ Excel report
+  - เพิ่ม tooltip/field optional ใน frontend และ Screener table แสดง `Technical_RRR`, `Fundamental_RRR_Status`
+  - bump frontend bundle เป็น `20260703-1234`
+- ทดสอบผ่าน:
+  - `node --check src/services/stockAnalysisService.js`
+  - `node --check src/services/portfolioService.js`
+  - `node --check src/public/app.js`
+  - `npm run test:think2-data-validation`
+  - `npm run test:frontend-viewport`
+  - `npm run test:web-smoke`
+  - `npm run test:analysis-portfolio-flow`
+  - `npm run compare:python`
+  - `npm run check`
+- งานถัดไป:
+  - `T2-09 - Add Fundamental Data Readiness Report`
 
 ### T2-09 - Add Fundamental Data Readiness Report
 
-- สถานะ: Pending
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-03 12:35:21 +07:00
+- เสร็จเมื่อ: 2026-07-03 12:37:47 +07:00
 - งานที่ต้องทำ:
-  - ตรวจว่าข้อมูลใดต้องเพิ่มเพื่อทำ Think2 เต็มรูปแบบ
-  - รายงาน missing EPS, growth, payout, analyst target, fair value
-  - ใช้ผลนี้ตัดสินใจว่าจะลงทุนเพิ่ม data source หรือไม่
+  - [x] ตรวจว่าข้อมูลใดต้องเพิ่มเพื่อทำ Think2 เต็มรูปแบบ
+  - [x] รายงาน missing EPS, growth, payout, analyst target, fair value
+  - [x] ใช้ผลนี้ตัดสินใจว่าจะลงทุนเพิ่ม data source หรือไม่
+- ผลลัพธ์:
+  - เพิ่ม `src/services/fundamentalReadinessService.js`
+  - เพิ่ม CLI `npm run fundamental:readiness`
+  - เพิ่ม regression `npm run test:fundamental-readiness`
+  - report ล่าสุดจาก `recommended_stocks.csv`: rows 108, status `INSUFFICIENT_DATA`
+  - coverage ล่าสุด: Normalized EPS 0/108, Profit growth 0/108, Revenue growth 0/108, Payout ratio 0/108, Analyst target 0/108, Fair value 0/108
+  - recommendation: ยังไม่ควรคำนวณ Fundamental RRR จริงจนกว่าจะเพิ่ม data source
+- ทดสอบผ่าน:
+  - `node --check src/services/fundamentalReadinessService.js`
+  - `node --check scripts/fundamentalReadinessReport.js`
+  - `node --check scripts/fundamentalReadinessRegression.js`
+  - `npm run test:fundamental-readiness`
+  - `npm run fundamental:readiness -- --format text`
+  - `npm run test:think2-data-validation`
+  - `npm run test:analysis-portfolio-flow`
+  - `npm run compare:python`
+  - `npm run check`
+- งานถัดไป:
+  - `T2-10 - Build Action Matrix in Shadow Mode`
 
 ## Phase 4 - Action Matrix Pilot
 

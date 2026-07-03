@@ -2381,6 +2381,83 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - งานถัดไปคือ `T2-08 - Split Technical RRR and Fundamental RRR Placeholder`
   - ห้ามสร้าง fundamental target ปลอมจากข้อมูลไม่พอ
 
+### T142 - Split Technical and Fundamental RRR Placeholder
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-03 12:31:08 +07:00
+- เสร็จเมื่อ: 2026-07-03 12:34:32 +07:00
+- เหตุผล:
+  - งานถัดไปใน `Task.md` คือ `T2-08 - Split Technical RRR and Fundamental RRR Placeholder`
+  - Think2 ต้องแยก RRR จาก technical zone กับ fundamental target
+  - ตอนนี้ยังไม่มี EPS/fair value/analyst target ที่พอสร้าง fundamental target จริง จึงต้องใช้ placeholder แบบไม่หลอกผู้ใช้
+- งานที่ต้องทำ:
+  - [x] เพิ่ม `Technical_RRR` จากสูตร technical RRR เดิม
+  - [x] เพิ่ม `Fundamental_RRR`, `Fundamental_RRR_Status`, `Fundamental_RRR_Source`, `Fundamental_RRR_Note`
+  - [x] ส่งต่อ fields ไป portfolio/report/UI โดยยังไม่เปลี่ยน `RRR` เดิม
+  - [x] เพิ่ม regression และ markers
+  - [x] รันทดสอบสำคัญรวม `compare:python`
+  - [x] อัปเดต `Task.md` และ `plan.md`
+- ผลลัพธ์:
+  - `Technical_RRR` mirror ค่า `RRR` เดิม เพื่อค่อยๆ แยกความหมายโดยไม่กระทบผลเดิม
+  - `Fundamental_RRR` เป็น `null`, `Fundamental_RRR_Status` เป็น `INSUFFICIENT_DATA`, source เป็น `not_available`
+  - `Fundamental_RRR_Note` อธิบายว่าต้องมี fair value, normalized EPS หรือ analyst target ก่อน
+  - Portfolio report/UI มี fields ใหม่และ tooltip ชัดเจน
+  - bump frontend bundle เป็น `20260703-1234`
+  - ยังไม่สร้าง fundamental target ปลอม และยังไม่เปลี่ยน action engine
+- ทดสอบผ่าน:
+  - `node --check src/services/stockAnalysisService.js`
+  - `node --check src/services/portfolioService.js`
+  - `node --check src/public/app.js`
+  - `npm run test:think2-data-validation`
+  - `npm run test:frontend-viewport`
+  - `npm run test:web-smoke`
+  - `npm run test:analysis-portfolio-flow`
+  - `npm run compare:python`
+  - `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md`, `Task.md`, `think.md`, และ `Think2.md` ก่อนเริ่มงานเสมอ
+  - T2-08 เสร็จแล้ว
+  - งานถัดไปคือ `T2-09 - Add Fundamental Data Readiness Report`
+  - ห้ามคำนวณ Fundamental RRR จริงจนกว่าจะมี data readiness report และ data source ที่ตรวจได้
+
+### T143 - Add Fundamental Data Readiness Report
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-03 12:35:21 +07:00
+- เสร็จเมื่อ: 2026-07-03 12:37:47 +07:00
+- เหตุผล:
+  - งานถัดไปใน `Task.md` คือ `T2-09 - Add Fundamental Data Readiness Report`
+  - ก่อนคำนวณ Fundamental RRR จริง ต้องรู้ว่าข้อมูล EPS, growth, payout, analyst target และ fair value พร้อมแค่ไหน
+  - ต้องช่วยตัดสินใจว่าควรลงทุน data source เพิ่มหรือไม่
+- งานที่ต้องทำ:
+  - [x] เพิ่ม report/readiness helper สำหรับ fundamental data
+  - [x] รายงาน missing EPS/growth/payout/analyst target/fair value
+  - [x] เพิ่ม CLI หรือ regression ที่อ่านผลได้
+  - [x] รันทดสอบสำคัญ
+  - [x] อัปเดต `Task.md` และ `plan.md`
+- ผลลัพธ์:
+  - เพิ่ม `fundamentalReadinessService`
+  - เพิ่ม CLI `npm run fundamental:readiness`
+  - เพิ่ม regression `npm run test:fundamental-readiness` และใส่เข้า `test-regression`
+  - report ล่าสุดจาก `recommended_stocks.csv`: rows 108, status `INSUFFICIENT_DATA`, can calculate Fundamental RRR = no
+  - coverage ล่าสุด: Normalized EPS 0/108, Profit growth 0/108, Revenue growth 0/108, Payout ratio 0/108, Analyst target 0/108, Fair value 0/108
+  - สรุปเชิง product: ยังไม่ควรคำนวณ Fundamental RRR จริง และควรวางแผนหา/ซื้อ/นำเข้า data source ก่อน
+- ทดสอบผ่าน:
+  - `node --check src/services/fundamentalReadinessService.js`
+  - `node --check scripts/fundamentalReadinessReport.js`
+  - `node --check scripts/fundamentalReadinessRegression.js`
+  - `npm run test:fundamental-readiness`
+  - `npm run fundamental:readiness -- --format text`
+  - `npm run test:think2-data-validation`
+  - `npm run test:analysis-portfolio-flow`
+  - `npm run compare:python`
+  - `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md`, `Task.md`, `think.md`, และ `Think2.md` ก่อนเริ่มงานเสมอ
+  - T2-09 เสร็จแล้ว
+  - งานถัดไปคือ `T2-10 - Build Action Matrix in Shadow Mode`
+  - ห้ามเปิดใช้ Action v2 จริง ต้องทำเป็น shadow field และ comparison ก่อน
+
 ### T134 - Freeze Think.md Version Before Think2 Planning
 
 - สถานะ: Done

@@ -25,7 +25,7 @@ const customerSnapshot = document.querySelector("#customerSnapshot");
 const plansList = document.querySelector("#plansList");
 const businessViewButton = document.querySelector("[data-view='business']");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20260703-1227";
+const frontendBuildVersion = "20260703-1234";
 
 const state = {
   user: null,
@@ -84,6 +84,9 @@ const recommendedActionFields = [
   { key: "Advice", label: "Advice", default: true },
   { key: "Target_Action", label: "Target Action", default: true },
   { key: "RRR", label: "RRR", default: true },
+  { key: "Technical_RRR", label: "Technical RRR", default: false },
+  { key: "Fundamental_RRR_Status", label: "Fundamental RRR", default: false },
+  { key: "Fundamental_RRR_Note", label: "Fundamental RRR Note", default: false },
   { key: "Trend_Status", label: "Trend", default: true },
   { key: "PE", label: "P/E", default: false },
   { key: "ROE", label: "ROE", default: false },
@@ -205,6 +208,30 @@ const tableColumnTips = {
     meaning: "Reward/Risk Ratio คือกำไรที่คาดหวังเทียบกับความเสี่ยงขาดทุน",
     goodValue: "1.5+ เริ่มน่าสนใจ, 2.0+ เผื่อความเสี่ยงได้ดีขึ้น",
     caution: "ต่ำกว่า 1.0 มักไม่คุ้มเสี่ยง เพราะ upside น้อยกว่า downside",
+  },
+  Technical_RRR: {
+    title: "Technical RRR",
+    meaning: "Reward/Risk ที่คำนวณจากกรอบเทคนิคเดิม เช่น 52W high/low, stop loss และ exit zone",
+    goodValue: "1.5+ เริ่มน่าสนใจ, 2.0+ เผื่อความเสี่ยงได้ดีขึ้น",
+    caution: "เป็น RRR จากกราฟ/ราคา ไม่ใช่มูลค่าพื้นฐานของกิจการ",
+  },
+  Fundamental_RRR: {
+    title: "Fundamental RRR",
+    meaning: "Reward/Risk จากมูลค่าพื้นฐาน เช่น fair value, EPS ปกติ หรือ analyst target",
+    goodValue: "จะเริ่มใช้เมื่อมีข้อมูลพื้นฐานเพียงพอและตรวจสอบแหล่งข้อมูลได้",
+    caution: "ตอนนี้ยังไม่คำนวณจริง เพราะไม่ต้องการสร้าง target ปลอมจากข้อมูลไม่พอ",
+  },
+  Fundamental_RRR_Status: {
+    title: "Fundamental RRR Status",
+    meaning: "บอกว่าระบบมีข้อมูลพอคำนวณ Fundamental RRR หรือไม่",
+    goodValue: "INSUFFICIENT_DATA แปลว่ายังขาด fair value/EPS/analyst target ไม่ใช่แปลว่าหุ้นไม่ดี",
+    caution: "อย่าใช้สถานะนี้เป็นสัญญาณขายหรือซื้อ เป็นเพียงการบอกว่าข้อมูลยังไม่พอ",
+  },
+  Fundamental_RRR_Note: {
+    title: "Fundamental RRR Note",
+    meaning: "คำอธิบายว่าทำไมระบบยังไม่คำนวณ RRR จากมูลค่าพื้นฐาน",
+    goodValue: "ช่วยป้องกันการตีความผิดว่า 52W high คือ fair value",
+    caution: "ต้องมี data source เพิ่มก่อนถึงจะใช้ Fundamental RRR จริงได้",
   },
   Avg_RRR: {
     title: "Avg RRR",
@@ -2759,6 +2786,8 @@ function renderScreenerView() {
         "Valuation_Score",
         "Setup_Score",
         "RRR",
+        "Technical_RRR",
+        "Fundamental_RRR_Status",
         "Conflict_Severity",
         "Conflict_Alerts",
         "Upside_Pct",
@@ -4715,6 +4744,11 @@ function formatCell(value, column = "") {
 
   if (column === "Data_Status") {
     const status = String(value || "VALID").toUpperCase();
+    return `<span class="status-badge status-${escapeHtml(status.toLowerCase().replaceAll("_", "-"))}">${escapeHtml(status.replaceAll("_", " "))}</span>`;
+  }
+
+  if (column === "Fundamental_RRR_Status") {
+    const status = String(value || "INSUFFICIENT_DATA").toUpperCase();
     return `<span class="status-badge status-${escapeHtml(status.toLowerCase().replaceAll("_", "-"))}">${escapeHtml(status.replaceAll("_", " "))}</span>`;
   }
 

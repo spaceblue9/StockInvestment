@@ -407,7 +407,8 @@ button:disabled {
 
 .severity-yellow,
 .status-review-required,
-.status-review {
+.status-review,
+.status-insufficient-data {
   background: rgba(255, 210, 77, 0.12);
   border-color: rgba(255, 210, 77, 0.38);
   color: #ffe08a;

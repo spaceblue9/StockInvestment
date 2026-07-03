@@ -35,6 +35,7 @@
     "test:frontend-auth": "node scripts/frontendAuthenticatedSmokeRegression.js",
     "test:analysis-portfolio-flow": "node scripts/analysisPortfolioFlowRegression.js",
     "test:think2-data-validation": "node scripts/think2DataValidationRegression.js",
+    "test:fundamental-readiness": "node scripts/fundamentalReadinessRegression.js",
     "test:portfolio-recovery": "node scripts/portfolioSnapshotRecoveryRegression.js",
     "test:simulation-split-buy": "node scripts/simulationSplitBuyRegression.js",
     "test:launch-evidence": "node scripts/launchEvidenceCenterRegression.js",
@@ -45,6 +46,7 @@
     "test:reference-master": "node scripts/referenceMasterRegression.js",
     "test:web-smoke": "node scripts/webAppSmokeRegression.js",
     "market:coverage": "node scripts/liveMarketCoverageAudit.js",
+    "fundamental:readiness": "node scripts/fundamentalReadinessReport.js",
     "reference:freshness": "node scripts/referenceMasterFreshnessReport.js",
     "reference:migrate": "node scripts/referenceMasterMigration.js",
     "reference:import": "node scripts/importReferenceMaster.js",
@@ -58,7 +60,7 @@
     "ops:alerts": "node scripts/operationalAlertDelivery.js",
     "backup:state": "node scripts/backupAppState.js",
     "restore:state": "node scripts/restoreAppStateBackup.js",
-    "test-regression": "npm run check && npm run test:tenant-access && npm run test:scoped-read && npm run test:subscription-lifecycle && npm run test:storage-readiness && npm run test:state-repository && npm run test:state-patch && npm run test:sqlite-promotion && npm run test:postgres-repository && npm run test:postgres-importer && npm run test:audit-trail && npm run test:approval-workflow && npm run test:entitlements && npm run test:payment-provider && npm run test:audit-external && npm run test:backup-restore && npm run test:observability && npm run test:ops-alerts && npm run test:postgres-backup-runbook && npm run test:postgres-patch-validation && npm run test:postgres-patch-smoke && npm run test:deployment-checklist && npm run test:frontend-viewport && npm run test:frontend-auth && npm run test:analysis-portfolio-flow && npm run test:think2-data-validation && npm run test:portfolio-recovery && npm run test:simulation-split-buy && npm run test:launch-evidence && npm run test:market-coverage && npm run test:reference-master && npm run test:reference-master-admin && npm run test:reference-master-database && npm run test:reference-master-migration && npm run test:web-smoke && npm run compare:python",
+    "test-regression": "npm run check && npm run test:tenant-access && npm run test:scoped-read && npm run test:subscription-lifecycle && npm run test:storage-readiness && npm run test:state-repository && npm run test:state-patch && npm run test:sqlite-promotion && npm run test:postgres-repository && npm run test:postgres-importer && npm run test:audit-trail && npm run test:approval-workflow && npm run test:entitlements && npm run test:payment-provider && npm run test:audit-external && npm run test:backup-restore && npm run test:observability && npm run test:ops-alerts && npm run test:postgres-backup-runbook && npm run test:postgres-patch-validation && npm run test:postgres-patch-smoke && npm run test:deployment-checklist && npm run test:frontend-viewport && npm run test:frontend-auth && npm run test:analysis-portfolio-flow && npm run test:think2-data-validation && npm run test:fundamental-readiness && npm run test:portfolio-recovery && npm run test:simulation-split-buy && npm run test:launch-evidence && npm run test:market-coverage && npm run test:reference-master && npm run test:reference-master-admin && npm run test:reference-master-database && npm run test:reference-master-migration && npm run test:web-smoke && npm run compare:python",
     "ci:quality": "npm run test-regression && npm run test:dependency-risk"
   },
   "dependencies": {

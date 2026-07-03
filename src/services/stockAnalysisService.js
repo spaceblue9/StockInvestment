@@ -106,6 +106,11 @@ export function analyzeStockRow(row, stats = {}) {
     Stop_Loss: stopLoss,
     Upside_Pct: upsidePct,
     RRR: rrr,
+    Technical_RRR: rrr,
+    Fundamental_RRR: null,
+    Fundamental_RRR_Status: "INSUFFICIENT_DATA",
+    Fundamental_RRR_Source: "not_available",
+    Fundamental_RRR_Note: "Fundamental RRR needs fair value, normalized EPS, or analyst target data before calculation.",
     Recovery_Pct: 0.0,
     Trend_Status: getTrendStatus(row.RSI, pricePosition),
   };

@@ -84,6 +84,11 @@ assertEqual(validAnalysis.Data_Status, "VALID", "Complete normal market data sho
 assertEqual(validAnalysis.Data_Warnings, "", "VALID rows should not include warning text.");
 assert(Number.isFinite(validAnalysis.Total_Score), "Data validation must not remove Total_Score.");
 assert(Number.isFinite(validAnalysis.RRR), "Data validation must not remove RRR.");
+assertEqual(validAnalysis.Technical_RRR, validAnalysis.RRR, "Technical_RRR should mirror legacy RRR during placeholder phase.");
+assertEqual(validAnalysis.Fundamental_RRR, null, "Fundamental_RRR should remain null until a real fair value data source exists.");
+assertEqual(validAnalysis.Fundamental_RRR_Status, "INSUFFICIENT_DATA", "Fundamental_RRR_Status should clearly state insufficient data.");
+assertEqual(validAnalysis.Fundamental_RRR_Source, "not_available", "Fundamental_RRR_Source should not claim a fake data source.");
+assertIncludes(validAnalysis.Fundamental_RRR_Note, "fair value", "Fundamental_RRR_Note should explain missing fair value data.");
 assertScoreBetween(validAnalysis.Quality_Score, "Quality_Score");
 assertScoreBetween(validAnalysis.Valuation_Score, "Valuation_Score");
 assertScoreBetween(validAnalysis.Setup_Score, "Setup_Score");
@@ -133,6 +138,7 @@ assert(sortedRecommendations.some((row) => row.Data_Status === "DATA_ERROR"), "R
 const holdingWithoutMarket = analyzeHolding({ Symbol: "MISS", Quantity: 10, Avg_Price: 5 }, null);
 assertEqual(holdingWithoutMarket.Data_Status, "DATA_ERROR", "Missing market rows should be marked as DATA_ERROR.");
 assertIncludes(holdingWithoutMarket.Data_Warnings, "No market data", "Missing market warning should be readable.");
+assertEqual(holdingWithoutMarket.Fundamental_RRR_Status, "INSUFFICIENT_DATA", "Missing market rows should not fake Fundamental RRR.");
 assertEqual(holdingWithoutMarket.Conflict_Severity, "RED", "Missing market rows should carry a RED conflict.");
 assertIncludes(holdingWithoutMarket.Conflict_Alerts, "MISSING_MARKET_DATA", "Missing market conflict should be present.");
 assertEqual(holdingWithoutMarket.Target_Action, "No Data", "Missing market action should remain unchanged.");
@@ -145,6 +151,7 @@ const holdingWithReviewMarket = analyzeHolding(
     Total_Score: 80,
     Price_Position: 30,
     RRR: 2.4,
+    Technical_RRR: 2.4,
     Entry_Zone_High: 11,
     Stop_Loss: 7.6,
     Exit_Zone_Low: 19.4,
@@ -155,6 +162,8 @@ assertEqual(holdingWithReviewMarket.Conflict_Severity, "ORANGE", "Portfolio rows
 assertIncludes(holdingWithReviewMarket.Conflict_Alerts, "UNKNOWN_SECTOR", "Portfolio rows should keep market conflict alerts.");
 assertScoreBetween(holdingWithReviewMarket.Quality_Score, "Portfolio Quality_Score");
 assertScoreBetween(holdingWithReviewMarket.Composite_Score_v2, "Portfolio Composite_Score_v2");
+assertEqual(holdingWithReviewMarket.Technical_RRR, holdingWithReviewMarket.RRR, "Portfolio Technical_RRR should mirror legacy RRR during placeholder phase.");
+assertEqual(holdingWithReviewMarket.Fundamental_RRR_Status, "INSUFFICIENT_DATA", "Portfolio rows should keep Fundamental RRR placeholder status.");
 assertEqual(holdingWithReviewMarket.Advice, "Buy More", "Phase 1 validation must not change existing Advice logic.");
 assertEqual(holdingWithReviewMarket.Target_Action, "Buy Now (Good RRR)", "Phase 1 validation must not change existing Target_Action logic.");
 
@@ -168,6 +177,7 @@ console.log(JSON.stringify({
     "portfolio-data-status",
     "conflict-alerts",
     "derived-score-matrix",
+    "technical-fundamental-rrr-placeholder",
     "phase-one-action-unchanged",
   ],
 }, null, 2));

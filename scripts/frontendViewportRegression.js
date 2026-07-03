@@ -23,7 +23,7 @@ assertIncludes(html, [
   'Sign in before downloading templates, browsing files, or running analysis.',
   'aria-live="polite"',
   'data-frontend-version',
-  '/app.js?v=20260703-1227',
+  '/app.js?v=20260703-1234',
 ], "HTML should expose viewport meta, brand, and primary dashboard navigation.");
 if (html.includes('data-view="approvals"')) {
   throw new Error("Launch navigation should not expose deferred Approvals.");
@@ -128,7 +128,7 @@ assertIncludes(appJs, [
   "Sign in to analyze",
   "Create an account or sign in before downloading templates",
   "frontendBuildVersion",
-  "20260703-1227",
+  "20260703-1234",
   "canRunPortfolioAnalysis",
   "analysisPackageRequiredMessage",
   "Portfolio analysis requires Starter or Pro",
@@ -175,6 +175,12 @@ assertIncludes(appJs, [
   "Liquidity_Score",
   "Composite_Score_v2",
   "Composite Score v2",
+  "Technical_RRR",
+  "Fundamental_RRR",
+  "Fundamental_RRR_Status",
+  "Fundamental_RRR_Note",
+  "Fundamental RRR Status",
+  "INSUFFICIENT_DATA",
   "data-score-matrix-guide",
   "Score matrix แบบอ่านง่าย",
   "ไม่ได้แทน Total Score หรือ Target Action",
