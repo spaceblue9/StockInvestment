@@ -98,7 +98,9 @@ try {
   assertEqual(parseWatchlistText(watchlistTemplate.text).length, 0, "Comment-only watchlist template should not produce symbols.");
   assertEqual(parseWatchlistText(`${watchlistTemplate.text}\nptt\ncpall`).join("|"), "PTT|CPALL", "Watchlist parser should ignore instructions and parse user tickers.");
 
-  const html = await getText(`${baseUrl}/`);
+  const htmlResponse = await getTextWithHeaders(`${baseUrl}/`);
+  const html = htmlResponse.text;
+  assert((htmlResponse.cacheControl || "").includes("no-store"), "Main HTML should send no-store cache headers so the browser does not reuse an old app.js reference.");
   assertIncludes(html, [
     "StockFlix",
     "Portfolio",
@@ -110,11 +112,15 @@ try {
     "Sign in to analyze",
     "Sign in before downloading templates, browsing files, or running analysis.",
     "Simulation",
+    "data-frontend-version",
+    "/app.js?v=20260702-1012",
   ], "Main HTML should expose the dashboard navigation.");
   assert(!html.includes('data-view="onboarding"'), "Launch navigation should not expose the hidden Guide view.");
   assert(!html.includes('data-view="approvals"'), "Launch navigation should not expose the deferred Approvals view.");
 
-  const appJs = await getText(`${baseUrl}/app.js`);
+  const appJsResponse = await getTextWithHeaders(`${baseUrl}/app.js`);
+  const appJs = appJsResponse.text;
+  assert((appJsResponse.cacheControl || "").includes("no-store"), "app.js should send no-store cache headers so bug fixes load after restart.");
   assertIncludes(appJs, [
     "sectorFilter",
     "data-sector-filter",
@@ -138,8 +144,23 @@ try {
     "syncAnalysisAccess",
     "Sign in to analyze",
     "Create an account or sign in before downloading templates",
+    "frontendBuildVersion",
+    "20260702-1012",
+    "canRunPortfolioAnalysis",
+    "analysisPackageRequiredMessage",
+    "Portfolio analysis requires Starter or Pro",
+    "package required",
+    "Analyze clicks",
+    "handleDelegatedAnalysisClick",
+    "pointerup",
+    "updateFrontendDiagnostics",
+    "Frontend version",
     "getAnalysisSelectedFiles",
+    "handleAnalysisButtonClick",
+    "Preparing your upload...",
+    "isAttachedUploadFile",
     "The selected files could not be attached",
+    "The browser could not prepare the upload",
     "renderUploadSummaryMessages",
     "Read portfolio file",
     "Combined unique symbols sent to market data",
@@ -159,8 +180,16 @@ try {
     "attachRecommendedActionsControls",
     "Order by",
     "Beginner filter guide",
-    "data-screener-default-all",
-    "stocks shown from the latest analysis",
+    "data-screener-strict-defaults",
+    "data-screener-symbol-search",
+    "data-screener-default-score",
+    "data-screener-default-rrr",
+    "data-screener-default-de",
+    "data-screener-quadrant-guide",
+    "quadrant-zone-best",
+    "zone-dot zone-best",
+    "ขวาบน",
+    "beginner defaults",
     "data-portfolio-quick-guidance",
     "data-screener-tooltip",
     "data-stock-highlight",
@@ -354,6 +383,7 @@ async function getTextWithHeaders(url, cookie = "") {
   return {
     text: await response.text(),
     contentDisposition: response.headers.get("content-disposition") || "",
+    cacheControl: response.headers.get("cache-control") || "",
   };
 }
 

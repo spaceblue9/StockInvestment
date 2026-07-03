@@ -2145,6 +2145,286 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - ตรวจ endpoint `/api/analysis/run` ไม่ใช่แค่ saved snapshot
   - ถ้าผู้ใช้ยังเห็นข้อความเดิมหลังแก้ ให้ refresh/restart server เพื่อโหลด JS/API version ใหม่ แล้วตรวจ `/api/customer/portfolio` ของ account นั้น
 
+### T134 - Freeze Think.md Version Before Think2 Planning
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: 2026-07-03 11:50:48 +07:00
+- เหตุผล:
+  - ผู้ใช้ต้องการ commit version เดิมที่ยังยึดแนวคิด `think.md` ก่อนเริ่มงาน `Think2.md`
+  - ต้องมี release/tag ให้ย้อนกลับได้หาก branch Think2 ทำให้ behavior เปลี่ยนมากเกินไป
+  - `Think2.md` เป็น roadmap ใหม่ จึงไม่ควรปนเข้า release ของ Think.md stable version
+- งานที่ต้องทำ:
+  - [x] ตรวจ working tree และยืนยัน branch ปัจจุบัน
+  - [ ] ตรวจ diff และรันทดสอบสำคัญก่อน commit
+  - [ ] Commit เฉพาะไฟล์ tracked ของ Think.md stable version โดย exclude `Think2.md` และไฟล์ส่วนตัว/runtime
+  - [ ] สร้าง git tag release สำหรับ Think.md version
+  - [ ] สร้าง branch ใหม่สำหรับ Think2 planning
+  - [ ] สร้าง `Task.md` ใน branch Think2 โดยยังไม่แก้โปรแกรม
+  - [ ] อัปเดต `plan.md` พร้อมผลลัพธ์และ prompt ส่งต่อ
+
+### T133 - Improve Screener Scatter Chart Readability
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-02 10:09:35 +07:00
+- เสร็จเมื่อ: 2026-07-02 10:13:39 +07:00
+- เหตุผล:
+  - ผู้ใช้แจ้งว่ากราฟ `Quality vs reward` ไม่ friendly และตัวหนังสือทับกับจุดกราฟ
+  - สาเหตุหลักคือ quadrant label และ axis label เป็น SVG text ที่ scale ตามกราฟและอยู่ในพื้นที่เดียวกับจุดหุ้น
+  - กลุ่มเป้าหมายเป็นมือใหม่ จึงควรอ่าน quadrant ได้โดยไม่ต้องแย่งพื้นที่กับข้อมูล
+- งานที่ต้องทำ:
+  - [x] ย้ายคำอธิบาย quadrant ออกจากพื้นที่ plot
+  - [x] เพิ่ม visual zone แบบสีพื้นบางๆ แทนข้อความในกราฟ
+  - [x] ปรับ axis label ให้ไม่ทับจุดและไม่ขยายใหญ่เกินเมื่อกราฟกว้าง
+  - [x] อัปเดต regression markers
+  - [x] รันทดสอบที่เกี่ยวข้อง
+  - [x] อัปเดต `plan.md` พร้อมผลลัพธ์และ prompt ส่งต่อ
+- ผลลัพธ์:
+  - ถอด quadrant label และ axis label แบบ SVG text ที่ทับจุดหุ้นออกจาก plot area
+  - เพิ่ม `scatter-axis-summary` เป็น pill เล็กเหนือกราฟเพื่อบอกแกน X/Y โดยไม่ scale ตาม SVG
+  - เพิ่ม `quadrant-zone-*` เป็นสีพื้นบางๆ ในกราฟแทนการเขียนข้อความทับจุด
+  - ปรับ `quadrant-guide` ใต้กราฟเป็น legend พร้อมจุดสีสำหรับมือใหม่
+  - bump frontend bundle เป็น `20260702-1012` เพื่อให้ browser โหลด `app.js` ใหม่
+  - ทดสอบผ่าน: `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T133 เสร็จแล้ว: กราฟ `Quality vs reward` ไม่ควรวางข้อความ quadrant/axis เป็น SVG text ในพื้นที่ plot อีก
+  - ถ้าปรับกราฟต่อ ให้รักษา `scatter-axis-summary`, `quadrant-zone-*`, และ `zone-dot` เพื่อกันข้อความทับจุดหุ้น
+  - ถ้าผู้ใช้ยังเห็นของเก่า ให้ refresh hard reload หรือ restart server เพื่อโหลด `/app.js?v=20260702-1012`
+
+### T132 - Recover Owner/Admin Login Access
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-02 09:54:48 +07:00
+- เสร็จเมื่อ: 2026-07-02 09:56:03 +07:00
+- เหตุผล:
+  - ผู้ใช้จำ username/password ของ admin หรือ owner ไม่ได้
+  - ระบบเก็บรหัสผ่านเป็น hash จึงไม่สามารถอ่านรหัสเดิมกลับมาได้ ต้องใช้การ reset password
+  - ต้องช่วยให้กลับเข้า Business > Package Management ได้เพื่อเปิด Starter/Pro ให้สมาชิก
+- งานที่ต้องทำ:
+  - [x] ตรวจบัญชี owner/admin ใน `data/app-state.json` โดยไม่แสดง password hash
+  - [x] Reset password ให้บัญชีที่เหมาะสมแบบควบคุมได้
+  - [x] ตรวจว่า login ผ่านด้วยรหัสใหม่
+  - [x] อัปเดต `plan.md` พร้อมผลลัพธ์และ prompt ส่งต่อ
+- ผลลัพธ์:
+  - สร้าง backup ก่อนแก้ที่ `data/app-state.owner-admin-reset-20260702-0955.json`
+  - Reset password ให้ owner `demo+1780476145832@stockflix.local`
+  - Reset password ให้ admin `aaa@gmail.com`
+  - รหัสผ่านชั่วคราวใหม่ของทั้งสองบัญชีคือ `StockInvest#2026`
+  - ทดสอบผ่านด้วย `loginUser()` ทั้ง owner และ admin
+  - owner/admin มี `operationalOverride` จึงยังเข้า Business/System Admin ได้ แม้ subscription status เดิมเป็น `past_due`
+- หมายเหตุ:
+  - `data/app-state.json` เป็น runtime local state และไม่ควร commit
+  - จากการตรวจพบ owner/admin 4 บัญชี โดยบัญชีที่ดูเหมือนผู้ใช้จริงคือ `aaa@gmail.com` role `admin`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T132 เสร็จแล้ว: ถ้าผู้ใช้ลืมบัญชี ให้ใช้ owner `demo+1780476145832@stockflix.local` หรือ admin `aaa@gmail.com` พร้อมรหัสชั่วคราว `StockInvest#2026`
+  - หลัง login ให้เข้า `Business > Package Management` เพื่อกำหนด Starter/Pro, status และ expiry ให้สมาชิกที่ต้องการใช้งาน Analyze
+  - ห้าม commit `data/app-state.json` หรือไฟล์ backup runtime state
+
+### T131 - Gate Analyze UI by Starter Entitlement
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-02 09:43:20 +07:00
+- เสร็จเมื่อ: 2026-07-02 09:47:45 +07:00
+- เหตุผล:
+  - ผู้ใช้เห็นข้อความ `Portfolio analysis requires the Starter plan or higher.`
+  - Diagnostic ยืนยันว่า frontend ใหม่โหลดแล้ว ปุ่ม ready, user signed in, เลือกไฟล์ 2 ไฟล์ และ click เข้า handler แล้ว
+  - สาเหตุจริงคือ user ไม่มี entitlement `analysis.run` เพราะ package ยังไม่เป็น Starter/Pro active/trialing
+  - Frontend ไม่ควรแสดงปุ่ม Analyze เป็น ready ถ้า backend จะปฏิเสธด้วย package entitlement
+- งานที่ต้องทำ:
+  - [x] ปรับ `syncAnalysisAccess()` และ `setAnalysisButtonLoading()` ให้ตรวจ `analysis.run`
+  - [x] ปิด file inputs/download/analyze เมื่อ user login แล้วแต่ไม่มี Starter/Pro entitlement
+  - [x] แสดงข้อความชัดเจนว่าให้ owner/admin เปิด Starter หรือ Pro ใน Business > Members
+  - [x] ปรับ frontend diagnostic ให้บอก `package required`
+  - [x] เพิ่ม regression markers
+  - [x] รันทดสอบ frontend/web smoke/auth
+  - [x] อัปเดต `plan.md`
+- ผลลัพธ์:
+  - ยืนยัน root cause จากข้อความผู้ใช้: backend ทำงานแล้วและปฏิเสธเพราะ user ไม่มี Starter/Pro entitlement
+  - เพิ่ม `canRunPortfolioAnalysis()` ตรวจ `hasEntitlement("analysis.run")`
+  - ปรับปุ่ม Analyze ให้แสดง `Package required` และ disabled เมื่อ login แล้วแต่ package ยังไม่ใช่ Starter/Pro active/trialing
+  - ปิด file inputs และ template download links เมื่อไม่มี `analysis.run`
+  - เพิ่มข้อความแก้ปัญหา: ให้ owner/admin เข้า `Business > Members`, เลือก Starter/Pro, ตั้ง Active/Trialing, ตั้ง expiry date แล้ว Save package
+  - frontend diagnostic เปลี่ยนสถานะเป็น `Analyze button package required` แทน `ready`
+  - bump frontend bundle เป็น `20260702-0944`
+  - เพิ่ม regression markers `canRunPortfolioAnalysis`, `analysisPackageRequiredMessage`, `Portfolio analysis requires Starter or Pro`, `package required`
+  - ทดสอบผ่าน: `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run test:frontend-auth`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T131 เสร็จแล้ว: ถ้า user ไม่มี `analysis.run` frontend จะ disabled ปุ่ม Analyze และบอก `Package required`
+  - Backend error `Portfolio analysis requires the Starter plan or higher.` หมายถึงต้อง assign Starter/Pro active/trialing ให้ user
+
+### T130 - Add Delegated Analyze Click Fallback and Click Diagnostics
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-02 09:18:37 +07:00
+- เสร็จเมื่อ: 2026-07-02 09:21:02 +07:00
+- เหตุผล:
+  - ผู้ใช้เห็น `Frontend version 20260702-0910 loaded · Analyze button ready · signed in · selected files 2` แล้ว แต่กด Analyze ยังไม่ได้
+  - แปลว่า frontend bundle โหลดแล้ว ปุ่มไม่ disabled และไฟล์ถูกเลือก แต่ click อาจไม่เข้า direct handler หรือ handler ถูก browser behavior อื่นกลืน
+  - ต้องเพิ่ม delegated click fallback และ diagnostic จำนวนครั้งที่ browser รับ click
+- งานที่ต้องทำ:
+  - [x] เพิ่ม click counter ใน frontend diagnostics
+  - [x] เพิ่ม delegated click listener ระดับ document สำหรับ `[data-analysis-submit]`
+  - [x] ป้องกันการยิงซ้ำระหว่าง direct/delegated/form submit
+  - [x] เพิ่ม regression markers
+  - [x] รันทดสอบ frontend/web smoke/auth
+  - [x] อัปเดต `plan.md`
+- ผลลัพธ์:
+  - เพิ่ม `state.analysisClickCount` และ `state.lastAnalysisTriggerAt`
+  - เพิ่ม delegated listener ระดับ document สำหรับ `click` และ `pointerup` ของ `[data-analysis-submit]`
+  - เพิ่ม throttle 600ms เพื่อกันยิงซ้ำจาก pointerup/click/direct listener
+  - diagnostic บนหน้าแสดง `Analyze clicks N` เพื่อบอกว่า browser รับ event จากปุ่มจริงหรือไม่
+  - bump frontend bundle เป็น `20260702-0919` และ script `/app.js?v=20260702-0919`
+  - เพิ่ม regression markers `Analyze clicks`, `handleDelegatedAnalysisClick`, `pointerup`
+  - ทดสอบผ่าน: `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run test:frontend-auth`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T130 เสร็จแล้ว: ปุ่ม Analyze มี delegated click/pointer fallback และ diagnostic `Analyze clicks N`
+  - หลังแก้ diagnostic ควรมี `Analyze clicks N` เพื่อแยกว่า browser รับ click หรือไม่
+
+### T129 - Add Frontend Version Diagnostics and No-Cache Headers
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-02 09:09:48 +07:00
+- เสร็จเมื่อ: 2026-07-02 09:14:29 +07:00
+- เหตุผล:
+  - ผู้ใช้ยืนยันว่ายังไม่ได้หลัง T126-T128
+  - ต้องแยกให้ชัดว่า browser โหลด frontend bundle ใหม่จริงหรือยัง และปุ่มถูก enable หรือไม่
+  - ต้องป้องกัน browser/proxy ใช้ cached `index.html` หรือ `app.js` เก่า
+- งานที่ต้องทำ:
+  - [x] เพิ่ม no-cache headers สำหรับ `index.html` และ `app.js`
+  - [x] เพิ่ม frontend version marker บนหน้า Run Analysis เมื่อ JS โหลดสำเร็จ
+  - [x] เพิ่ม diagnostic สถานะปุ่ม/ไฟล์หลัง sync access
+  - [x] เพิ่ม regression markers
+  - [x] รันทดสอบ frontend/web smoke/auth
+  - [x] อัปเดต `plan.md`
+- ผลลัพธ์:
+  - เพิ่ม no-cache headers ใน `src/server.js` สำหรับ `/`, `/index.html`, `/app.js`
+  - เพิ่ม `frontendVersion` diagnostic ในหน้า Run Analysis โดยค่าเริ่มต้น HTML แสดง `Frontend JavaScript not loaded yet.`
+  - เมื่อ `app.js` โหลดสำเร็จ จะแสดง `Frontend version 20260702-0910 loaded · Analyze button ... · selected files ...`
+  - เพิ่ม `frontendBuildVersion = "20260702-0910"` ใน `src/public/app.js`
+  - เปลี่ยน script tag เป็น `/app.js?v=20260702-0910`
+  - diagnostic จะบอกว่าปุ่ม Analyze เป็น `ready/disabled`, login แล้วหรือยัง, และเลือกไฟล์กี่ไฟล์
+  - เพิ่ม CSS `.frontend-version`
+  - web smoke ตรวจ cache-control `no-store` ของ `/` และ `/app.js`
+  - ทดสอบผ่าน: `node --check src/public/app.js`, `node --check src/server.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run test:frontend-auth`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T129 เสร็จแล้ว: หน้า Run Analysis มี frontend version diagnostic และ server ส่ง no-cache สำหรับ HTML/JS
+  - ถ้าผู้ใช้ไม่เห็น `Frontend version` บนหน้าเว็บ แปลว่ายังไม่ได้โหลด bundle ใหม่หรือ server process เก่า
+
+### T128 - Force Fresh Frontend Bundle for Analyze Fix
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-02 08:51:37 +07:00
+- เสร็จเมื่อ: 2026-07-02 09:07:16 +07:00
+- เหตุผล:
+  - ผู้ใช้ยืนยันว่ายังกด `Analyze my portfolio` ไม่ได้หลังแก้ T126-T127
+  - ตรวจพบ `index.html` โหลด `/app.js` แบบไม่มี version query ทำให้ browser อาจใช้ JavaScript เก่าจาก cache
+  - ต้องบังคับให้ browser โหลด frontend bundle ใหม่หลัง bug fix
+- งานที่ต้องทำ:
+  - [x] เพิ่ม cache-busting query ให้ `<script type="module" src="/app.js">`
+  - [x] เพิ่ม frontend marker/version สำหรับตรวจว่า bundle ใหม่โหลดจริง
+  - [x] เพิ่ม regression marker
+  - [x] รันทดสอบ syntax/frontend/web smoke
+  - [x] อัปเดต `plan.md`
+- ผลลัพธ์:
+  - เปลี่ยน script tag ใน `src/public/index.html` จาก `/app.js` เป็น `/app.js?v=20260702-0902`
+  - เพิ่ม regression marker ใน `scripts/frontendViewportRegression.js` และ `scripts/webAppSmokeRegression.js`
+  - ช่วยบังคับ browser โหลด frontend bundle ใหม่หลังแก้ T126-T127 แทนการใช้ cached `app.js` เก่า
+  - ทดสอบผ่าน: `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run test:frontend-auth`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T128 เสร็จแล้ว: frontend โหลด `/app.js?v=20260702-0902` เพื่อบังคับ refresh bundle
+  - ถ้ายังไม่ทำงาน ให้ตรวจ DevTools Console/Network ว่าโหลด `/app.js?v=...` จริงหรือไม่
+
+### T127 - Fix Screener Tooltip Initialization Crash
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-02 08:59:02 +07:00
+- เสร็จเมื่อ: 2026-07-02 09:01:25 +07:00
+- เหตุผล:
+  - ผู้ใช้ยืนยันว่ายังกด `Analyze my portfolio` ไม่ได้
+  - ตรวจพบ `screenerFilterTips` ถูกประกาศหลัง `await initialize()`
+  - ถ้า app เปิดกลับมาที่หน้า Screener ระหว่าง initialize จะเรียก `renderScreenerTooltip()` ก่อน `screenerFilterTips` พร้อมใช้งาน ทำให้ JavaScript crash และปุ่มดูเหมือนไม่ทำงาน
+- งานที่ต้องทำ:
+  - [x] ย้าย `screenerFilterTips` ให้อยู่ก่อน `await initialize()`
+  - [x] เพิ่ม regression assert initialization order
+  - [x] ทดสอบ syntax/frontend/web smoke/auth
+  - [x] อัปเดต `plan.md`
+- ผลลัพธ์:
+  - ยืนยัน root cause: `screenerFilterTips` อยู่หลัง `await initialize()` ที่บรรทัดหลังๆ ของไฟล์
+  - ถ้าเว็บเปิดกลับมาที่หน้า Screener ระหว่าง initialize จะเรียก `renderScreenerTooltip()` ก่อน `screenerFilterTips` ถูก initialize ทำให้ JavaScript crash
+  - ย้าย `screenerFilterTips` ขึ้นไปอยู่ก่อน event listeners และก่อน `await initialize()`
+  - เพิ่ม regression `assertBefore(appJs, "const screenerFilterTips", "await initialize();", ...)`
+  - ทดสอบผ่าน: `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run test:frontend-auth`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T127 เสร็จแล้ว: แก้ crash จาก `screenerFilterTips` อยู่หลัง `await initialize()` แล้ว
+  - ถ้ามี config ที่ render ระหว่าง initialize ต้องอยู่ก่อน `await initialize()` เสมอ
+
+### T126 - Fix Analyze Button No Action Regression
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-02 08:47:14 +07:00
+- เสร็จเมื่อ: 2026-07-02 08:49:38 +07:00
+- เหตุผล:
+  - ผู้ใช้พบ bug หลังปรับ Screener: กด `Analyze my portfolio` แล้วไม่มีอะไรเกิดขึ้น
+  - อาการนี้อาจเกิดจาก JavaScript runtime error ทำให้ submit handler ไม่ทำงาน หรือ guard ใน `runAnalysis()` ไม่แสดง feedback
+  - ต้องแก้ให้ปุ่ม Analyze แสดงสถานะหรือ error ชัดเจนทุกครั้งที่กด
+- งานที่ต้องทำ:
+  - [x] ตรวจ runtime risk ใน `runAnalysis()` และ initialization
+  - [x] ตรวจว่าการใช้ `File`/`FormData` ไม่ทำให้เกิด error ในบาง browser/environment
+  - [x] เพิ่ม fallback ที่ปลอดภัยให้ตรวจไฟล์โดยไม่พึ่ง `instanceof File` อย่างเดียว
+  - [x] เพิ่ม regression marker/test กันปุ่ม Analyze เงียบ
+  - [x] รันทดสอบ syntax/frontend/web smoke
+  - [x] อัปเดต `plan.md`
+- ผลลัพธ์:
+  - พบจุดเสี่ยงใน `runAnalysis()` ที่ตรวจไฟล์ด้วย `value instanceof File` ก่อนเข้า `try/catch`
+  - ถ้า browser/environment ไม่มี `File` global หรือ FormData คืน object ที่ไม่ผ่าน `instanceof File` จะเกิด runtime error ก่อนแสดง feedback ทำให้ปุ่มดูเหมือนไม่ทำงาน
+  - แก้ให้สร้าง `FormData` และตรวจไฟล์ใน `try/catch`
+  - เพิ่ม helper `isAttachedUploadFile()` ตรวจจาก object/name/size แทนการพึ่ง `instanceof File`
+  - ถ้า browser เตรียม upload ไม่ได้ จะแสดงข้อความ `The browser could not prepare the upload...` แทนการเงียบ
+  - เพิ่ม direct click fallback `handleAnalysisButtonClick()` ให้ปุ่ม `Analyze my portfolio` เรียก `runAnalysis()` โดยตรง และแสดง `Preparing your upload...` ทันทีเมื่อกด
+  - เพิ่ม regression markers `isAttachedUploadFile` และ `The browser could not prepare the upload`
+  - เพิ่ม regression markers `handleAnalysisButtonClick` และ `Preparing your upload...`
+  - ทดสอบผ่าน: `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run test:analysis-portfolio-flow`, `npm run test:frontend-auth`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T126 เสร็จแล้ว: Analyze button no-action regression ถูกแก้โดยเลิกพึ่ง `instanceof File` และครอบ FormData guard ด้วย try/catch
+  - โฟกัสที่ `runAnalysis()`, submit event binding, FormData/File guard และ feedback UI
+
+### T125 - Screener Search Defaults and Beginner Quadrant Guide
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-02 08:34:47 +07:00
+- เสร็จเมื่อ: 2026-07-02 08:41:48 +07:00
+- เหตุผล:
+  - หน้า Screener ยังไม่มี search ชื่อหุ้น ทำให้ผู้ใช้หาหุ้นที่สนใจยาก
+  - ผู้ใช้ต้องการ default filter เป็น `Min Score = 70`, `Min RRR = 1.5`, `Max D/E < 1`
+  - กราฟ `Quality vs reward` ยังไม่บอกว่า quadrant ไหนดี/ควรระวัง มือใหม่จึงอ่านไม่ออก
+- งานที่ต้องทำ:
+  - [x] เพิ่มช่องค้นหา Symbol/ชื่อหุ้นในหน้า Screener
+  - [x] ตั้ง default filter เป็น Score 70+, RRR 1.5+, D/E <= 1.0
+  - [x] ปรับ beginner guidance ให้ตรงกับค่า default ใหม่
+  - [x] เพิ่ม quadrant guide/label ในกราฟ Quality vs reward
+  - [x] เพิ่ม regression markers สำหรับ search/default/quadrant guide
+  - [x] ทดสอบ syntax, frontend viewport และ web smoke
+  - [x] อัปเดต `plan.md`
+- ผลลัพธ์:
+  - หน้า Screener เพิ่มช่อง `Search stock` สำหรับค้นหา Symbol/ชื่อหุ้นจากผล analysis ล่าสุด
+  - default filter เปลี่ยนเป็น `Min Score = 70`, `Min RRR = 1.5`, `Max D/E = 1.0`
+  - Beginner guide อธิบายว่า default นี้คัดหุ้นที่เริ่มน่าสนใจสำหรับมือใหม่ และให้ลดค่า filter ทีละช่องถ้าต้องการดูหุ้นเพิ่ม
+  - `Quality vs reward` เพิ่ม quadrant labels ใน SVG: `น่าสนใจสุด`, `คุณภาพดี reward ต่ำ`, `reward ดีแต่เสี่ยง`, `ควรข้ามก่อน`
+  - เพิ่มคำอธิบายใต้กราฟ `อ่านกราฟนี้แบบง่าย` เพื่อบอกว่าขวาบนดีที่สุด ซ้ายบน reward ยังไม่คุ้ม ขวาล่างต้องระวัง และซ้ายล่างควรข้ามก่อน
+  - เพิ่ม CSS `.quadrant-label`, `.quadrant-guide` และ regression markers `data-screener-symbol-search`, `data-screener-strict-defaults`, `data-screener-quadrant-guide`
+  - ทดสอบผ่าน: `node --check src/public/app.js`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ
+  - T125 เสร็จแล้ว: Screener มี search, default filter เป็น Score 70+/RRR 1.5+/D/E <= 1.0 และ Quality vs reward มี quadrant guide สำหรับมือใหม่
+  - อย่าเปลี่ยนสูตรคำนวณคะแนนหรือข้อมูลหุ้น แก้เฉพาะ UX/filter/chart guide
+
 ### T124 - Commit and Push T122-T123 QA and Owner Checklist
 
 - สถานะ: Done

@@ -22,6 +22,8 @@ assertIncludes(html, [
   'disabled>Sign in to analyze</button>',
   'Sign in before downloading templates, browsing files, or running analysis.',
   'aria-live="polite"',
+  'data-frontend-version',
+  '/app.js?v=20260702-1012',
 ], "HTML should expose viewport meta, brand, and primary dashboard navigation.");
 if (html.includes('data-view="approvals"')) {
   throw new Error("Launch navigation should not expose deferred Approvals.");
@@ -43,11 +45,16 @@ assertIncludes(styles, [
   ".template-downloads",
   ".template-downloads.locked",
   ".download-link.disabled",
+  ".frontend-version",
   ".reference-master-panel",
   ".reference-master-table input",
   ".reference-launch-evidence",
   ".evidence-marker-list",
   ".screener-beginner-guide",
+  ".scatter-axis-summary",
+  ".quadrant-zone",
+  ".zone-dot",
+  ".quadrant-guide",
   ".tooltip-trigger",
   ".tooltip-card",
   ".table-header-help",
@@ -113,9 +120,24 @@ assertIncludes(appJs, [
   "syncAnalysisAccess",
   "Sign in to analyze",
   "Create an account or sign in before downloading templates",
+  "frontendBuildVersion",
+  "20260702-1012",
+  "canRunPortfolioAnalysis",
+  "analysisPackageRequiredMessage",
+  "Portfolio analysis requires Starter or Pro",
+  "package required",
+  "Analyze clicks",
+  "handleDelegatedAnalysisClick",
+  "pointerup",
+  "updateFrontendDiagnostics",
+  "Frontend version",
   "getAnalysisSelectedFiles",
-  "const formData = new FormData(analysisForm);",
+  "handleAnalysisButtonClick",
+  "Preparing your upload...",
+  "isAttachedUploadFile",
+  "formData = new FormData(analysisForm);",
   "The selected files could not be attached",
+  "The browser could not prepare the upload",
   "renderUploadSummaryMessages",
   "Read portfolio file",
   "Combined unique symbols sent to market data",
@@ -137,10 +159,16 @@ assertIncludes(appJs, [
   "Market data was unavailable in the last run.",
   "Order by",
   "data-screener-beginner-guidance",
-  "data-screener-default-all",
-  "value=\"-10\"",
-  "value=\"99\"",
-  "stocks shown from the latest analysis",
+  "data-screener-strict-defaults",
+  "data-screener-symbol-search",
+  "data-screener-default-score",
+  "data-screener-default-rrr",
+  "data-screener-default-de",
+  "data-screener-quadrant-guide",
+  "quadrant-zone-best",
+  "zone-dot zone-best",
+  "ขวาบน",
+  "beginner defaults",
   "data-screener-tooltip",
   "data-portfolio-quick-guidance",
   "data-stock-highlight",
@@ -218,7 +246,8 @@ assertIncludes(appJs, [
 assertBefore(appJs, "const recommendedActionFields", "await initialize();", "Recommended action fields must initialize before the app can render a saved portfolio.");
 assertBefore(appJs, "const recommendedActionSortFields", "await initialize();", "Recommended action sort fields must initialize before the app can render a saved portfolio.");
 assertBefore(appJs, "const tableColumnTips", "await initialize();", "Table header hints must initialize before saved portfolio or active views render tables.");
-assertBefore(appJs, "const formData = new FormData(analysisForm);", "setAnalysisButtonLoading(true);", "Analysis upload files must be captured in FormData before file inputs are disabled for loading.");
+assertBefore(appJs, "const screenerFilterTips", "await initialize();", "Screener tooltip tips must initialize before the app can render a saved Screener view.");
+assertBefore(appJs, "formData = new FormData(analysisForm);", "setAnalysisButtonLoading(true);", "Analysis upload files must be captured in FormData before file inputs are disabled for loading.");
 
 console.log(JSON.stringify({
   ok: true,

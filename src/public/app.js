@@ -19,11 +19,13 @@ const analysisStepItems = [...document.querySelectorAll("[data-analysis-step]")]
 const templateDownloadLinks = [...document.querySelectorAll("[data-template-download]")];
 const analysisFileInputs = [...document.querySelectorAll("#analysisForm input[type='file']")];
 const runMessage = document.querySelector("#runMessage");
+const frontendVersion = document.querySelector("#frontendVersion");
 const viewOutput = document.querySelector("#viewOutput");
 const customerSnapshot = document.querySelector("#customerSnapshot");
 const plansList = document.querySelector("#plansList");
 const businessViewButton = document.querySelector("[data-view='business']");
 const publicLaunchMode = "starter_pro_manual_ready";
+const frontendBuildVersion = "20260702-1012";
 
 const state = {
   user: null,
@@ -57,6 +59,8 @@ const state = {
   },
   businessSection: "packages",
   analysisRunning: false,
+  analysisClickCount: 0,
+  lastAnalysisTriggerAt: 0,
   entitlementErrors: {},
 };
 
@@ -250,10 +254,53 @@ const tableColumnTips = {
   },
 };
 
+const screenerFilterTips = {
+  symbol: {
+    title: "Search stock",
+    meaning: "ค้นหาหุ้นจาก Symbol หรือชื่อที่มีอยู่ในข้อมูลล่าสุด เพื่อไม่ต้องเลื่อนตารางยาวๆ",
+    goodValue: "พิมพ์บางส่วนได้ เช่น PTT, AOT, CPALL หรือชื่อบริษัทถ้าข้อมูลมีชื่อบริษัท",
+    caution: "Search จะค้นจากผล analysis ล่าสุดเท่านั้น ถ้าหุ้นไม่อยู่ใน watchlist/latest analysis จะไม่เจอ",
+  },
+  minScore: {
+    title: "Min Score",
+    meaning: "คะแนนรวมจากหลายปัจจัย เช่น คุณภาพพื้นฐาน ความคุ้มค่า และจังหวะราคา ยิ่งสูงยิ่งผ่านเกณฑ์มากขึ้น",
+    goodValue: "มือใหม่เริ่มที่ Score 60+ เพื่อเห็นตัวเลือกมากพอ ถ้าต้องการคัดเข้มให้ใช้ Score 70+",
+    caution: "คะแนนสูงไม่ได้แปลว่าซื้อได้ทันที ควรดู RRR, หนี้ และข่าวล่าสุดประกอบ",
+  },
+  minRrr: {
+    title: "Min RRR",
+    meaning: "Reward/Risk Ratio คือสัดส่วนกำไรที่คาดหวังเทียบกับความเสี่ยงขาดทุน",
+    goodValue: "RRR 1.5+ ถือว่าเริ่มน่าสนใจ และ RRR 2.0+ ถือว่าเผื่อความเสี่ยงได้ดีขึ้น",
+    caution: "ถ้าค่านี้ต่ำ แปลว่ากำไรที่หวังอาจไม่คุ้มกับความเสี่ยงที่ต้องรับ",
+  },
+  maxDe: {
+    title: "Max D/E",
+    meaning: "Debt to Equity คือหนี้สินเทียบกับทุนของบริษัท ยิ่งต่ำมักยิ่งรับความเสี่ยงหนี้ได้น้อยลง",
+    goodValue: "D/E <= 1.0 เหมาะเป็นค่าเริ่มต้น และ D/E <= 0.7 เหมาะกับคนที่อยากระวังหนี้มากขึ้น",
+    caution: "ธนาคารและไฟแนนซ์มักมี D/E สูงตามลักษณะธุรกิจ จึงควรเทียบกับหุ้นใน sector เดียวกัน",
+  },
+  sector: {
+    title: "Sector",
+    meaning: "กลุ่มธุรกิจของหุ้น เช่น ธนาคาร พลังงาน ค้าปลีก หรือเทคโนโลยี",
+    goodValue: "มือใหม่ควรเริ่มจาก sector ที่เข้าใจ และไม่ควรกระจุกเงินไว้ใน sector เดียวทั้งหมด",
+    caution: "ถ้าเลือก sector แคบเกินไป อาจพลาดหุ้นดีในกลุ่มอื่น",
+  },
+  trend: {
+    title: "Trend",
+    meaning: "ภาพรวมทิศทางราคาหุ้นจากข้อมูลเทคนิค เช่น กำลังขึ้น ลง หรือแกว่งตัว",
+    goodValue: "ถ้าไม่ถนัดจับจังหวะ ให้เริ่มดูหุ้นที่เป็น Uptrend/Bullish หรือหลีกเลี่ยง Bearish ก่อน",
+    caution: "Trend เป็นข้อมูลจังหวะราคา ไม่ใช่การรับประกันว่าราคาจะขึ้นต่อ",
+  },
+};
+
 authForm.addEventListener("submit", submitAuth);
 authModeButton.addEventListener("click", toggleAuthMode);
 logoutButton.addEventListener("click", logout);
 analysisForm.addEventListener("submit", runAnalysis);
+analysisSubmitButton.addEventListener("click", handleAnalysisButtonClick);
+analysisFileInputs.forEach((input) => input.addEventListener("change", updateFrontendDiagnostics));
+document.addEventListener("click", handleDelegatedAnalysisClick, true);
+document.addEventListener("pointerup", handleDelegatedAnalysisClick, true);
 document.querySelectorAll("[data-view]").forEach((button) => {
   button.addEventListener("click", () => {
     state.activeView = button.dataset.view;
@@ -281,6 +328,7 @@ document.addEventListener("click", (event) => {
 await initialize();
 
 async function initialize() {
+  updateFrontendDiagnostics();
   await Promise.all([checkHealth(), loadPlans(), loadCurrentUser()]);
   renderAuthState();
   renderPlans();
@@ -710,6 +758,17 @@ async function runAnalysis(event) {
     return;
   }
 
+  if (!canRunPortfolioAnalysis()) {
+    showAnalysisStatus("error", {
+      title: "Package required",
+      text: analysisPackageRequiredMessage(),
+      activeStep: null,
+    });
+    runMessage.textContent = analysisPackageRequiredMessage();
+    updateFrontendDiagnostics();
+    return;
+  }
+
   if (state.analysisRunning) {
     return;
   }
@@ -725,18 +784,26 @@ async function runAnalysis(event) {
     return;
   }
 
-  const formData = new FormData(analysisForm);
-  const requestHasUpload = ["watchlist", "portfolio"].some((fieldName) => {
-    const value = formData.get(fieldName);
-    return value instanceof File && value.size > 0;
-  });
-  if (!requestHasUpload) {
+  let formData;
+  try {
+    formData = new FormData(analysisForm);
+    const requestHasUpload = ["watchlist", "portfolio"].some((fieldName) => isAttachedUploadFile(formData.get(fieldName)));
+    if (!requestHasUpload) {
+      showAnalysisStatus("error", {
+        title: "Analysis needs attention",
+        text: "The selected files could not be attached. Please choose the files again and run analysis.",
+        activeStep: null,
+      });
+      runMessage.textContent = "The selected files could not be attached. Please choose the files again and run analysis.";
+      return;
+    }
+  } catch (error) {
     showAnalysisStatus("error", {
       title: "Analysis needs attention",
-      text: "The selected files could not be attached. Please choose the files again and run analysis.",
+      text: "The browser could not prepare the upload. Please choose the files again and try one more time.",
       activeStep: null,
     });
-    runMessage.textContent = "The selected files could not be attached. Please choose the files again and run analysis.";
+    runMessage.textContent = error.message || "The browser could not prepare the upload.";
     return;
   }
 
@@ -819,8 +886,46 @@ async function runAnalysis(event) {
   }
 }
 
+function handleAnalysisButtonClick(event) {
+  if (analysisSubmitButton.disabled || state.analysisRunning) {
+    return;
+  }
+
+  const now = Date.now();
+  if (now - state.lastAnalysisTriggerAt < 600) {
+    event.preventDefault();
+    return;
+  }
+  state.lastAnalysisTriggerAt = now;
+  state.analysisClickCount += 1;
+
+  event.preventDefault();
+  runMessage.textContent = "Preparing your upload...";
+  updateFrontendDiagnostics();
+  runAnalysis(event);
+}
+
+function handleDelegatedAnalysisClick(event) {
+  const button = event.target.closest?.("[data-analysis-submit]");
+  if (!button || button !== analysisSubmitButton) {
+    return;
+  }
+
+  handleAnalysisButtonClick(event);
+}
+
 function getAnalysisSelectedFiles() {
   return analysisFileInputs.flatMap((input) => [...(input.files || [])]);
+}
+
+function isAttachedUploadFile(value) {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const size = Number(value.size || 0);
+  const name = String(value.name || "");
+  return size > 0 || Boolean(name && name !== "undefined");
 }
 
 function renderUploadSummaryMessages(uploadSummary = {}) {
@@ -846,24 +951,29 @@ function setAnalysisButtonLoading(isLoading) {
   }
 
   const signedIn = Boolean(state.user);
-  analysisSubmitButton.disabled = isLoading || !signedIn;
+  const canAnalyze = canRunPortfolioAnalysis();
+  analysisSubmitButton.disabled = isLoading || !signedIn || !canAnalyze;
   analysisSubmitButton.textContent = !signedIn
     ? "Sign in to analyze"
+    : !canAnalyze
+      ? "Package required"
     : isLoading
       ? "Analyzing..."
       : "Analyze my portfolio";
   analysisFileInputs.forEach((input) => {
-    input.disabled = isLoading || !signedIn;
+    input.disabled = isLoading || !signedIn || !canAnalyze;
   });
+  updateFrontendDiagnostics();
 }
 
 function syncAnalysisAccess() {
   const signedIn = Boolean(state.user);
+  const canAnalyze = canRunPortfolioAnalysis();
   templateDownloadLinks.forEach((link) => {
     if (!link.dataset.downloadHref) {
       link.dataset.downloadHref = link.getAttribute("href") || "";
     }
-    if (signedIn) {
+    if (signedIn && canAnalyze) {
       if (link.dataset.downloadHref) {
         link.setAttribute("href", link.dataset.downloadHref);
       }
@@ -874,12 +984,13 @@ function syncAnalysisAccess() {
       link.setAttribute("aria-disabled", "true");
       link.tabIndex = -1;
     }
-    link.classList.toggle("disabled", !signedIn);
+    link.classList.toggle("disabled", !signedIn || !canAnalyze);
   });
 
   const templatePanel = document.querySelector("[data-template-downloads]");
-  templatePanel?.classList.toggle("locked", !signedIn);
+  templatePanel?.classList.toggle("locked", !signedIn || !canAnalyze);
   setAnalysisButtonLoading(state.analysisRunning);
+  updateFrontendDiagnostics();
 
   if (!signedIn) {
     showAnalysisStatus("error", {
@@ -891,10 +1002,43 @@ function syncAnalysisAccess() {
     return;
   }
 
+  if (!canAnalyze) {
+    showAnalysisStatus("error", {
+      title: "Package required",
+      text: analysisPackageRequiredMessage(),
+      activeStep: null,
+    });
+    runMessage.textContent = analysisPackageRequiredMessage();
+    return;
+  }
+
   if (analysisStatusTitle?.textContent === "Sign in required") {
     analysisStatusPanel.hidden = true;
     runMessage.textContent = "Upload files, then run your analysis.";
   }
+}
+
+function canRunPortfolioAnalysis() {
+  return Boolean(state.user && hasEntitlement("analysis.run"));
+}
+
+function analysisPackageRequiredMessage() {
+  return "Portfolio analysis requires Starter or Pro. Ask the owner/admin to open Business > Members, choose Starter or Pro, set status Active or Trialing, set expiry date, then save package.";
+}
+
+function updateFrontendDiagnostics() {
+  if (!frontendVersion) {
+    return;
+  }
+
+  const selectedCount = getAnalysisSelectedFiles().length;
+  const buttonState = !state.user
+    ? "sign-in required"
+    : canRunPortfolioAnalysis()
+      ? (analysisSubmitButton?.disabled ? "disabled" : "ready")
+      : "package required";
+  const signedInState = state.user ? "signed in" : "not signed in";
+  frontendVersion.textContent = `Frontend version ${frontendBuildVersion} loaded · Analyze button ${buttonState} · ${signedInState} · selected files ${selectedCount} · Analyze clicks ${state.analysisClickCount}`;
 }
 
 function showAnalysisStatus(status, options = {}) {
@@ -2315,39 +2459,6 @@ function renderApprovalsView() {
   attachApprovalActions();
 }
 
-const screenerFilterTips = {
-  minScore: {
-    title: "Min Score",
-    meaning: "คะแนนรวมจากหลายปัจจัย เช่น คุณภาพพื้นฐาน ความคุ้มค่า และจังหวะราคา ยิ่งสูงยิ่งผ่านเกณฑ์มากขึ้น",
-    goodValue: "มือใหม่เริ่มที่ Score 60+ เพื่อเห็นตัวเลือกมากพอ ถ้าต้องการคัดเข้มให้ใช้ Score 70+",
-    caution: "คะแนนสูงไม่ได้แปลว่าซื้อได้ทันที ควรดู RRR, หนี้ และข่าวล่าสุดประกอบ",
-  },
-  minRrr: {
-    title: "Min RRR",
-    meaning: "Reward/Risk Ratio คือสัดส่วนกำไรที่คาดหวังเทียบกับความเสี่ยงขาดทุน",
-    goodValue: "RRR 1.5+ ถือว่าเริ่มน่าสนใจ และ RRR 2.0+ ถือว่าเผื่อความเสี่ยงได้ดีขึ้น",
-    caution: "ถ้าค่านี้ต่ำ แปลว่ากำไรที่หวังอาจไม่คุ้มกับความเสี่ยงที่ต้องรับ",
-  },
-  maxDe: {
-    title: "Max D/E",
-    meaning: "Debt to Equity คือหนี้สินเทียบกับทุนของบริษัท ยิ่งต่ำมักยิ่งรับความเสี่ยงหนี้ได้น้อยลง",
-    goodValue: "D/E <= 1.0 เหมาะเป็นค่าเริ่มต้น และ D/E <= 0.7 เหมาะกับคนที่อยากระวังหนี้มากขึ้น",
-    caution: "ธนาคารและไฟแนนซ์มักมี D/E สูงตามลักษณะธุรกิจ จึงควรเทียบกับหุ้นใน sector เดียวกัน",
-  },
-  sector: {
-    title: "Sector",
-    meaning: "กลุ่มธุรกิจของหุ้น เช่น ธนาคาร พลังงาน ค้าปลีก หรือเทคโนโลยี",
-    goodValue: "มือใหม่ควรเริ่มจาก sector ที่เข้าใจ และไม่ควรกระจุกเงินไว้ใน sector เดียวทั้งหมด",
-    caution: "ถ้าเลือก sector แคบเกินไป อาจพลาดหุ้นดีในกลุ่มอื่น",
-  },
-  trend: {
-    title: "Trend",
-    meaning: "ภาพรวมทิศทางราคาหุ้นจากข้อมูลเทคนิค เช่น กำลังขึ้น ลง หรือแกว่งตัว",
-    goodValue: "ถ้าไม่ถนัดจับจังหวะ ให้เริ่มดูหุ้นที่เป็น Uptrend/Bullish หรือหลีกเลี่ยง Bearish ก่อน",
-    caution: "Trend เป็นข้อมูลจังหวะราคา ไม่ใช่การรับประกันว่าราคาจะขึ้นต่อ",
-  },
-};
-
 function renderScreenerTooltip(tipKey) {
   const tip = screenerFilterTips[tipKey];
   const tooltipId = `screener-tip-${tipKey}`;
@@ -2387,34 +2498,41 @@ function renderScreenerView() {
   const sectors = uniqueValues(state.recommendations.map((row) => row.Sector || "Unknown"));
   const trends = uniqueValues(state.recommendations.map((row) => row.Trend_Status || "Unknown"));
   viewOutput.innerHTML = `
-    <section class="screener-beginner-guide" data-screener-beginner-guidance data-screener-default-all>
+    <section class="screener-beginner-guide" data-screener-beginner-guidance data-screener-strict-defaults>
       <div>
         <strong>Beginner filter guide</strong>
-        <span>ค่าเริ่มต้นจะแสดงทุกหุ้นก่อน เพื่อให้เห็นภาพรวมครบ แล้วค่อยคัดกรองเอง เช่น Score 60+, RRR 1.5+, D/E <= 1.0.</span>
+        <span>ค่าเริ่มต้นคัดเฉพาะหุ้นที่เริ่มน่าสนใจสำหรับมือใหม่: Score 70+, RRR 1.5+, D/E <= 1.0. ลองลดค่าทีละช่องถ้าต้องการดูหุ้นเพิ่ม.</span>
       </div>
-      <span>กดเครื่องหมาย ? เพื่อดูความหมายและข้อควรระวังของแต่ละ filter</span>
+      <span>ใช้ Search เพื่อหาหุ้นตาม Symbol หรือชื่อที่อยู่ในข้อมูล แล้วกด ? เพื่อดูความหมายของแต่ละ filter</span>
     </section>
     <div class="filter-bar">
+      ${renderScreenerFilterField({
+        id: "symbolSearch",
+        label: "Search stock",
+        tipKey: "symbol",
+        hint: "พิมพ์ Symbol เช่น PTT, AOT, CPALL เพื่อหาหุ้นที่สนใจ",
+        controlHtml: '<input id="symbolSearch" type="search" placeholder="Search symbol or stock name" autocomplete="off" aria-describedby="screener-tip-symbol symbolSearchHint" data-screener-symbol-search>',
+      })}
       ${renderScreenerFilterField({
         id: "minScore",
         label: "Min Score",
         tipKey: "minScore",
-        hint: "มือใหม่ลอง 60 ก่อน ถ้าต้องการคัดเข้มใช้ 70 ขึ้นไป",
-        controlHtml: '<input id="minScore" type="number" min="0" max="100" value="0" aria-describedby="screener-tip-minScore minScoreHint">',
+        hint: "ค่าเริ่มต้น 70+ เพื่อคัดหุ้นคุณภาพสูงก่อน",
+        controlHtml: '<input id="minScore" type="number" min="0" max="100" value="70" aria-describedby="screener-tip-minScore minScoreHint" data-screener-default-score>',
       })}
       ${renderScreenerFilterField({
         id: "minRrr",
         label: "Min RRR",
         tipKey: "minRrr",
-        hint: "มือใหม่ลอง 1.5 ก่อน ถ้าต้องการเผื่อความเสี่ยงมากขึ้นใช้ 2.0",
-        controlHtml: '<input id="minRrr" type="number" min="-10" step="0.1" value="-10" aria-describedby="screener-tip-minRrr minRrrHint">',
+        hint: "ค่าเริ่มต้น 1.5+ เพื่อให้ผลตอบแทนคุ้มความเสี่ยงขั้นต่ำ",
+        controlHtml: '<input id="minRrr" type="number" min="-10" step="0.1" value="1.5" aria-describedby="screener-tip-minRrr minRrrHint" data-screener-default-rrr>',
       })}
       ${renderScreenerFilterField({
         id: "maxDe",
         label: "Max D/E",
         tipKey: "maxDe",
-        hint: "มือใหม่ลองไม่เกิน 1.0 ถ้าระวังหนี้มากให้ใช้ 0.7",
-        controlHtml: '<input id="maxDe" type="number" min="0" step="0.1" value="99" aria-describedby="screener-tip-maxDe maxDeHint">',
+        hint: "ค่าเริ่มต้นไม่เกิน 1.0 เพื่อลดความเสี่ยงจากหนี้สูง",
+        controlHtml: '<input id="maxDe" type="number" min="0" step="0.1" value="1" aria-describedby="screener-tip-maxDe maxDeHint" data-screener-default-de>',
       })}
       ${renderScreenerFilterField({
         id: "sectorFilter",
@@ -2441,6 +2559,7 @@ function renderScreenerView() {
     <div id="screenerTable"></div>
   `;
 
+  const symbolSearch = document.querySelector("#symbolSearch");
   const minScore = document.querySelector("#minScore");
   const minRrr = document.querySelector("#minRrr");
   const maxDe = document.querySelector("#maxDe");
@@ -2448,7 +2567,13 @@ function renderScreenerView() {
   const trendFilter = document.querySelector("#trendFilter");
   const filterStatus = document.querySelector("#screenerFilterStatus");
   const renderFiltered = () => {
+    const searchText = String(symbolSearch.value || "").trim().toUpperCase();
     const rows = state.recommendations
+      .filter((row) => {
+        if (!searchText) return true;
+        return [row.Symbol, row.Name, row.Company, row.Security_Name, row.Sector]
+          .some((value) => String(value || "").toUpperCase().includes(searchText));
+      })
       .filter((row) => numberValue(row.Total_Score) >= numberValue(minScore.value))
       .filter((row) => numberValue(row.RRR) >= numberValue(minRrr.value))
       .filter((row) => numberValue(row.DE) <= numberValue(maxDe.value))
@@ -2456,6 +2581,7 @@ function renderScreenerView() {
       .filter((row) => !trendFilter.value || (row.Trend_Status || "Unknown") === trendFilter.value)
       .slice(0, 100);
     const activeFilters = [
+      searchText ? `search ${searchText}` : "",
       sectorFilter.value ? `sector ${sectorFilter.value}` : "",
       trendFilter.value ? `trend ${trendFilter.value}` : "",
       numberValue(minScore.value) > 0 ? `score >= ${formatNumber(minScore.value)}` : "",
@@ -2464,7 +2590,7 @@ function renderScreenerView() {
     ].filter(Boolean);
     filterStatus.textContent = activeFilters.length
       ? `${formatNumber(rows.length)} stocks match ${activeFilters.join(" · ")}. Click a stock in the charts to highlight its table row, or click a sector bar to drill down.`
-      : `${formatNumber(rows.length)} stocks shown from the latest analysis. Add filters only when you want to narrow the list.`;
+      : `${formatNumber(rows.length)} stocks shown from the latest analysis with beginner defaults. Adjust filters if you want to broaden the list.`;
     document.querySelector("#screenerTable").innerHTML = `
       ${renderScreenerInsights(rows, { selectedSector: sectorFilter.value })}
       <p class="muted table-focus-status" data-stock-highlight-status>Click a stock in Quality vs reward or Top ideas to focus its table row.</p>
@@ -2491,7 +2617,7 @@ function renderScreenerView() {
     attachStockHighlightControls(document.querySelector("#screenerTable"));
   };
 
-  [minScore, minRrr, maxDe].forEach((input) => input.addEventListener("input", renderFiltered));
+  [symbolSearch, minScore, minRrr, maxDe].forEach((input) => input.addEventListener("input", renderFiltered));
   [sectorFilter, trendFilter].forEach((input) => input.addEventListener("change", renderFiltered));
   renderFiltered();
 }
@@ -2844,7 +2970,22 @@ function renderScreenerInsights(rows, options = {}) {
           action: "stock-highlight",
           highlightLabels: topIdeaSymbols,
           highlightClass: "top-idea-point",
+          quadrant: {
+            xThreshold: 1.5,
+            yThreshold: 70,
+            best: "น่าสนใจสุด",
+            watch: "คุณภาพดี reward ต่ำ",
+            risky: "reward ดีแต่เสี่ยง",
+            avoid: "ควรข้ามก่อน",
+          },
         })}
+        <div class="quadrant-guide" data-screener-quadrant-guide>
+          <strong>อ่านกราฟนี้แบบง่าย:</strong>
+          <span><i class="zone-dot zone-best"></i><b>ขวาบน</b> ดีสุด: Score 70+ และ RRR 1.5+.</span>
+          <span><i class="zone-dot zone-watch"></i><b>ซ้ายบน</b> คุณภาพดีแต่ reward ยังไม่คุ้ม.</span>
+          <span><i class="zone-dot zone-risky"></i><b>ขวาล่าง</b> reward ดูดีแต่คะแนนรวมยังอ่อน ต้องระวัง.</span>
+          <span><i class="zone-dot zone-avoid"></i><b>ซ้ายล่าง</b> มือใหม่ควรข้ามก่อน.</span>
+        </div>
       </section>
       <section class="chart-panel">
         <h3>Top ideas</h3>
@@ -3902,12 +4043,24 @@ function renderBarList(items, options = {}) {
   `;
 }
 
-function renderScatterPlot(rows, { xKey, yKey, labelKey, xLabel, yLabel, xMax, yMax, action, highlightLabels, highlightClass }) {
+function renderScatterPlot(rows, { xKey, yKey, labelKey, xLabel, yLabel, xMax, yMax, action, highlightLabels, highlightClass, quadrant }) {
   const width = 560;
   const height = 260;
   const padding = 34;
   const plotWidth = width - padding * 2;
   const plotHeight = height - padding * 2;
+  const xThreshold = quadrant?.xThreshold ?? xMax * 0.4;
+  const yThreshold = quadrant?.yThreshold ?? yMax * 0.7;
+  const thresholdX = padding + (clamp(xThreshold, 0, xMax) / xMax) * plotWidth;
+  const thresholdY = height - padding - (clamp(yThreshold, 0, yMax) / yMax) * plotHeight;
+  const plotBottom = height - padding;
+  const plotRight = width - padding;
+  const quadrantZones = quadrant ? `
+        <rect class="quadrant-zone quadrant-zone-watch" x="${padding}" y="${padding}" width="${Math.max(0, thresholdX - padding)}" height="${Math.max(0, thresholdY - padding)}"></rect>
+        <rect class="quadrant-zone quadrant-zone-best" x="${thresholdX}" y="${padding}" width="${Math.max(0, plotRight - thresholdX)}" height="${Math.max(0, thresholdY - padding)}"></rect>
+        <rect class="quadrant-zone quadrant-zone-avoid" x="${padding}" y="${thresholdY}" width="${Math.max(0, thresholdX - padding)}" height="${Math.max(0, plotBottom - thresholdY)}"></rect>
+        <rect class="quadrant-zone quadrant-zone-risky" x="${thresholdX}" y="${thresholdY}" width="${Math.max(0, plotRight - thresholdX)}" height="${Math.max(0, plotBottom - thresholdY)}"></rect>
+  ` : "";
   const points = rows
     .filter((row) => numberValue(row[xKey]) || numberValue(row[yKey]))
     .slice(0, 90)
@@ -3930,11 +4083,16 @@ function renderScatterPlot(rows, { xKey, yKey, labelKey, xLabel, yLabel, xMax, y
 
   return `
     <div class="scatter-frame">
+      <div class="scatter-axis-summary">
+        <span><b>${escapeHtml(yLabel)}</b> สูง = คุณภาพดีขึ้น</span>
+        <span><b>${escapeHtml(xLabel)}</b> ขวา = ผลตอบแทนเทียบความเสี่ยงดีขึ้น</span>
+      </div>
       <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(`${xLabel} by ${yLabel}`)}">
+        ${quadrantZones}
         <line class="axis-line" x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}"></line>
         <line class="axis-line" x1="${padding}" y1="${padding}" x2="${padding}" y2="${height - padding}"></line>
-        <line class="guide-line" x1="${padding}" y1="${height - padding - plotHeight * 0.7}" x2="${width - padding}" y2="${height - padding - plotHeight * 0.7}"></line>
-        <line class="guide-line" x1="${padding + plotWidth * 0.4}" y1="${padding}" x2="${padding + plotWidth * 0.4}" y2="${height - padding}"></line>
+        <line class="guide-line" x1="${padding}" y1="${thresholdY}" x2="${width - padding}" y2="${thresholdY}"></line>
+        <line class="guide-line" x1="${thresholdX}" y1="${padding}" x2="${thresholdX}" y2="${height - padding}"></line>
         ${points.map((point) => {
           const title = `${point.label}: ${xLabel} ${formatNumber(point.xValue)}, ${yLabel} ${formatNumber(point.yValue)}`;
           const pointClass = point.highlighted && highlightClass ? ` ${highlightClass}` : "";
@@ -3952,8 +4110,6 @@ function renderScatterPlot(rows, { xKey, yKey, labelKey, xLabel, yLabel, xMax, y
           }
           return circle;
         }).join("")}
-        <text class="axis-text" x="${width / 2}" y="${height - 6}">${escapeHtml(xLabel)}</text>
-        <text class="axis-text" x="8" y="18">${escapeHtml(yLabel)}</text>
       </svg>
     </div>
   `;

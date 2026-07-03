@@ -1326,13 +1326,39 @@ td select {
   background: #0b0b0b;
   border: 1px solid #242424;
   border-radius: 8px;
+  display: grid;
+  gap: 8px;
   overflow: hidden;
+  padding: 10px;
 }
 
 .scatter-frame svg {
   display: block;
   height: auto;
   width: 100%;
+}
+
+.scatter-axis-summary {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.scatter-axis-summary span {
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.35;
+  padding: 5px 9px;
+}
+
+.scatter-axis-summary b {
+  color: #fff;
 }
 
 .axis-line {
@@ -1344,6 +1370,26 @@ td select {
   stroke: rgba(229, 9, 20, 0.35);
   stroke-dasharray: 5 5;
   stroke-width: 1;
+}
+
+.quadrant-zone {
+  opacity: 0.14;
+}
+
+.quadrant-zone-best {
+  fill: #00b86b;
+}
+
+.quadrant-zone-watch {
+  fill: #f6c85f;
+}
+
+.quadrant-zone-risky {
+  fill: #ff8a3d;
+}
+
+.quadrant-zone-avoid {
+  fill: #e50914;
 }
 
 .scatter-point {
@@ -1423,6 +1469,11 @@ td select {
   line-height: 1.45;
 }
 
+.frontend-version {
+  font-size: 11px;
+  margin-top: 8px;
+}
+
 .screener-beginner-guide {
   align-items: center;
   background: rgba(229, 9, 20, 0.1);
@@ -1451,6 +1502,61 @@ td select {
   font-size: 13px;
   line-height: 1.5;
   overflow-wrap: anywhere;
+}
+
+.quadrant-guide {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 10px;
+  padding: 10px 12px;
+}
+
+.quadrant-guide strong {
+  color: #fff;
+  flex: 1 0 100%;
+  font-size: 13px;
+}
+
+.quadrant-guide span {
+  align-items: center;
+  color: var(--muted);
+  display: inline-flex;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  min-width: min(230px, 100%);
+}
+
+.quadrant-guide b {
+  color: #fff;
+}
+
+.zone-dot {
+  border-radius: 999px;
+  display: inline-block;
+  flex: 0 0 auto;
+  height: 9px;
+  width: 9px;
+}
+
+.zone-best {
+  background: #00b86b;
+}
+
+.zone-watch {
+  background: #f6c85f;
+}
+
+.zone-risky {
+  background: #ff8a3d;
+}
+
+.zone-avoid {
+  background: #e50914;
 }
 
 .screener-help-wrap {

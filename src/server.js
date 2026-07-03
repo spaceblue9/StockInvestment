@@ -19,6 +19,15 @@ export function createApp() {
     },
   }));
   app.use(express.urlencoded({ extended: true }));
+  app.use((req, res, next) => {
+    if (["/", "/index.html", "/app.js"].includes(req.path)) {
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+      res.setHeader("Surrogate-Control", "no-store");
+    }
+    next();
+  });
   app.use(express.static(path.join(__dirname, "public")));
 
   app.get("/api/health", (_req, res) => {
