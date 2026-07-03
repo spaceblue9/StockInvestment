@@ -385,6 +385,48 @@ button:disabled {
   color: #ffd38a;
 }
 
+.severity-badge,
+.status-badge {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 6px 8px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.severity-green,
+.status-valid {
+  background: rgba(53, 208, 127, 0.12);
+  border-color: rgba(53, 208, 127, 0.35);
+  color: #82f0b7;
+}
+
+.severity-yellow,
+.status-review-required,
+.status-review {
+  background: rgba(255, 210, 77, 0.12);
+  border-color: rgba(255, 210, 77, 0.38);
+  color: #ffe08a;
+}
+
+.severity-orange {
+  background: rgba(255, 138, 61, 0.14);
+  border-color: rgba(255, 138, 61, 0.42);
+  color: #ffbd8f;
+}
+
+.severity-red,
+.status-data-error,
+.status-error {
+  background: rgba(229, 9, 20, 0.16);
+  border-color: rgba(229, 9, 20, 0.48);
+  color: #ffb3b7;
+}
+
 .plan-card {
   background: var(--panel-2);
   border: 1px solid var(--line);
@@ -727,6 +769,50 @@ td select {
 
 .portfolio-data-warning span {
   color: var(--muted);
+}
+
+.think2-safety-summary {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 3px solid #ff8a3d;
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  line-height: 1.5;
+  margin: 0 0 16px;
+  padding: 13px 14px;
+}
+
+.think2-safety-summary div:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.think2-safety-summary strong {
+  color: #fff;
+}
+
+.think2-safety-summary span {
+  color: var(--muted);
+}
+
+.safety-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  justify-content: flex-end;
+}
+
+.table-warning-text {
+  color: #e6e6e6;
+  display: inline-block;
+  line-height: 1.45;
+  max-width: 360px;
+  min-width: 180px;
+  white-space: normal;
 }
 
 .ops-alert-grid {

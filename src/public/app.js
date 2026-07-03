@@ -25,7 +25,7 @@ const customerSnapshot = document.querySelector("#customerSnapshot");
 const plansList = document.querySelector("#plansList");
 const businessViewButton = document.querySelector("[data-view='business']");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20260702-1012";
+const frontendBuildVersion = "20260703-1211";
 
 const state = {
   user: null,
@@ -73,6 +73,10 @@ const recommendedActionFields = [
   { key: "Gain_Loss_Value", label: "Gain/Loss Value", default: false },
   { key: "Gain_Loss_Pct", label: "Gain/Loss %", default: true },
   { key: "Total_Score", label: "Score", default: true },
+  { key: "Conflict_Severity", label: "Conflict", default: true },
+  { key: "Data_Status", label: "Data Status", default: false },
+  { key: "Conflict_Alerts", label: "Conflict Alerts", default: false },
+  { key: "Data_Warnings", label: "Data Warnings", default: false },
   { key: "Advice", label: "Advice", default: true },
   { key: "Target_Action", label: "Target Action", default: true },
   { key: "RRR", label: "RRR", default: true },
@@ -119,6 +123,30 @@ const tableColumnTips = {
     meaning: "คะแนนรวมจากพื้นฐาน ความคุ้มค่า ความเสี่ยง และจังหวะราคา ยิ่งสูงยิ่งผ่านเกณฑ์มากขึ้น",
     goodValue: "60+ เริ่มน่าสนใจ, 70+ คัดเข้มขึ้น, 80+ ถือว่าเด่นมากแต่ยังต้องตรวจข่าวและความเสี่ยง",
     caution: "คะแนนสูงไม่ใช่คำสั่งซื้ออัตโนมัติ ให้ดู RRR, D/E และ trend ประกอบ",
+  },
+  Data_Status: {
+    title: "Data Status",
+    meaning: "สถานะความพร้อมของข้อมูลก่อนใช้ประกอบการตัดสินใจ",
+    goodValue: "VALID คือข้อมูลหลักพร้อมใช้, REVIEW_REQUIRED คือควรตรวจซ้ำ, DATA_ERROR คือข้อมูลสำคัญผิดหรือขาด",
+    caution: "ถ้าเป็น REVIEW_REQUIRED หรือ DATA_ERROR อย่าตัดสินใจจากคะแนนอย่างเดียว",
+  },
+  Data_Warnings: {
+    title: "Data Warnings",
+    meaning: "คำเตือนว่าข้อมูลส่วนไหนอาจทำให้ผลวิเคราะห์คลาดเคลื่อน",
+    goodValue: "ควรอ่านเพื่อรู้ว่าระบบกังวลเรื่องข้อมูลอะไร เช่น sector, PE, D/E, RSI หรือ volume",
+    caution: "คำเตือนนี้ยังไม่เปลี่ยน action ใน Phase 1 แต่ควรตรวจซ้ำก่อนลงทุนจริง",
+  },
+  Conflict_Severity: {
+    title: "Conflict Severity",
+    meaning: "ระดับคำเตือนเมื่อคะแนน, RRR, trend หรือข้อมูลบางส่วนขัดแย้งกัน",
+    goodValue: "GREEN = ไม่พบ conflict หลัก, YELLOW = ระวัง, ORANGE = ต้องทบทวน, RED = ไม่ควรตัดสินใจจนกว่าจะตรวจซ้ำ",
+    caution: "ถ้ามี ORANGE/RED ให้ดู Conflict Alerts ก่อนทำตาม Target Action",
+  },
+  Conflict_Alerts: {
+    title: "Conflict Alerts",
+    meaning: "เหตุผลของคำเตือน เช่น RRR สูงแต่คะแนนต่ำ, RSI ต่ำในขาลง, หรือราคาใกล้ 52W high",
+    goodValue: "ใช้เป็น checklist ว่าต้องตรวจอะไรเพิ่มก่อนซื้อ/ถือ/ขาย",
+    caution: "เป็น safety layer เสริม ยังไม่ใช่ action engine ใหม่",
   },
   Sector_Score: {
     title: "Sector Score",
@@ -1215,6 +1243,7 @@ function renderPortfolioView() {
       ${metric("Avg Score", formatNumber(average(rows, "Total_Score")))}
     </div>
     ${renderPortfolioDataWarning(rows)}
+    ${renderThink2SafetySummary(rows, { context: "portfolio" })}
     ${renderPortfolioQuickGuidance({ gainLossPct, urgentRows, avgScore: average(rows, "Total_Score") })}
     ${renderPortfolioVisuals(rows)}
     <h3>Recommended actions</h3>
@@ -1236,6 +1265,38 @@ function renderPortfolioDataWarning(rows) {
       <strong>Market data was unavailable in the last run.</strong>
       <span>Your holdings were read, but prices and scores could not be completed. The app now protects existing outputs from being overwritten by an empty market fetch; rerun analysis when the data connection is available.</span>
     </div>
+  `;
+}
+
+function renderThink2SafetySummary(rows, options = {}) {
+  const redCount = rows.filter((row) => String(row.Conflict_Severity || "").toUpperCase() === "RED").length;
+  const orangeCount = rows.filter((row) => String(row.Conflict_Severity || "").toUpperCase() === "ORANGE").length;
+  const yellowCount = rows.filter((row) => String(row.Conflict_Severity || "").toUpperCase() === "YELLOW").length;
+  const reviewCount = rows.filter((row) => String(row.Data_Status || "").toUpperCase() === "REVIEW_REQUIRED").length;
+  const dataErrorCount = rows.filter((row) => String(row.Data_Status || "").toUpperCase() === "DATA_ERROR").length;
+  const hasSafetyAlert = redCount || orangeCount || yellowCount || reviewCount || dataErrorCount;
+  if (!hasSafetyAlert) {
+    return "";
+  }
+
+  const contextText = options.context === "portfolio"
+    ? "These warnings do not change your current Target Action yet, but they show which holdings need review before adding money."
+    : "These warnings do not remove stocks from the screener yet, but they help beginners avoid buying from score alone.";
+
+  return `
+    <section class="think2-safety-summary" data-think2-safety-summary>
+      <div>
+        <strong>Safety check before acting</strong>
+        <span>${escapeHtml(contextText)}</span>
+      </div>
+      <div class="safety-counts">
+        ${redCount ? `<span class="severity-badge severity-red">${formatNumber(redCount)} red</span>` : ""}
+        ${orangeCount ? `<span class="severity-badge severity-orange">${formatNumber(orangeCount)} orange</span>` : ""}
+        ${yellowCount ? `<span class="severity-badge severity-yellow">${formatNumber(yellowCount)} yellow</span>` : ""}
+        ${dataErrorCount ? `<span class="status-badge status-error">${formatNumber(dataErrorCount)} data error</span>` : ""}
+        ${reviewCount ? `<span class="status-badge status-review">${formatNumber(reviewCount)} review</span>` : ""}
+      </div>
+    </section>
   `;
 }
 
@@ -2592,6 +2653,7 @@ function renderScreenerView() {
       ? `${formatNumber(rows.length)} stocks match ${activeFilters.join(" · ")}. Click a stock in the charts to highlight its table row, or click a sector bar to drill down.`
       : `${formatNumber(rows.length)} stocks shown from the latest analysis with beginner defaults. Adjust filters if you want to broaden the list.`;
     document.querySelector("#screenerTable").innerHTML = `
+      ${renderThink2SafetySummary(rows, { context: "screener" })}
       ${renderScreenerInsights(rows, { selectedSector: sectorFilter.value })}
       <p class="muted table-focus-status" data-stock-highlight-status>Click a stock in Quality vs reward or Top ideas to focus its table row.</p>
       ${renderTable(rows, [
@@ -2600,6 +2662,8 @@ function renderScreenerView() {
         "Price",
         "Total_Score",
         "RRR",
+        "Conflict_Severity",
+        "Conflict_Alerts",
         "Upside_Pct",
         "PE",
         "ROE",
@@ -4175,7 +4239,7 @@ function renderTable(rows, columns, options = {}) {
             const rowAttributes = options.stockHighlight && symbol
               ? ` data-stock-row="${escapeHtml(symbol)}" tabindex="-1"`
               : "";
-            return `<tr${rowAttributes}>${columns.map((column) => `<td>${formatCell(row[column])}</td>`).join("")}</tr>`;
+            return `<tr${rowAttributes}>${columns.map((column) => `<td>${formatCell(row[column], column)}</td>`).join("")}</tr>`;
           }).join("")}
         </tbody>
       </table>
@@ -4546,7 +4610,24 @@ function percentOf(rows, predicate) {
   return (rows.filter(predicate).length / rows.length) * 100;
 }
 
-function formatCell(value) {
+function formatCell(value, column = "") {
+  if (column === "Conflict_Severity") {
+    const severity = String(value || "GREEN").toUpperCase();
+    return `<span class="severity-badge severity-${escapeHtml(severity.toLowerCase())}">${escapeHtml(severity)}</span>`;
+  }
+
+  if (column === "Data_Status") {
+    const status = String(value || "VALID").toUpperCase();
+    return `<span class="status-badge status-${escapeHtml(status.toLowerCase().replaceAll("_", "-"))}">${escapeHtml(status.replaceAll("_", " "))}</span>`;
+  }
+
+  if (column === "Conflict_Alerts" || column === "Data_Warnings") {
+    const text = String(value || "");
+    return text
+      ? `<span class="table-warning-text">${escapeHtml(text)}</span>`
+      : `<span class="muted">-</span>`;
+  }
+
   return escapeHtml(typeof value === "number" ? formatNumber(value) : String(value ?? ""));
 }
 

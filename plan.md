@@ -2145,6 +2145,167 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - ตรวจ endpoint `/api/analysis/run` ไม่ใช่แค่ saved snapshot
   - ถ้าผู้ใช้ยังเห็นข้อความเดิมหลังแก้ ให้ refresh/restart server เพื่อโหลด JS/API version ใหม่ แล้วตรวจ `/api/customer/portfolio` ของ account นั้น
 
+### T135 - Document Think2 Phase 1 Scope and Non-Goals
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-03 12:02:21 +07:00
+- เสร็จเมื่อ: 2026-07-03 12:02:54 +07:00
+- เหตุผล:
+  - ผู้ใช้ให้ทำงานต่อจาก `Task.md` ทีละข้อ
+  - งานถัดไปคือ `T2-01 - Document Think2 Scope and Non-Goals`
+  - ต้องป้องกันไม่ให้ AI รอบถัดไปตีความว่าให้รื้อ decision engine ทันที
+- งานที่ต้องทำ:
+  - [x] อัปเดต `Task.md` ให้ระบุ Phase 1 scope
+  - [x] ระบุ non-goals ที่ยังไม่ทำใน Phase 1
+  - [x] ระบุ output เดิมที่ต้องไม่เปลี่ยนใน Phase 1
+  - [x] ระบุ acceptance criteria และ task ถัดไป
+- ผลลัพธ์:
+  - `Task.md` ระบุแล้วว่า Phase 1 ทำเฉพาะ safety layer แบบ additive fields
+  - Phase 1 ทำก่อน: `Data_Status`, `Data_Warnings`, `Conflict_Severity`, `Conflict_Alerts`, tooltip/คำอธิบาย และ regression
+  - Phase 1 ยังไม่ทำ: เปลี่ยนสูตร `Total_Score`, เปลี่ยน `RRR`, เปลี่ยน `Advice`, เปลี่ยน `Target_Action`, เปลี่ยน Simulation rules, ใช้ action labels ใหม่, สร้าง `Fundamental_RRR` จริง หรือทำ peer group validation เชิงลึก
+  - ระบุ output ที่ต้องคงเดิม เช่น `recommended_stocks.csv`, portfolio rows, public UI ที่อ่าน `Total_Score`, และ Python parity
+  - งานถัดไปคือ `T2-02 - Add Data Validation Status`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md`, `Task.md`, `think.md`, และ `Think2.md` ก่อนเริ่มงานเสมอ
+  - T2-01 เสร็จแล้ว
+  - งานถัดไปคือ `T2-02 - Add Data Validation Status`
+  - เพิ่มเฉพาะ additive fields ก่อน ห้ามเปลี่ยน `Total_Score`, `RRR`, `Advice`, `Target_Action` หรือ Simulation rules ใน Phase 1
+
+### T136 - Add Think2 Data Validation Status
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-03 12:03:46 +07:00
+- เสร็จเมื่อ: 2026-07-03 12:06:48 +07:00
+- เหตุผล:
+  - งานถัดไปใน `Task.md` คือ `T2-02 - Add Data Validation Status`
+  - ต้องเพิ่ม data safety layer แบบ additive เพื่อบอกมือใหม่ว่าข้อมูลพร้อมใช้ตัดสินใจหรือควรตรวจซ้ำ
+  - ต้องไม่เปลี่ยนสูตร `Total_Score`, `RRR`, `Advice`, `Target_Action` หรือ Simulation rules
+- งานที่ต้องทำ:
+  - [x] เพิ่ม `Data_Status` และ `Data_Warnings` ใน stock recommendation rows
+  - [x] ทำให้ portfolio rows ได้ field ใหม่จาก market rows โดยไม่กระทบ action เดิม
+  - [x] เพิ่ม regression สำหรับข้อมูล valid/review/error
+  - [x] รันทดสอบสำคัญ
+  - [x] อัปเดต `Task.md` และ `plan.md`
+- ผลลัพธ์:
+  - `stockAnalysisService` เพิ่ม additive fields `Data_Status` และ `Data_Warnings`
+  - Status ที่ใช้ใน Phase 1 คือ `VALID`, `REVIEW_REQUIRED`, `DATA_ERROR`
+  - Warning ครอบคลุมข้อมูลที่มีอยู่แล้ว เช่น unknown sector, price/52W invalid, PE missing/negative, ROE missing, D/E missing/abnormal, RSI invalid, volume missing
+  - `portfolioService` ส่งต่อ `Data_Status`/`Data_Warnings` และกรณีไม่มี market data จะเป็น `DATA_ERROR`
+  - Excel guide sheet เพิ่มคำอธิบาย field ใหม่
+  - เพิ่ม regression `test:think2-data-validation`
+  - `compare:python` ยังผ่าน numeric/text/sector mismatch = 0
+- ทดสอบผ่าน:
+  - `node --check src/services/stockAnalysisService.js`
+  - `node --check src/services/portfolioService.js`
+  - `npm run test:think2-data-validation`
+  - `npm run test:analysis-portfolio-flow`
+  - `npm run compare:python`
+  - `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md`, `Task.md`, `think.md`, และ `Think2.md` ก่อนเริ่มงานเสมอ
+  - T2-02 เสร็จแล้ว
+  - งานถัดไปคือ `T2-03 - Add Conflict Alerts`
+  - ห้ามใช้ `Data_Status` ไป block หรือเปลี่ยน `Advice`/`Target_Action` จนกว่าจะถึง action matrix/shadow mode
+
+### T137 - Add Think2 Conflict Alerts
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-03 12:07:51 +07:00
+- เสร็จเมื่อ: 2026-07-03 12:10:01 +07:00
+- เหตุผล:
+  - งานถัดไปใน `Task.md` คือ `T2-03 - Add Conflict Alerts`
+  - ต้องเตือนมือใหม่เมื่อคะแนนหรือ RRR อาจหลอก เช่น RRR สูงแต่คุณภาพต่ำ หรือ RSI oversold ในขาลง
+  - Alert ต้องเป็น additive fields และห้ามเปลี่ยน action engine เดิมใน Phase 1
+- งานที่ต้องทำ:
+  - [x] เพิ่ม `Conflict_Severity` และ `Conflict_Alerts` ใน recommendation rows
+  - [x] ส่งต่อ conflict fields ไป portfolio rows/report
+  - [x] เพิ่ม regression สำหรับ conflict หลัก
+  - [x] รันทดสอบสำคัญรวม `compare:python`
+  - [x] อัปเดต `Task.md` และ `plan.md`
+- ผลลัพธ์:
+  - `stockAnalysisService` เพิ่ม `Conflict_Severity` และ `Conflict_Alerts`
+  - Conflict ที่รองรับใน Phase 1: `UNKNOWN_SECTOR`, `ABNORMAL_DE`, `PE_LOSS_OR_ABNORMAL`, `HIGH_RRR_LOW_SCORE`, `HIGH_SCORE_LOW_RRR`, `OVERSOLD_BEARISH`, `NEAR_52W_HIGH`, `LOW_LIQUIDITY`
+  - `portfolioService` ส่งต่อ conflict fields และกรณีไม่มี market row เป็น `MISSING_MARKET_DATA` severity `RED`
+  - Excel guide sheet เพิ่มคำอธิบาย `Conflict_Severity` และ `Conflict_Alerts`
+  - `test:think2-data-validation` ตรวจ conflict หลักและยืนยันว่า Phase 1 ยังไม่เปลี่ยน `Advice`/`Target_Action`
+  - `compare:python` ยังผ่าน numeric/text/sector mismatch = 0
+- ทดสอบผ่าน:
+  - `node --check src/services/stockAnalysisService.js`
+  - `node --check src/services/portfolioService.js`
+  - `node --check scripts/think2DataValidationRegression.js`
+  - `npm run test:think2-data-validation`
+  - `npm run test:analysis-portfolio-flow`
+  - `npm run compare:python`
+  - `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md`, `Task.md`, `think.md`, และ `Think2.md` ก่อนเริ่มงานเสมอ
+  - T2-03 เสร็จแล้ว
+  - งานถัดไปคือ `T2-04 - Show Conflicts in Screener and Portfolio`
+  - การแสดงผลใน UI ต้องเป็นคำเตือนเสริม ห้ามใช้ conflict ไปเปลี่ยน action เดิมใน Phase 1
+
+### T138 - Show Think2 Conflicts in Screener and Portfolio
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-03 12:10:49 +07:00
+- เสร็จเมื่อ: 2026-07-03 12:14:54 +07:00
+- เหตุผล:
+  - งานถัดไปใน `Task.md` คือ `T2-04 - Show Conflicts in Screener and Portfolio`
+  - Safety layer จะมีประโยชน์กับมือใหม่ก็ต่อเมื่อเห็นคำเตือนในหน้าจอหลัก ไม่ใช่อยู่เฉพาะใน CSV/report
+  - ต้องแสดงผลแบบเสริมโดยไม่เปลี่ยน action เดิม
+- งานที่ต้องทำ:
+  - [x] เพิ่ม column/badge สำหรับ `Conflict_Severity`, `Conflict_Alerts`, `Data_Status`
+  - [x] เพิ่ม tooltip ภาษาง่ายใน header ตาราง
+  - [x] เพิ่ม summary warning บน Screener/Portfolio เมื่อมี ORANGE/RED conflict
+  - [x] เพิ่ม frontend regression markers
+  - [x] รันทดสอบ frontend/web smoke และ regression ที่เกี่ยวข้อง
+  - [x] อัปเดต `Task.md` และ `plan.md`
+- ผลลัพธ์:
+  - หน้า Portfolio แสดง `Safety check before acting` เมื่อมี conflict/data warning
+  - หน้า Screener แสดง safety summary และเพิ่มคอลัมน์ `Conflict_Severity`, `Conflict_Alerts`
+  - Recommended actions field picker มี `Conflict_Severity`, `Data_Status`, `Conflict_Alerts`, `Data_Warnings`
+  - `Conflict_Severity` และ `Data_Status` แสดงเป็น badge สี
+  - เพิ่ม tooltip ภาษาง่ายให้ `Data_Status`, `Data_Warnings`, `Conflict_Severity`, `Conflict_Alerts`
+  - bump frontend bundle เป็น `20260703-1211`
+  - ยังไม่เปลี่ยน action engine เดิม
+- ทดสอบผ่าน:
+  - `node --check src/public/app.js`
+  - `npm run test:frontend-viewport`
+  - `npm run test:web-smoke`
+  - `npm run test:think2-data-validation`
+  - `npm run test:analysis-portfolio-flow`
+  - `npm run compare:python`
+  - `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md`, `Task.md`, `think.md`, และ `Think2.md` ก่อนเริ่มงานเสมอ
+  - T2-04 เสร็จแล้ว
+  - งานถัดไปคือ `T2-05 - Add Regression for Safety Layer`
+  - ถ้าปรับ UX ต่อ ต้องรักษา `data-think2-safety-summary`, `severity-badge`, `status-badge`, และ tooltip safety fields
+
+### T139 - Confirm Think2 Safety Layer Regression Coverage
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-03 12:15:39 +07:00
+- เสร็จเมื่อ: 2026-07-03 12:15:39 +07:00
+- เหตุผล:
+  - งานถัดไปใน `Task.md` คือ `T2-05 - Add Regression for Safety Layer`
+  - T2-02 ถึง T2-04 ได้เพิ่ม regression แล้ว จึงต้องปิด task นี้ด้วยหลักฐานทดสอบ
+- งานที่ต้องทำ:
+  - [x] ยืนยัน fixture หุ้นข้อมูลปกติ/ผิด/เสี่ยง
+  - [x] ยืนยัน engine เดิมยังให้ `Total_Score`, `RRR`, `Advice`, `Target_Action`
+  - [x] ยืนยัน safety layer สร้าง warning/conflict ถูกต้อง
+  - [x] ยืนยัน frontend markers ของ safety summary/badge/tooltip
+- ผลลัพธ์:
+  - `test:think2-data-validation` ครอบคลุม valid/review/data error, conflict alerts, portfolio propagation และ action unchanged
+  - `test:frontend-viewport` และ `test:web-smoke` ครอบคลุม UI markers ของ safety layer
+  - `test:analysis-portfolio-flow` ยังผ่าน
+  - `compare:python` ยังผ่าน formula numeric/text/sector mismatch = 0
+  - Phase 1 ของ `Task.md` เสร็จครบ T2-02 ถึง T2-05
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md`, `Task.md`, `think.md`, และ `Think2.md` ก่อนเริ่มงานเสมอ
+  - Phase 1 safety layer เสร็จแล้ว
+  - งานถัดไปคือ `T2-06 - Add Derived Score Matrix`
+  - Phase 2 ต้องเพิ่ม score matrix เป็น additive/shadow information เท่านั้น ห้ามใช้แทน `Total_Score` หรือเปลี่ยน action engine
+
 ### T134 - Freeze Think.md Version Before Think2 Planning
 
 - สถานะ: Done

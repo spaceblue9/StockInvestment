@@ -35,6 +35,7 @@ export function analyzeStockRow(row, stats = {}) {
   const sectorPe = numberValue(stats.Sector_PE);
   const sectorRoe = numberValue(stats.Sector_ROE);
   const sectorYield = numberValue(stats.Sector_Yield);
+  const dataValidation = getDataValidation(row);
   const pricePosition = getPricePosition(row);
   const deScore = getDeScore(row.DE);
   const rsiScore = getRsiScore(row.RSI);
@@ -67,6 +68,8 @@ export function analyzeStockRow(row, stats = {}) {
     Sector_PE: sectorPe,
     Sector_ROE: sectorRoe,
     Sector_Yield: sectorYield,
+    Data_Status: dataValidation.status,
+    Data_Warnings: dataValidation.warnings.join(" | "),
     DE_Score: deScore,
     Price_Position: pricePosition,
     RSI_Score: rsiScore,
@@ -86,9 +89,12 @@ export function analyzeStockRow(row, stats = {}) {
     Recovery_Pct: 0.0,
     Trend_Status: getTrendStatus(row.RSI, pricePosition),
   };
+  const conflictSummary = getConflictSummary(analyzed);
 
   return {
     ...analyzed,
+    Conflict_Severity: conflictSummary.severity,
+    Conflict_Alerts: conflictSummary.alerts.map((alert) => `${alert.type}: ${alert.message}`).join(" | "),
     Rationale: getRationale(analyzed),
   };
 }
@@ -109,6 +115,56 @@ function normalizeRows(rows) {
 
       return normalized;
     });
+}
+
+function getDataValidation(row) {
+  const hardErrors = [];
+  const warnings = [];
+
+  if (!row.Symbol) {
+    hardErrors.push("Missing stock symbol");
+  }
+
+  if (isUnknownText(row.Sector)) {
+    warnings.push("Sector is unknown, so sector comparison may be unreliable");
+  }
+
+  if (!isPositiveFinite(row.Price)) {
+    hardErrors.push("Price is missing or not positive");
+  }
+
+  if (!isPositiveFinite(row.High_52W) || !isPositiveFinite(row.Low_52W) || row.High_52W <= row.Low_52W) {
+    hardErrors.push("52-week high/low is missing or invalid");
+  }
+
+  if (!Number.isFinite(row.PE)) {
+    warnings.push("P/E is missing, valuation score may be incomplete");
+  } else if (row.PE <= 0) {
+    warnings.push("P/E is zero or negative, this may mean losses or abnormal earnings");
+  }
+
+  if (!Number.isFinite(row.ROE)) {
+    warnings.push("ROE is missing, quality score may be incomplete");
+  }
+
+  if (!Number.isFinite(row.DE)) {
+    warnings.push("D/E is missing, balance sheet risk may be incomplete");
+  } else if (row.DE < 0 || row.DE > 5) {
+    warnings.push("D/E is outside the normal range, review debt data before relying on this score");
+  }
+
+  if (!Number.isFinite(row.RSI) || row.RSI < 0 || row.RSI > 100) {
+    warnings.push("RSI is missing or outside 0-100, timing signal may be unreliable");
+  }
+
+  if (!isPositiveFinite(row.Volume) || !isPositiveFinite(row.Avg_Vol_10D)) {
+    warnings.push("Volume data is missing, liquidity confirmation may be incomplete");
+  }
+
+  return {
+    status: hardErrors.length ? "DATA_ERROR" : warnings.length ? "REVIEW_REQUIRED" : "VALID",
+    warnings: [...hardErrors, ...warnings],
+  };
 }
 
 function calculateSectorStats(rows) {
@@ -218,6 +274,92 @@ function getTrendStatus(rsi, pricePosition) {
   return "Weak Trend ⚠️";
 }
 
+function getConflictSummary(row) {
+  const alerts = [];
+
+  if (isUnknownText(row.Sector)) {
+    alerts.push({
+      severity: "ORANGE",
+      type: "UNKNOWN_SECTOR",
+      message: "Sector is unknown, so sector-relative scores may compare against the wrong group",
+    });
+  }
+
+  if (Number.isFinite(row.DE) && (row.DE < 0 || row.DE > 5)) {
+    alerts.push({
+      severity: "ORANGE",
+      type: "ABNORMAL_DE",
+      message: "D/E is outside the normal range, review debt data before relying on the score",
+    });
+  }
+
+  if (Number.isFinite(row.PE) && row.PE <= 0) {
+    alerts.push({
+      severity: "ORANGE",
+      type: "PE_LOSS_OR_ABNORMAL",
+      message: "P/E is zero or negative, this may be a loss-making or abnormal earnings case",
+    });
+  }
+
+  if (row.RRR > 2 && row.Total_Score < 50) {
+    alerts.push({
+      severity: "ORANGE",
+      type: "HIGH_RRR_LOW_SCORE",
+      message: "Reward/risk looks high but total score is weak, treat as rebound risk rather than automatic buy",
+    });
+  }
+
+  if (row.Total_Score > 75 && row.RRR < 1.5) {
+    alerts.push({
+      severity: "YELLOW",
+      type: "HIGH_SCORE_LOW_RRR",
+      message: "Stock quality score is high but reward/risk is not attractive yet, waiting may be safer",
+    });
+  }
+
+  if (row.RSI < 35 && /Bearish/i.test(String(row.Trend_Status || ""))) {
+    alerts.push({
+      severity: "RED",
+      type: "OVERSOLD_BEARISH",
+      message: "RSI is oversold while trend is bearish, avoid averaging down until risk improves",
+    });
+  }
+
+  if (row.Price_Position > 85) {
+    alerts.push({
+      severity: "YELLOW",
+      type: "NEAR_52W_HIGH",
+      message: "Price is near the 52-week high, upside may be limited for a new buy",
+    });
+  }
+
+  if (row.Volume_Ratio > 0 && row.Volume_Ratio < 0.8) {
+    alerts.push({
+      severity: "YELLOW",
+      type: "LOW_LIQUIDITY",
+      message: "Current volume is below recent average, confirmation may be weak",
+    });
+  }
+
+  return {
+    severity: highestSeverity(alerts),
+    alerts,
+  };
+}
+
+function highestSeverity(alerts) {
+  const severityRank = {
+    GREEN: 0,
+    YELLOW: 1,
+    ORANGE: 2,
+    RED: 3,
+  };
+
+  return alerts.reduce((highest, alert) => (
+    severityRank[alert.severity] > severityRank[highest] ? alert.severity : highest
+  ), "GREEN");
+}
+
 function getRationale(row) {
   const reasons = [];
 
@@ -271,6 +413,15 @@ function median(values) {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function isPositiveFinite(value) {
+  return Number.isFinite(value) && value > 0;
+}
+
+function isUnknownText(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return !normalized || normalized === "unknown" || normalized === "-" || normalized === "nan";
 }
 
 function numberValue(value) {
