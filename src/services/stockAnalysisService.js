@@ -62,6 +62,20 @@ export function analyzeStockRow(row, stats = {}) {
   const risk = row.Price - stopLoss;
   const upsidePct = row.Price > 0 ? (reward / row.Price) * 100 : 0;
   const rrr = risk > 0 ? reward / risk : 5.0;
+  const scoreMatrix = getDerivedScoreMatrix({
+    ...row,
+    Sector_PE: sectorPe,
+    Sector_ROE: sectorRoe,
+    Sector_Yield: sectorYield,
+    DE_Score: deScore,
+    Price_Position: pricePosition,
+    RSI_Score: rsiScore,
+    Relative_Quality_Score: relativeQualityScore,
+    PE_Score: peScore,
+    ROE_Score: roeScore,
+    Yield_Score: yieldScore,
+    Volume_Ratio: volumeRatio,
+  });
 
   const analyzed = {
     ...row,
@@ -77,6 +91,12 @@ export function analyzeStockRow(row, stats = {}) {
     PE_Score: peScore,
     ROE_Score: roeScore,
     Yield_Score: yieldScore,
+    Quality_Score: scoreMatrix.Quality_Score,
+    Valuation_Score: scoreMatrix.Valuation_Score,
+    Setup_Score: scoreMatrix.Setup_Score,
+    Balance_Risk_Score: scoreMatrix.Balance_Risk_Score,
+    Liquidity_Score: scoreMatrix.Liquidity_Score,
+    Composite_Score_v2: scoreMatrix.Composite_Score_v2,
     Total_Score: totalScore,
     Entry_Zone_Low: entryZoneLow,
     Entry_Zone_High: entryZoneHigh,
@@ -256,6 +276,83 @@ function getRelativeQualityScore(row, stats) {
   }
 
   return clamp(score, 0, 100);
+}
+
+function getDerivedScoreMatrix(row) {
+  const qualityScore = averageFinite([
+    row.ROE_Score,
+    row.Relative_Quality_Score,
+    scoreRoeAbsolute(row.ROE),
+  ]);
+  const valuationScore = averageFinite([
+    row.PE_Score,
+    row.Yield_Score,
+    scorePeRelative(row.PE, row.Sector_PE),
+  ]);
+  const setupScore = averageFinite([
+    row.RSI_Score,
+    scorePricePositionSetup(row.Price_Position),
+  ]);
+  const balanceRiskScore = row.DE_Score;
+  const liquidityScore = scoreLiquidity(row.Volume_Ratio);
+  const compositeScoreV2 = (
+    qualityScore * 0.35
+    + valuationScore * 0.25
+    + setupScore * 0.15
+    + balanceRiskScore * 0.15
+    + liquidityScore * 0.10
+  );
+
+  return {
+    Quality_Score: clamp(qualityScore, 0, 100),
+    Valuation_Score: clamp(valuationScore, 0, 100),
+    Setup_Score: clamp(setupScore, 0, 100),
+    Balance_Risk_Score: clamp(balanceRiskScore, 0, 100),
+    Liquidity_Score: clamp(liquidityScore, 0, 100),
+    Composite_Score_v2: clamp(compositeScoreV2, 0, 100),
+  };
+}
+
+function scoreRoeAbsolute(roe) {
+  if (!Number.isFinite(roe)) return 50;
+  if (roe >= 20) return 100;
+  if (roe >= 15) return 85;
+  if (roe >= 12) return 70;
+  if (roe >= 8) return 50;
+  return 25;
+}
+
+function scorePeRelative(pe, sectorPe) {
+  if (!Number.isFinite(pe) || pe <= 0) return 25;
+  if (!Number.isFinite(sectorPe) || sectorPe <= 0) return 50;
+  if (pe <= sectorPe * 0.75) return 90;
+  if (pe <= sectorPe) return 75;
+  if (pe <= sectorPe * 1.25) return 55;
+  if (pe <= sectorPe * 1.5) return 35;
+  return 20;
+}
+
+function scorePricePositionSetup(pricePosition) {
+  if (!Number.isFinite(pricePosition)) return 50;
+  if (pricePosition <= 20) return 90;
+  if (pricePosition <= 40) return 75;
+  if (pricePosition <= 60) return 55;
+  if (pricePosition <= 80) return 35;
+  return 20;
+}
+
+function scoreLiquidity(volumeRatio) {
+  if (!Number.isFinite(volumeRatio) || volumeRatio <= 0) return 40;
+  if (volumeRatio >= 2) return 100;
+  if (volumeRatio >= 1.2) return 80;
+  if (volumeRatio >= 0.8) return 60;
+  return 35;
+}
+
+function averageFinite(values) {
+  const finiteValues = values.filter((value) => Number.isFinite(value));
+  if (!finiteValues.length) return 50;
+  return finiteValues.reduce((total, value) => total + value, 0) / finiteValues.length;
 }
 
 function getTrendStatus(rsi, pricePosition) {

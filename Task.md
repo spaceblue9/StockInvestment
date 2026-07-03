@@ -191,7 +191,9 @@ Baseline เดิม: tag `think-md-v1.0.0`, commit `b8a6cb5`
 
 ### T2-06 - Add Derived Score Matrix
 
-- สถานะ: Pending
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-03 12:22:02 +07:00
+- เสร็จเมื่อ: 2026-07-03 12:25:02 +07:00
 - เป้าหมาย:
   - เพิ่มคะแนนแยกที่คำนวณจากข้อมูลเดิมก่อน:
     - `Quality_Score`
@@ -203,14 +205,53 @@ Baseline เดิม: tag `think-md-v1.0.0`, commit `b8a6cb5`
 - เงื่อนไข:
   - `Composite_Score_v2` เป็นข้อมูลประกอบเท่านั้น
   - ยังไม่ใช้แทน `Total_Score` จนกว่าจะผ่าน comparison/report
+- ผลลัพธ์:
+  - เพิ่ม `Quality_Score`, `Valuation_Score`, `Setup_Score`, `Balance_Risk_Score`, `Liquidity_Score`, `Composite_Score_v2`
+  - สูตรใช้เฉพาะข้อมูลที่มีอยู่แล้ว เช่น ROE, PE, Yield, D/E, RSI, Price Position และ Volume Ratio
+  - ส่งต่อ score matrix ไป Portfolio rows และ Excel report
+  - เพิ่ม tooltip สำหรับ score matrix fields
+  - เพิ่ม field optional ใน Recommended actions field picker
+  - เพิ่มคอลัมน์ `Quality_Score`, `Valuation_Score`, `Setup_Score` ใน Screener table เพื่ออ่านเหตุผลแยกมิติ
+  - bump frontend bundle เป็น `20260703-1224`
+  - ยืนยันว่า `Composite_Score_v2` ยังเป็น shadow/additive information และไม่แทน `Total_Score`
+- ทดสอบผ่าน:
+  - `node --check src/services/stockAnalysisService.js`
+  - `node --check src/services/portfolioService.js`
+  - `node --check src/public/app.js`
+  - `npm run test:think2-data-validation`
+  - `npm run test:frontend-viewport`
+  - `npm run test:web-smoke`
+  - `npm run test:analysis-portfolio-flow`
+  - `npm run compare:python`
+  - `npm run check`
+- งานถัดไป:
+  - `T2-07 - Add Beginner Explanation Cards`
 
 ### T2-07 - Add Beginner Explanation Cards
 
-- สถานะ: Pending
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-03 12:25:48 +07:00
+- เสร็จเมื่อ: 2026-07-03 12:28:15 +07:00
 - งานที่ต้องทำ:
-  - อธิบายคะแนนแต่ละมิติแบบภาษาคนทั่วไป
-  - แยก “หุ้นดี”, “ราคาน่าสนใจ”, “จังหวะเข้า”, “ความเสี่ยง”, “สภาพคล่อง”
-  - หลีกเลี่ยงการทำหน้าแน่นเกินไป
+  - [x] อธิบายคะแนนแต่ละมิติแบบภาษาคนทั่วไป
+  - [x] แยก “หุ้นดี”, “ราคาน่าสนใจ”, “จังหวะเข้า”, “ความเสี่ยง”, “สภาพคล่อง”
+  - [x] หลีกเลี่ยงการทำหน้าแน่นเกินไป
+- ผลลัพธ์:
+  - เพิ่ม `Score matrix แบบอ่านง่าย` บน Portfolio และ Screener เมื่อมี score matrix data
+  - การ์ดอธิบาย Quality, Valuation, Setup, Risk, Liquidity เป็นภาษาง่าย
+  - การ์ดย้ำว่า score matrix ยังไม่แทน `Total_Score` หรือ `Target_Action`
+  - เพิ่ม responsive CSS สำหรับจอแคบ
+  - bump frontend bundle เป็น `20260703-1227`
+- ทดสอบผ่าน:
+  - `node --check src/public/app.js`
+  - `npm run test:frontend-viewport`
+  - `npm run test:web-smoke`
+  - `npm run test:think2-data-validation`
+  - `npm run test:analysis-portfolio-flow`
+  - `npm run compare:python`
+  - `npm run check`
+- งานถัดไป:
+  - `T2-08 - Split Technical RRR and Fundamental RRR Placeholder`
 
 ## Phase 3 - Technical vs Fundamental RRR
 

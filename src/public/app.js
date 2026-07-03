@@ -25,7 +25,7 @@ const customerSnapshot = document.querySelector("#customerSnapshot");
 const plansList = document.querySelector("#plansList");
 const businessViewButton = document.querySelector("[data-view='business']");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20260703-1211";
+const frontendBuildVersion = "20260703-1227";
 
 const state = {
   user: null,
@@ -73,6 +73,10 @@ const recommendedActionFields = [
   { key: "Gain_Loss_Value", label: "Gain/Loss Value", default: false },
   { key: "Gain_Loss_Pct", label: "Gain/Loss %", default: true },
   { key: "Total_Score", label: "Score", default: true },
+  { key: "Quality_Score", label: "Quality", default: false },
+  { key: "Valuation_Score", label: "Valuation", default: false },
+  { key: "Setup_Score", label: "Setup", default: false },
+  { key: "Composite_Score_v2", label: "Composite v2", default: false },
   { key: "Conflict_Severity", label: "Conflict", default: true },
   { key: "Data_Status", label: "Data Status", default: false },
   { key: "Conflict_Alerts", label: "Conflict Alerts", default: false },
@@ -123,6 +127,42 @@ const tableColumnTips = {
     meaning: "คะแนนรวมจากพื้นฐาน ความคุ้มค่า ความเสี่ยง และจังหวะราคา ยิ่งสูงยิ่งผ่านเกณฑ์มากขึ้น",
     goodValue: "60+ เริ่มน่าสนใจ, 70+ คัดเข้มขึ้น, 80+ ถือว่าเด่นมากแต่ยังต้องตรวจข่าวและความเสี่ยง",
     caution: "คะแนนสูงไม่ใช่คำสั่งซื้ออัตโนมัติ ให้ดู RRR, D/E และ trend ประกอบ",
+  },
+  Quality_Score: {
+    title: "Quality Score",
+    meaning: "คะแนนคุณภาพธุรกิจจาก ROE และคุณภาพเทียบกลุ่ม แยกออกจากจังหวะราคา",
+    goodValue: "65+ เริ่มดี, 80+ เด่นขึ้น เหมาะใช้ดูว่าหุ้นเป็นธุรกิจที่ควรศึกษาไหม",
+    caution: "หุ้นคุณภาพดีไม่ได้แปลว่าราคาน่าซื้อทันที ต้องดู Valuation และ RRR ด้วย",
+  },
+  Valuation_Score: {
+    title: "Valuation Score",
+    meaning: "คะแนนความถูกแพงจาก P/E, yield และราคาเทียบ sector",
+    goodValue: "คะแนนสูงแปลว่าราคาดูน่าสนใจกว่า แต่ต้องไม่ใช่ value trap",
+    caution: "P/E ต่ำหรือ yield สูงอาจเกิดจากธุรกิจมีปัญหา ต้องดู Conflict Alerts",
+  },
+  Setup_Score: {
+    title: "Setup Score",
+    meaning: "คะแนนจังหวะเข้าโดยดู RSI และตำแหน่งราคาในกรอบ 52 สัปดาห์",
+    goodValue: "คะแนนสูงคือจังหวะดูน่าสนใจขึ้น แต่ควรใช้ร่วมกับ Quality",
+    caution: "RSI ต่ำหรือราคาใกล้ low ไม่ใช่สัญญาณซื้อเดี่ยวๆ",
+  },
+  Balance_Risk_Score: {
+    title: "Balance Risk Score",
+    meaning: "คะแนนความเสี่ยงจากหนี้ โดยใช้ D/E เป็นหลัก",
+    goodValue: "คะแนนสูงคือหนี้ดูปลอดภัยกว่า โดยเฉพาะสำหรับมือใหม่",
+    caution: "บาง sector เช่น ธนาคารมีโครงสร้างหนี้ต่างจากธุรกิจทั่วไป",
+  },
+  Liquidity_Score: {
+    title: "Liquidity Score",
+    meaning: "คะแนนสภาพคล่องและแรงยืนยันจาก volume เทียบค่าเฉลี่ย",
+    goodValue: "คะแนนสูงคือ volume ยืนยันมากขึ้นและซื้อขายง่ายขึ้น",
+    caution: "Volume spike ไม่ได้แปลว่าดีเสมอ ถ้าราคาลงแรงอาจเป็นแรงขาย",
+  },
+  Composite_Score_v2: {
+    title: "Composite Score v2",
+    meaning: "คะแนนรวมแบบ Think2 จาก Quality, Valuation, Setup, Balance Risk และ Liquidity",
+    goodValue: "ใช้เป็นภาพรวมเสริมเพื่ออ่านเหตุผลหลายมิติ",
+    caution: "Phase 2 ยังไม่ใช้คะแนนนี้แทน Total Score หรือ Target Action",
   },
   Data_Status: {
     title: "Data Status",
@@ -1244,6 +1284,7 @@ function renderPortfolioView() {
     </div>
     ${renderPortfolioDataWarning(rows)}
     ${renderThink2SafetySummary(rows, { context: "portfolio" })}
+    ${renderScoreMatrixGuide(rows)}
     ${renderPortfolioQuickGuidance({ gainLossPct, urgentRows, avgScore: average(rows, "Total_Score") })}
     ${renderPortfolioVisuals(rows)}
     <h3>Recommended actions</h3>
@@ -1295,6 +1336,58 @@ function renderThink2SafetySummary(rows, options = {}) {
         ${yellowCount ? `<span class="severity-badge severity-yellow">${formatNumber(yellowCount)} yellow</span>` : ""}
         ${dataErrorCount ? `<span class="status-badge status-error">${formatNumber(dataErrorCount)} data error</span>` : ""}
         ${reviewCount ? `<span class="status-badge status-review">${formatNumber(reviewCount)} review</span>` : ""}
+      </div>
+    </section>
+  `;
+}
+
+function renderScoreMatrixGuide(rows) {
+  if (!rows.length || !rows.some((row) => Number.isFinite(Number(row.Composite_Score_v2)))) {
+    return "";
+  }
+
+  const items = [
+    {
+      label: "Quality",
+      value: average(rows, "Quality_Score"),
+      text: "ธุรกิจดีไหม เช่น ROE และคุณภาพเทียบกลุ่ม",
+    },
+    {
+      label: "Valuation",
+      value: average(rows, "Valuation_Score"),
+      text: "ราคาดูน่าสนใจไหมเมื่อเทียบกำไร/ปันผล/กลุ่ม",
+    },
+    {
+      label: "Setup",
+      value: average(rows, "Setup_Score"),
+      text: "จังหวะราคาเป็นใจไหมจาก RSI และกรอบ 52 สัปดาห์",
+    },
+    {
+      label: "Risk",
+      value: average(rows, "Balance_Risk_Score"),
+      text: "หนี้และงบดุลดูปลอดภัยแค่ไหน",
+    },
+    {
+      label: "Liquidity",
+      value: average(rows, "Liquidity_Score"),
+      text: "มี volume ยืนยันและซื้อขายง่ายขึ้นไหม",
+    },
+  ];
+
+  return `
+    <section class="score-matrix-guide" data-score-matrix-guide>
+      <div class="score-matrix-intro">
+        <strong>Score matrix แบบอ่านง่าย</strong>
+        <span>คะแนนชุดนี้ช่วยแยกเหตุผล ไม่ได้แทน Total Score หรือ Target Action ในช่วงทดลอง Think2</span>
+      </div>
+      <div class="score-matrix-cards">
+        ${items.map((item) => `
+          <article class="score-matrix-card">
+            <span>${escapeHtml(item.label)}</span>
+            <strong>${formatNumber(item.value)}</strong>
+            <p>${escapeHtml(item.text)}</p>
+          </article>
+        `).join("")}
       </div>
     </section>
   `;
@@ -2654,6 +2747,7 @@ function renderScreenerView() {
       : `${formatNumber(rows.length)} stocks shown from the latest analysis with beginner defaults. Adjust filters if you want to broaden the list.`;
     document.querySelector("#screenerTable").innerHTML = `
       ${renderThink2SafetySummary(rows, { context: "screener" })}
+      ${renderScoreMatrixGuide(rows)}
       ${renderScreenerInsights(rows, { selectedSector: sectorFilter.value })}
       <p class="muted table-focus-status" data-stock-highlight-status>Click a stock in Quality vs reward or Top ideas to focus its table row.</p>
       ${renderTable(rows, [
@@ -2661,6 +2755,9 @@ function renderScreenerView() {
         "Sector",
         "Price",
         "Total_Score",
+        "Quality_Score",
+        "Valuation_Score",
+        "Setup_Score",
         "RRR",
         "Conflict_Severity",
         "Conflict_Alerts",

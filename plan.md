@@ -2306,6 +2306,81 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - งานถัดไปคือ `T2-06 - Add Derived Score Matrix`
   - Phase 2 ต้องเพิ่ม score matrix เป็น additive/shadow information เท่านั้น ห้ามใช้แทน `Total_Score` หรือเปลี่ยน action engine
 
+### T140 - Add Think2 Derived Score Matrix
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-03 12:22:02 +07:00
+- เสร็จเมื่อ: 2026-07-03 12:25:02 +07:00
+- เหตุผล:
+  - งานถัดไปใน `Task.md` คือ `T2-06 - Add Derived Score Matrix`
+  - ต้องแยกคะแนนเป็นมิติ Quality, Valuation, Setup, Balance Risk และ Liquidity เพื่อให้มือใหม่เข้าใจว่าหุ้นดีเพราะอะไรหรือเสี่ยงตรงไหน
+  - Phase 2 ต้องเป็น additive/shadow information เท่านั้น ห้ามใช้แทน `Total_Score` หรือเปลี่ยน action engine
+- งานที่ต้องทำ:
+  - [x] เพิ่ม `Quality_Score`, `Valuation_Score`, `Setup_Score`, `Balance_Risk_Score`, `Liquidity_Score`, `Composite_Score_v2`
+  - [x] ส่งต่อ score matrix ไป Portfolio report/rows โดยไม่เปลี่ยน `Advice`/`Target_Action`
+  - [x] เพิ่ม regression ยืนยัน score matrix และ action unchanged
+  - [x] เพิ่ม UI/tooltip markers ขั้นพื้นฐานหากจำเป็น
+  - [x] รันทดสอบสำคัญรวม `compare:python`
+  - [x] อัปเดต `Task.md` และ `plan.md`
+- ผลลัพธ์:
+  - `stockAnalysisService` เพิ่ม score matrix แบบ additive จากข้อมูลเดิมเท่านั้น
+  - `Composite_Score_v2` ใช้น้ำหนัก Think2: Quality 35%, Valuation 25%, Setup 15%, Balance Risk 15%, Liquidity 10%
+  - `portfolioService` ส่งต่อ score matrix และเพิ่มใน Excel report/guide
+  - Frontend เพิ่ม tooltip และ optional fields สำหรับ score matrix
+  - Screener table แสดง `Quality_Score`, `Valuation_Score`, `Setup_Score`
+  - bump frontend bundle เป็น `20260703-1224`
+  - ยังไม่เปลี่ยน `Total_Score`, `RRR`, `Advice`, `Target_Action` หรือ Simulation rules
+- ทดสอบผ่าน:
+  - `node --check src/services/stockAnalysisService.js`
+  - `node --check src/services/portfolioService.js`
+  - `node --check src/public/app.js`
+  - `npm run test:think2-data-validation`
+  - `npm run test:frontend-viewport`
+  - `npm run test:web-smoke`
+  - `npm run test:analysis-portfolio-flow`
+  - `npm run compare:python`
+  - `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md`, `Task.md`, `think.md`, และ `Think2.md` ก่อนเริ่มงานเสมอ
+  - T2-06 เสร็จแล้ว
+  - งานถัดไปคือ `T2-07 - Add Beginner Explanation Cards`
+  - ห้ามใช้ `Composite_Score_v2` แทน `Total_Score` หรือเปลี่ยน action engine จนกว่าจะถึง shadow/action-matrix phase
+
+### T141 - Add Beginner Explanation Cards for Score Matrix
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-03 12:25:48 +07:00
+- เสร็จเมื่อ: 2026-07-03 12:28:15 +07:00
+- เหตุผล:
+  - งานถัดไปใน `Task.md` คือ `T2-07 - Add Beginner Explanation Cards`
+  - เพิ่ม score matrix แล้ว ต้องมีคำอธิบายที่มือใหม่เข้าใจว่าแต่ละคะแนนแปลว่าอะไร
+  - ต้องไม่ทำให้หน้า Portfolio/Screener รกเกินไป
+- งานที่ต้องทำ:
+  - [x] เพิ่มการ์ดอธิบาย Quality/Valuation/Setup/Risk/Liquidity แบบภาษาง่าย
+  - [x] วางบน Screener/Portfolio เฉพาะเมื่อมีข้อมูล analysis
+  - [x] เพิ่ม regression markers
+  - [x] รันทดสอบ frontend/web smoke และ regression ที่เกี่ยวข้อง
+  - [x] อัปเดต `Task.md` และ `plan.md`
+- ผลลัพธ์:
+  - เพิ่ม `Score matrix แบบอ่านง่าย` บน Portfolio และ Screener
+  - การ์ดอธิบาย Quality/Valuation/Setup/Risk/Liquidity เป็นภาษาง่าย
+  - UI ย้ำว่า score matrix ยังไม่แทน `Total_Score` หรือ `Target_Action`
+  - เพิ่ม responsive CSS และ regression markers
+  - bump frontend bundle เป็น `20260703-1227`
+- ทดสอบผ่าน:
+  - `node --check src/public/app.js`
+  - `npm run test:frontend-viewport`
+  - `npm run test:web-smoke`
+  - `npm run test:think2-data-validation`
+  - `npm run test:analysis-portfolio-flow`
+  - `npm run compare:python`
+  - `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md`, `Task.md`, `think.md`, และ `Think2.md` ก่อนเริ่มงานเสมอ
+  - T2-07 เสร็จแล้ว
+  - งานถัดไปคือ `T2-08 - Split Technical RRR and Fundamental RRR Placeholder`
+  - ห้ามสร้าง fundamental target ปลอมจากข้อมูลไม่พอ
+
 ### T134 - Freeze Think.md Version Before Think2 Planning
 
 - สถานะ: Done

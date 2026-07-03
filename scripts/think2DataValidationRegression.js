@@ -84,6 +84,13 @@ assertEqual(validAnalysis.Data_Status, "VALID", "Complete normal market data sho
 assertEqual(validAnalysis.Data_Warnings, "", "VALID rows should not include warning text.");
 assert(Number.isFinite(validAnalysis.Total_Score), "Data validation must not remove Total_Score.");
 assert(Number.isFinite(validAnalysis.RRR), "Data validation must not remove RRR.");
+assertScoreBetween(validAnalysis.Quality_Score, "Quality_Score");
+assertScoreBetween(validAnalysis.Valuation_Score, "Valuation_Score");
+assertScoreBetween(validAnalysis.Setup_Score, "Setup_Score");
+assertScoreBetween(validAnalysis.Balance_Risk_Score, "Balance_Risk_Score");
+assertScoreBetween(validAnalysis.Liquidity_Score, "Liquidity_Score");
+assertScoreBetween(validAnalysis.Composite_Score_v2, "Composite_Score_v2");
+assert(validAnalysis.Composite_Score_v2 !== validAnalysis.Total_Score, "Composite_Score_v2 should be a separate shadow score, not a duplicate Total_Score.");
 
 const reviewAnalysis = analyzeStockRow(reviewRow, stats);
 assertEqual(reviewAnalysis.Data_Status, "REVIEW_REQUIRED", "Warnings without hard errors should require review.");
@@ -146,6 +153,8 @@ const holdingWithReviewMarket = analyzeHolding(
 assertEqual(holdingWithReviewMarket.Data_Status, "REVIEW_REQUIRED", "Portfolio rows should keep market data status.");
 assertEqual(holdingWithReviewMarket.Conflict_Severity, "ORANGE", "Portfolio rows should keep market conflict severity.");
 assertIncludes(holdingWithReviewMarket.Conflict_Alerts, "UNKNOWN_SECTOR", "Portfolio rows should keep market conflict alerts.");
+assertScoreBetween(holdingWithReviewMarket.Quality_Score, "Portfolio Quality_Score");
+assertScoreBetween(holdingWithReviewMarket.Composite_Score_v2, "Portfolio Composite_Score_v2");
 assertEqual(holdingWithReviewMarket.Advice, "Buy More", "Phase 1 validation must not change existing Advice logic.");
 assertEqual(holdingWithReviewMarket.Target_Action, "Buy Now (Good RRR)", "Phase 1 validation must not change existing Target_Action logic.");
 
@@ -158,6 +167,7 @@ console.log(JSON.stringify({
     "recommendation-row-preservation",
     "portfolio-data-status",
     "conflict-alerts",
+    "derived-score-matrix",
     "phase-one-action-unchanged",
   ],
 }, null, 2));
@@ -178,4 +188,9 @@ function assertIncludes(text, expected, message) {
   if (!String(text || "").includes(expected)) {
     throw new Error(`${message} Expected ${JSON.stringify(text)} to include ${JSON.stringify(expected)}.`);
   }
+}
+
+function assertScoreBetween(value, label) {
+  assert(Number.isFinite(value), `${label} should be a finite number.`);
+  assert(value >= 0 && value <= 100, `${label} should stay within 0-100. Got ${value}.`);
 }
