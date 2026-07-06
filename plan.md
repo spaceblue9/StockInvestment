@@ -2705,23 +2705,24 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 - งานที่ต้องทำ:
   - [x] ตรวจ working tree, remote, branch และ tag
   - [ ] Push branch ปัจจุบันไป `origin`
-  - [ ] Push tag `think2-beta-v0.1.0` ไป `origin`
+  - [x] Push tag `think2-beta-v0.1.0` ไป `origin`
   - [x] ตรวจสถานะหลัง push attempt
   - [x] อัปเดต `Task.md` และ `plan.md` หลัง push attempt
 - สถานะล่าสุด:
+  - 2026-07-06: เอก push tag สำเร็จแล้ว: `think2-beta-v0.1.0 -> think2-beta-v0.1.0`
   - Push branch ไม่สำเร็จ เพราะ GitHub HTTPS ขอ credential แล้ว dialog ถูก cancel/ไม่มี TTY
   - Error: `fatal: could not read Username for 'https://github.com/spaceblue9/StockInvestment.git': No such file or directory`
   - Local branch ปัจจุบัน: `codex/think2-safety-layer-planning`
-  - Local HEAD: `9334125 Document Think2 beta push task`
+  - Local HEAD: `fe8beb8 Document Think2 beta push blocker`
   - Local tag: `think2-beta-v0.1.0` ชี้ `b6c2feb Add Think2 beta decision foundation`
   - Working tree สะอาดหลัง push attempt ก่อนอัปเดต ledger
 - คำสั่งทำต่อเมื่อ GitHub credential พร้อม:
   - `git push -u origin codex/think2-safety-layer-planning`
-  - `git push origin think2-beta-v0.1.0`
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md`, `Task.md`, `docs/THINK2_BETA_RELEASE.md`
-  - T2-16 ถูก block ที่ GitHub credential
-  - หลัง credential พร้อม ให้ push เฉพาะ branch `codex/think2-safety-layer-planning` และ tag `think2-beta-v0.1.0`
+  - T2-16 ยังถูก block เฉพาะ branch push ที่ GitHub credential
+  - tag `think2-beta-v0.1.0` push สำเร็จแล้ว
+  - หลัง credential พร้อม ให้ push เฉพาะ branch `codex/think2-safety-layer-planning`
   - ห้าม merge เข้า `main` และห้ามเปิด PR เว้นแต่เอกสั่ง
 
 ### T134 - Freeze Think.md Version Before Think2 Planning

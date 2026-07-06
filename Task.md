@@ -525,17 +525,17 @@ Baseline เดิม: tag `think-md-v1.0.0`, commit `b8a6cb5`
 - งานที่ต้องทำ:
   - [x] ตรวจ working tree, remote, branch และ tag
   - [ ] Push branch ปัจจุบันไป `origin`
-  - [ ] Push tag `think2-beta-v0.1.0` ไป `origin`
+  - [x] Push tag `think2-beta-v0.1.0` ไป `origin`
   - [x] ตรวจสถานะหลัง push attempt
   - [x] อัปเดต `plan.md` หลัง push attempt
 - สถานะล่าสุด:
+  - 2026-07-06: เอก push tag สำเร็จแล้ว: `think2-beta-v0.1.0 -> think2-beta-v0.1.0`
   - Push branch ไม่สำเร็จ เพราะ GitHub HTTPS ขอ credential แล้ว dialog ถูก cancel/ไม่มี TTY
   - Error: `fatal: could not read Username for 'https://github.com/spaceblue9/StockInvestment.git': No such file or directory`
   - Local branch และ local tag ยังอยู่ครบ
   - Working tree สะอาดหลัง push attempt
 - คำสั่งทำต่อเมื่อ GitHub credential พร้อม:
   - `git push -u origin codex/think2-safety-layer-planning`
-  - `git push origin think2-beta-v0.1.0`
 
 ## AI Prompt สำหรับทำต่อ
 
