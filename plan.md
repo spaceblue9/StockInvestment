@@ -44,6 +44,40 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T153 - ตรวจและแก้ Layout หน้า Screener
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-06 15:29:51 +07:00
+- เสร็จเมื่อ: 2026-07-06 15:35:22 +07:00
+- เหตุผล:
+  - เอกแจ้งว่าหน้า Screener มีหน้าตา/layout ผิดปกติ
+  - ต้องตรวจจากหน้าจอจริงและโค้ด frontend ก่อนแก้ เพื่อไม่ทำให้หน้าอื่นพัง
+- งานที่ต้องทำ:
+  - [x] ตรวจไฟล์ frontend ที่เกี่ยวกับ Screener
+  - [x] รันหรือเปิด Web App เพื่อตรวจ layout หน้า Screener
+  - [x] แก้ CSS/HTML/JS เฉพาะจุดที่ทำให้ layout ผิดปกติ
+  - [x] รัน regression ที่เกี่ยวข้อง
+  - [x] อัปเดต `plan.md` พร้อมผลลัพธ์และเวลาปิดงาน
+- สาเหตุ:
+  - หน้า Screener กว้างล้น viewport เพราะ grid หลักและ panel ฝั่ง workspace ไม่มี `min-width: 0`
+  - content ภายใน Screener เช่น filter grid, visual grid, chart panel และ table ทำให้คอลัมน์ `1fr` ของ workspace ไม่ยอม shrink
+- วิธีแก้:
+  - ปรับ `src/public/styles.css` ให้ `.app-shell`, `.workspace`, `.panel`, `.output-box`, `.visual-grid`, `.table-wrap` จำกัดความกว้างและ shrink ได้ถูกต้อง
+  - เปลี่ยน `.view-grid` ให้ใช้ `auto-fit` แทนจำนวนคอลัมน์ตายตัว
+  - เปลี่ยน `.visual-grid.two-columns` เป็น `minmax(0, 1fr)` เพื่อไม่ดันหน้าออกนอกจอ
+- ผลตรวจ:
+  - ก่อนแก้: Screener `#viewOutput` กว้างประมาณ 2139px ใน viewport 1265px และมี horizontal overflow
+  - หลังแก้: `pageWidth` เท่ากับ viewport 1265px, ไม่มี horizontal page overflow, chart panel อยู่ในพื้นที่ workspace, table scroll เฉพาะภายใน `table-wrap`
+  - Screenshot browser ยืนยันว่า filter และ Quality vs reward chart ไม่ดัน layout ออกนอกจอ
+- Regression:
+  - `npm run test:frontend-viewport` ผ่าน
+  - `npm run test:web-smoke` ผ่าน
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ
+  - T153 เสร็จแล้ว งานแก้ layout อยู่ที่ `src/public/styles.css`
+  - ห้ามลบ `plan.md`
+  - ระวังไม่ให้แก้ logic วิเคราะห์หุ้นโดยไม่จำเป็น งานนี้แก้เฉพาะ layout/UX หน้า Screener
+
 ### T00 - เตรียม branch สำหรับงาน migration
 
 - สถานะ: Done

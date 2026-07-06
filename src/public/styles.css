@@ -97,6 +97,7 @@ h3 {
   gap: 18px;
   grid-template-columns: minmax(300px, 380px) 1fr;
   padding: 22px;
+  min-width: 0;
 }
 
 .left-rail,
@@ -105,6 +106,7 @@ h3 {
   align-items: start;
   display: grid;
   gap: 16px;
+  min-width: 0;
 }
 
 .panel,
@@ -113,6 +115,7 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 8px;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+  min-width: 0;
   padding: 18px;
 }
 
@@ -626,12 +629,14 @@ td select {
 .dashboard-panel .section-title {
   justify-content: space-between;
   margin-bottom: 16px;
+  min-width: 0;
 }
 
 .view-grid {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(7, minmax(90px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  min-width: min(100%, 520px);
 }
 
 .view-grid button {
@@ -647,7 +652,10 @@ td select {
   background: rgba(0, 0, 0, 0.28);
   border: 1px solid var(--line);
   border-radius: 8px;
+  max-width: 100%;
   min-height: 260px;
+  min-width: 0;
+  overflow: hidden;
   padding: 14px;
 }
 
@@ -1288,10 +1296,11 @@ td select {
   gap: 12px;
   grid-template-columns: repeat(3, minmax(180px, 1fr));
   margin-bottom: 16px;
+  min-width: 0;
 }
 
 .visual-grid.two-columns {
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .chart-panel {
@@ -1989,6 +1998,8 @@ td select {
   border: 1px solid var(--line);
   border-radius: 8px;
   max-height: 560px;
+  max-width: 100%;
+  min-width: 0;
   overflow: auto;
 }
 
