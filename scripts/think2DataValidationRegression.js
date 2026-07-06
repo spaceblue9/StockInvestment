@@ -89,6 +89,9 @@ assertEqual(validAnalysis.Fundamental_RRR, null, "Fundamental_RRR should remain 
 assertEqual(validAnalysis.Fundamental_RRR_Status, "INSUFFICIENT_DATA", "Fundamental_RRR_Status should clearly state insufficient data.");
 assertEqual(validAnalysis.Fundamental_RRR_Source, "not_available", "Fundamental_RRR_Source should not claim a fake data source.");
 assertIncludes(validAnalysis.Fundamental_RRR_Note, "fair value", "Fundamental_RRR_Note should explain missing fair value data.");
+assert(validAnalysis.Action_v2_Shadow, "Stock analysis should include a shadow Action Matrix v2 result.");
+assert(validAnalysis.Action_v2_Rationale, "Shadow Action Matrix v2 should explain its rationale.");
+assertEqual(validAnalysis.Action_v2_Risk_Block, "NONE", "Valid rows without RED conflict should not be risk-blocked in shadow mode.");
 assertScoreBetween(validAnalysis.Quality_Score, "Quality_Score");
 assertScoreBetween(validAnalysis.Valuation_Score, "Valuation_Score");
 assertScoreBetween(validAnalysis.Setup_Score, "Setup_Score");
@@ -111,6 +114,8 @@ const errorAnalysis = analyzeStockRow(errorRow, stats);
 assertEqual(errorAnalysis.Data_Status, "DATA_ERROR", "Invalid price or 52-week range should be DATA_ERROR.");
 assertIncludes(errorAnalysis.Data_Warnings, "Price is missing or not positive", "Hard price errors should be explained.");
 assertIncludes(errorAnalysis.Data_Warnings, "52-week high/low is missing or invalid", "Hard 52W errors should be explained.");
+assertEqual(errorAnalysis.Action_v2_Shadow, "BLOCKED_DATA_ERROR_SHADOW", "Action Matrix v2 should block DATA_ERROR rows in shadow mode.");
+assertEqual(errorAnalysis.Action_v2_Risk_Block, "DATA_ERROR", "DATA_ERROR rows should expose the shadow risk block.");
 
 const highRrrLowScoreAnalysis = analyzeStockRow(highRrrLowScoreRow, stats);
 assertEqual(highRrrLowScoreAnalysis.Conflict_Severity, "ORANGE", "High RRR with low score should be ORANGE.");
@@ -141,6 +146,10 @@ assertIncludes(holdingWithoutMarket.Data_Warnings, "No market data", "Missing ma
 assertEqual(holdingWithoutMarket.Fundamental_RRR_Status, "INSUFFICIENT_DATA", "Missing market rows should not fake Fundamental RRR.");
 assertEqual(holdingWithoutMarket.Conflict_Severity, "RED", "Missing market rows should carry a RED conflict.");
 assertIncludes(holdingWithoutMarket.Conflict_Alerts, "MISSING_MARKET_DATA", "Missing market conflict should be present.");
+assertEqual(holdingWithoutMarket.Action_v2_Shadow, "BLOCKED_DATA_ERROR_SHADOW", "Missing market rows should block shadow action.");
+assertEqual(holdingWithoutMarket.Action_v2_Change, "SAME_FAMILY", "Missing market shadow action should stay in the blocked/no-data family.");
+assertEqual(holdingWithoutMarket.Decision_Engine_Mode, "shadow", "Missing market rows should still expose safe default decision mode.");
+assertEqual(holdingWithoutMarket.Effective_Target_Action, "No Data", "Missing market effective action should remain No Data.");
 assertEqual(holdingWithoutMarket.Target_Action, "No Data", "Missing market action should remain unchanged.");
 
 const holdingWithReviewMarket = analyzeHolding(
@@ -164,6 +173,12 @@ assertScoreBetween(holdingWithReviewMarket.Quality_Score, "Portfolio Quality_Sco
 assertScoreBetween(holdingWithReviewMarket.Composite_Score_v2, "Portfolio Composite_Score_v2");
 assertEqual(holdingWithReviewMarket.Technical_RRR, holdingWithReviewMarket.RRR, "Portfolio Technical_RRR should mirror legacy RRR during placeholder phase.");
 assertEqual(holdingWithReviewMarket.Fundamental_RRR_Status, "INSUFFICIENT_DATA", "Portfolio rows should keep Fundamental RRR placeholder status.");
+assert(holdingWithReviewMarket.Action_v2_Shadow, "Portfolio rows should include Action_v2_Shadow.");
+assert(holdingWithReviewMarket.Action_v2_Change, "Portfolio rows should compare legacy action and shadow action.");
+assertIncludes(holdingWithReviewMarket.Action_v2_Rationale, "shadow", "Portfolio shadow action rationale should clearly state shadow mode when fundamental RRR is missing.");
+assertEqual(holdingWithReviewMarket.Decision_Engine_Mode, "shadow", "Default decision engine mode should be shadow.");
+assertEqual(holdingWithReviewMarket.Effective_Target_Action, holdingWithReviewMarket.Target_Action, "Default effective action must equal legacy Target_Action.");
+assertEqual(holdingWithReviewMarket.Effective_Action_Source, "legacy", "Default effective action source must remain legacy.");
 assertEqual(holdingWithReviewMarket.Advice, "Buy More", "Phase 1 validation must not change existing Advice logic.");
 assertEqual(holdingWithReviewMarket.Target_Action, "Buy Now (Good RRR)", "Phase 1 validation must not change existing Target_Action logic.");
 
@@ -178,6 +193,8 @@ console.log(JSON.stringify({
     "conflict-alerts",
     "derived-score-matrix",
     "technical-fundamental-rrr-placeholder",
+    "action-matrix-v2-shadow",
+    "decision-engine-feature-flag-default-safe",
     "phase-one-action-unchanged",
   ],
 }, null, 2));

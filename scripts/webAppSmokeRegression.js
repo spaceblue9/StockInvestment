@@ -20,6 +20,8 @@ try {
   const health = await getJson(`${baseUrl}/api/health`);
   assertEqual(health.ok, true, "Health endpoint should return ok true.");
   assertEqual(health.migration, "node-web-app", "Health endpoint should expose migration marker.");
+  assertEqual(health.decisionEngine?.mode, "shadow", "Health endpoint should expose safe default Think2 decision mode.");
+  assertEqual(health.decisionEngine?.think2DecisionEnabled, false, "Think2 decision engine should be disabled by default.");
 
   const me = await getJson(`${baseUrl}/api/auth/me`);
   assertEqual(me.ok, true, "Auth me endpoint should be reachable.");
@@ -113,7 +115,7 @@ try {
     "Sign in before downloading templates, browsing files, or running analysis.",
     "Simulation",
     "data-frontend-version",
-    "/app.js?v=20260703-1234",
+    "/app.js?v=20260706-0758",
   ], "Main HTML should expose the dashboard navigation.");
   assert(!html.includes('data-view="onboarding"'), "Launch navigation should not expose the hidden Guide view.");
   assert(!html.includes('data-view="approvals"'), "Launch navigation should not expose the deferred Approvals view.");
@@ -145,7 +147,7 @@ try {
     "Sign in to analyze",
     "Create an account or sign in before downloading templates",
     "frontendBuildVersion",
-    "20260703-1234",
+    "20260706-0758",
     "canRunPortfolioAnalysis",
     "analysisPackageRequiredMessage",
     "Portfolio analysis requires Starter or Pro",
@@ -185,6 +187,17 @@ try {
     "Fundamental_RRR_Note",
     "Fundamental RRR Status",
     "INSUFFICIENT_DATA",
+    "Action_v2_Shadow",
+    "Action_v2_Confidence",
+    "Action_v2_Risk_Block",
+    "Action_v2_Change",
+    "Action_v2_Rationale",
+    "Action v2 Shadow",
+    "Decision_Engine_Mode",
+    "Effective_Target_Action",
+    "Effective_Action_Source",
+    "Decision Engine Mode",
+    "Effective Target Action",
     "data-score-matrix-guide",
     "Score matrix แบบอ่านง่าย",
     "ไม่ได้แทน Total Score หรือ Target Action",

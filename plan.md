@@ -2458,6 +2458,214 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - งานถัดไปคือ `T2-10 - Build Action Matrix in Shadow Mode`
   - ห้ามเปิดใช้ Action v2 จริง ต้องทำเป็น shadow field และ comparison ก่อน
 
+### T144 - Build Action Matrix in Shadow Mode
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-06 07:42:32 +07:00
+- เสร็จเมื่อ: 2026-07-06 07:47:46 +07:00
+- เหตุผล:
+  - งานถัดไปใน `Task.md` คือ `T2-10 - Build Action Matrix in Shadow Mode`
+  - Think2 ต้องใช้ action matrix แทนการพึ่ง `Total_Score` อย่างเดียว แต่ยังไม่ควรเปิดใช้จริงทันที
+  - ต้องเทียบ action เดิมกับ action v2 ก่อน เพื่อป้องกันโปรแกรมพังหรือเปลี่ยนคำแนะนำกับผู้ใช้โดยไม่รู้ตัว
+- งานที่ต้องทำ:
+  - [x] เพิ่ม action matrix service/helper แบบ shadow-only ตาม Think2
+  - [x] ส่งต่อ `Action_v2_Shadow`, เหตุผล, risk block และ comparison ไปยัง portfolio/report
+  - [x] เพิ่ม UI/debug fields สำหรับ owner/admin โดยไม่เปิดใช้เป็น action จริง
+  - [x] เพิ่ม regression ยืนยันว่า `Advice` และ `Target_Action` เดิมไม่เปลี่ยน
+  - [x] รันทดสอบสำคัญและอัปเดตผลลัพธ์
+- ผลลัพธ์:
+  - เพิ่ม `src/services/actionMatrixService.js` เพื่อคำนวณ Action Matrix v2 แบบ shadow-only
+  - เพิ่ม fields: `Action_v2_Shadow`, `Action_v2_Confidence`, `Action_v2_Risk_Block`, `Action_v2_Change`, `Action_v2_Rationale`
+  - ส่งต่อ field ใหม่เข้า stock analysis, portfolio rows, Portfolio Excel report และ UI field picker
+  - เพิ่ม tooltip/hint ให้เข้าใจว่า Action v2 ยังเป็นโหมดทดลอง ไม่ใช่คำแนะนำจริง
+  - `Advice` และ `Target_Action` เดิมยังทำงานเหมือนเดิม
+  - bump frontend bundle เป็น `20260706-0748`
+- ทดสอบผ่าน:
+  - `node --check src/services/actionMatrixService.js`
+  - `node --check src/services/stockAnalysisService.js`
+  - `node --check src/services/portfolioService.js`
+  - `node --check src/public/app.js`
+  - `npm run test:think2-data-validation`
+  - `npm run test:frontend-viewport`
+  - `npm run test:web-smoke`
+  - `npm run test:analysis-portfolio-flow`
+  - `npm run compare:python`
+  - `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md`, `Task.md`, `think.md`, และ `Think2.md` ก่อนเริ่มงานเสมอ
+  - T2-10 เสร็จแล้ว
+  - งานถัดไปคือ `T2-11 - Compare Think.md Action vs Think2 Shadow Action`
+  - ห้ามใช้ `Action_v2_Shadow` แทน `Target_Action`
+  - ต้องสร้าง comparison report ให้เอกรีวิวก่อนเปิดใช้ Think2 action จริง
+
+### T145 - Compare Think.md Action vs Think2 Shadow Action
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-06 07:49:32 +07:00
+- เสร็จเมื่อ: 2026-07-06 07:53:26 +07:00
+- เหตุผล:
+  - งานถัดไปใน `Task.md` คือ `T2-11 - Compare Think.md Action vs Think2 Shadow Action`
+  - หลังมี `Action_v2_Shadow` ต้องมี report เปรียบเทียบก่อนตัดสินใจเปิดใช้ Think2 action จริง
+  - เอกต้องเห็นจำนวน action ที่เปลี่ยน, จุดที่ถูก block ด้วย RED/DATA_ERROR และตัวอย่างหุ้นที่ควรรีวิว
+- งานที่ต้องทำ:
+  - [x] เพิ่ม service/report สำหรับสรุป legacy `Target_Action` เทียบกับ `Action_v2_Shadow`
+  - [x] เพิ่ม CLI เพื่อสร้าง JSON/text report จาก portfolio analysis report
+  - [x] เพิ่ม regression ตรวจ summary, changed action, risk block และ buy-block cases
+  - [x] รันทดสอบสำคัญและอัปเดตผลลัพธ์
+- ผลลัพธ์:
+  - เพิ่ม `actionMatrixComparisonService` สำหรับสรุป legacy action family เทียบกับ Think2 shadow action family
+  - เพิ่ม CLI `npm run action:compare` โดย default อ่าน `data/outputs/portfolio_regression_compare_analysis_report.xlsx`
+  - CLI รองรับทั้ง `.xlsx` และ `.csv` แต่การเทียบ action ควรใช้ portfolio report ที่มี `Target_Action`
+  - เพิ่ม `test:action-matrix-comparison` และเพิ่มเข้า `test-regression`
+  - report ล่าสุด: rows 5, changed action family 2 (40.00%), risk blocked 0, RED blocked legacy buy 0, DATA_ERROR blocked 0
+  - sample ที่เปลี่ยน: `SISB` และ `MTC` จาก `Buy Now (Good RRR)` ไปเป็น `REVIEW_BALANCE_RISK_SHADOW`
+  - recommendation ล่าสุด: ยังควรเก็บ Think2 เป็น shadow mode เพราะ action เปลี่ยนกลุ่มหลายตัวใน sample
+- ทดสอบผ่าน:
+  - `node --check src/services/actionMatrixComparisonService.js`
+  - `node --check scripts/actionMatrixComparisonReport.js`
+  - `node --check scripts/actionMatrixComparisonRegression.js`
+  - `npm run test:action-matrix-comparison`
+  - `npm run action:compare -- --format text`
+  - `npm run test:think2-data-validation`
+  - `npm run test:analysis-portfolio-flow`
+  - `npm run test:frontend-viewport`
+  - `npm run test:web-smoke`
+  - `npm run compare:python`
+  - `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md`, `Task.md`, `think.md`, และ `Think2.md` ก่อนเริ่มงานเสมอ
+  - T2-11 เสร็จแล้ว
+  - งานถัดไปคือ `T2-12 - Add Feature Flag for Think2 Decision Engine`
+  - comparison report ต้องเป็นข้อมูลรีวิวเท่านั้น ห้ามเปลี่ยน action จริง
+  - ถ้าทำ T2-12 ให้ default ปิด Think2 decision engine ไว้ และเปิดเฉพาะ feature flag/owner setting เท่านั้น
+
+### T146 - Add Feature Flag for Think2 Decision Engine
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-06 07:55:12 +07:00
+- เสร็จเมื่อ: 2026-07-06 07:59:40 +07:00
+- เหตุผล:
+  - งานถัดไปใน `Task.md` คือ `T2-12 - Add Feature Flag for Think2 Decision Engine`
+  - หลังมี shadow action และ comparison report ต้องมี feature flag ก่อนเปิด Think2 decision engine จริง
+  - ค่า default ต้องไม่เปลี่ยนผลลัพธ์ผู้ใช้ และ rollback ต้องง่ายด้วย env/config
+- งานที่ต้องทำ:
+  - [x] เพิ่ม feature flag service สำหรับ `THINK2_DECISION_ENGINE=off|shadow|enabled`
+  - [x] เพิ่ม effective action field โดย default ยังเท่ากับ `Target_Action`
+  - [x] เปิด Think2 action จริงได้เฉพาะเมื่อตั้ง flag เป็น `enabled`
+  - [x] แสดงสถานะ flag ใน health/UI/debug โดยไม่ทำให้ผู้ใช้ทั่วไปสับสน
+  - [x] เพิ่ม regression ตรวจ default/shadow และ enabled mode
+  - [x] รันทดสอบสำคัญและอัปเดตผลลัพธ์
+- ผลลัพธ์:
+  - เพิ่ม `decisionEngineConfigService` เป็น feature flag กลาง
+  - รองรับ env `THINK2_DECISION_ENGINE=off|shadow|enabled`
+  - default mode คือ `shadow` เพื่อแสดงข้อมูลทดลอง แต่ `think2DecisionEnabled=false`
+  - เพิ่ม `Decision_Engine_Mode`, `Effective_Target_Action`, `Effective_Action_Source`, `Decision_Engine_Warning` ใน portfolio report
+  - default/shadow/off ยังใช้ legacy `Target_Action` เป็น effective action
+  - `enabled` ใช้ `Action_v2_Shadow` เป็น effective action แต่ไม่ mutate `Target_Action`
+  - `/api/health` expose decision engine config สำหรับ owner/admin/debug
+  - UI field picker/tooltip รองรับ field ใหม่ และ bump bundle เป็น `20260706-0758`
+  - เพิ่ม `test:decision-engine-flag` และใส่เข้า `test-regression`
+- ทดสอบผ่าน:
+  - `node --check src/services/decisionEngineConfigService.js`
+  - `node --check src/services/portfolioService.js`
+  - `node --check src/server.js`
+  - `node --check scripts/decisionEngineFeatureFlagRegression.js`
+  - `npm run test:decision-engine-flag`
+  - `npm run test:think2-data-validation`
+  - `npm run test:action-matrix-comparison`
+  - `npm run test:frontend-viewport`
+  - `npm run test:web-smoke`
+  - `npm run test:analysis-portfolio-flow`
+  - `npm run compare:python`
+  - `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md`, `Task.md`, `think.md`, และ `Think2.md` ก่อนเริ่มงานเสมอ
+  - T2-12 เสร็จแล้ว
+  - งานถัดไปคือ `T2-13 - Release Think2 Beta`
+  - ก่อน release ต้องรัน regression, สรุป comparison report, ระบุ rollback tag/branch และย้ำว่า default ยังไม่แทน legacy action
+
+### T147 - Release Think2 Beta
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-06 08:04:32 +07:00
+- เสร็จเมื่อ: 2026-07-06 08:07:04 +07:00
+- เหตุผล:
+  - งานถัดไปใน `Task.md` คือ `T2-13 - Release Think2 Beta`
+  - ตอนนี้ safety layer, score matrix, RRR split, action shadow, comparison report และ feature flag พร้อมแล้ว
+  - ก่อนเรียกว่า beta ต้องมี release note/runbook ที่บอกวิธีเปิด, วิธีปิด, regression gate และ rollback baseline ชัดเจน
+- งานที่ต้องทำ:
+  - [x] เพิ่มเอกสาร Think2 Beta release note/runbook
+  - [x] ระบุ feature flag, default mode, วิธีเปิด beta และวิธี rollback
+  - [x] สรุป comparison report ล่าสุดและข้อควรระวัง
+  - [x] รันทดสอบ release gate ที่เกี่ยวข้อง
+  - [x] อัปเดต `Task.md` และ `plan.md`
+- ผลลัพธ์:
+  - เพิ่ม `docs/THINK2_BETA_RELEASE.md` เป็น beta release runbook
+  - เอกสารย้ำว่า `Target_Action` ไม่ถูก mutate และ default ยังใช้ legacy action
+  - ระบุ feature flag `THINK2_DECISION_ENGINE=off|shadow|enabled`
+  - ระบุ fast rollback ด้วย `THINK2_DECISION_ENGINE=off` หรือ `shadow`
+  - ระบุ code rollback baseline เป็น tag `think-md-v1.0.0` commit `b8a6cb5`
+  - ระบุ release gate commands และข้อห้ามเปิด Think2 เป็น default production engine
+  - เพิ่ม regression `scripts/think2BetaReleaseRegression.js`
+  - เพิ่ม npm script `test:think2-beta-release` และใส่เข้า `test-regression`
+  - comparison ล่าสุด: rows 5, changed action family 2 (40.00%), risk blocked 0, RED blocked legacy buy 0, DATA_ERROR blocked 0
+  - ยังไม่สร้าง tag ใหม่ เพราะงาน T2-10 ถึง T2-13 ยังไม่ได้ commit
+- ทดสอบผ่าน:
+  - `node --check scripts/think2BetaReleaseRegression.js`
+  - `npm run test:think2-beta-release`
+  - `npm run test:decision-engine-flag`
+  - `npm run test:action-matrix-comparison`
+  - `npm run test:think2-data-validation`
+  - `npm run test:frontend-viewport`
+  - `npm run test:web-smoke`
+  - `npm run test:analysis-portfolio-flow`
+  - `npm run compare:python`
+  - `npm run action:compare -- --format text`
+  - `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md`, `Task.md`, `think.md`, และ `Think2.md` ก่อนเริ่มงานเสมอ
+  - T2-13 เสร็จแล้ว
+  - Phase Think2 safety/beta planning เสร็จครบถึง controlled rollout foundation
+  - ขั้นถัดไปควร commit งาน T2-10 ถึง T2-13 ก่อน แล้วค่อยสร้าง tag beta หากเอกต้องการ
+  - ห้ามเปิด `THINK2_DECISION_ENGINE=enabled` ให้ผู้ใช้จริงจนกว่าเอก review comparison report และ approve
+
+### T148 - Package Think2 Beta Foundation Commit
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-06 08:08:42 +07:00
+- เสร็จเมื่อ: 2026-07-06 08:10:32 +07:00
+- เหตุผล:
+  - งาน T2-10 ถึง T2-13 เสร็จครบแล้ว แต่ยังไม่ได้ commit
+  - ต้องมี commit เป็นจุดย้อนกลับก่อนสร้าง beta tag หรือเปิด `THINK2_DECISION_ENGINE=enabled`
+  - ต้องตรวจว่า stage เฉพาะไฟล์โค้ด เอกสาร และ regression ไม่รวมข้อมูลส่วนตัวหรือ runtime artifacts
+- งานที่ต้องทำ:
+  - [x] ตรวจ working tree และรายการไฟล์
+  - [x] รันทดสอบ release gate สำคัญซ้ำก่อน commit
+  - [x] Stage เฉพาะไฟล์งาน Think2 beta foundation
+  - [x] Commit ด้วยข้อความชัดเจน
+  - [x] อัปเดต `Task.md` และ `plan.md` หลัง commit สำเร็จ
+- ผลลัพธ์:
+  - Commit สำเร็จ: `64caa6a Add Think2 beta decision foundation`
+  - Commit รวมงาน T2-10 ถึง T2-13: Action Matrix shadow, comparison report, feature flag และ Think2 beta runbook
+  - Stage เฉพาะไฟล์โค้ด เอกสาร และ regression ที่เกี่ยวข้อง
+  - ไม่มี private workbook, database, CSV output หรือ runtime artifacts ถูก stage
+  - Working tree สะอาดหลัง commit ก่อนอัปเดต ledger ปิดงาน
+- ทดสอบผ่านก่อน commit:
+  - `npm run test:think2-beta-release`
+  - `npm run test:decision-engine-flag`
+  - `npm run test:action-matrix-comparison`
+  - `npm run test:think2-data-validation`
+  - `npm run test:frontend-viewport`
+  - `npm run test:web-smoke`
+  - `npm run test:analysis-portfolio-flow`
+  - `npm run compare:python`
+  - `npm run check`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md`, `Task.md`, `think.md`, `Think2.md`, และ `docs/THINK2_BETA_RELEASE.md`
+  - T2-14 เสร็จแล้ว
+  - ขั้นถัดไปถ้าเอกต้องการคือสร้าง beta tag จาก commit ล่าสุด หรือ push branch ไป GitHub
+  - ห้ามเปิด `THINK2_DECISION_ENGINE=enabled` ให้ผู้ใช้จริงจนกว่าเอก review comparison report และ approve
+
 ### T134 - Freeze Think.md Version Before Think2 Planning
 
 - สถานะ: Done

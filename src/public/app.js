@@ -25,7 +25,7 @@ const customerSnapshot = document.querySelector("#customerSnapshot");
 const plansList = document.querySelector("#plansList");
 const businessViewButton = document.querySelector("[data-view='business']");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20260703-1234";
+const frontendBuildVersion = "20260706-0758";
 
 const state = {
   user: null,
@@ -81,6 +81,14 @@ const recommendedActionFields = [
   { key: "Data_Status", label: "Data Status", default: false },
   { key: "Conflict_Alerts", label: "Conflict Alerts", default: false },
   { key: "Data_Warnings", label: "Data Warnings", default: false },
+  { key: "Action_v2_Shadow", label: "Action v2 Shadow", default: false },
+  { key: "Action_v2_Confidence", label: "Action v2 Confidence", default: false },
+  { key: "Action_v2_Risk_Block", label: "Action v2 Block", default: false },
+  { key: "Action_v2_Change", label: "Action v2 Change", default: false },
+  { key: "Action_v2_Rationale", label: "Action v2 Rationale", default: false },
+  { key: "Decision_Engine_Mode", label: "Decision Mode", default: false },
+  { key: "Effective_Target_Action", label: "Effective Action", default: false },
+  { key: "Effective_Action_Source", label: "Action Source", default: false },
   { key: "Advice", label: "Advice", default: true },
   { key: "Target_Action", label: "Target Action", default: true },
   { key: "RRR", label: "RRR", default: true },
@@ -101,6 +109,7 @@ const recommendedActionSortFields = [
   { key: "Market_Value", label: "Market Value" },
   { key: "Gain_Loss_Pct", label: "Gain/Loss %" },
   { key: "RRR", label: "RRR" },
+  { key: "Action_v2_Change", label: "Action v2 Change" },
   { key: "Price", label: "Price" },
   { key: "Symbol", label: "Symbol" },
   { key: "Action_Group", label: "Action Group" },
@@ -190,6 +199,54 @@ const tableColumnTips = {
     meaning: "เหตุผลของคำเตือน เช่น RRR สูงแต่คะแนนต่ำ, RSI ต่ำในขาลง, หรือราคาใกล้ 52W high",
     goodValue: "ใช้เป็น checklist ว่าต้องตรวจอะไรเพิ่มก่อนซื้อ/ถือ/ขาย",
     caution: "เป็น safety layer เสริม ยังไม่ใช่ action engine ใหม่",
+  },
+  Action_v2_Shadow: {
+    title: "Action v2 Shadow",
+    meaning: "ผลทดลองจาก Action Matrix แบบ Think2 ที่ดูหลายมิติ เช่น Quality, Valuation, Setup, RRR และ Conflict",
+    goodValue: "ใช้ให้ owner/admin เทียบกับ Target Action เดิมก่อนตัดสินใจเปิดใช้จริง",
+    caution: "ยังไม่ใช่คำแนะนำจริงของระบบลูกค้า และยังไม่แทน Target Action เดิม",
+  },
+  Action_v2_Confidence: {
+    title: "Action v2 Confidence",
+    meaning: "ความมั่นใจของ shadow action จากข้อมูลที่ระบบมีตอนนี้",
+    goodValue: "HIGH/MEDIUM/LOW ใช้อ่านระดับความมั่นใจภายในเท่านั้น",
+    caution: "ถ้า Fundamental RRR ยังไม่มี ความมั่นใจจะไม่ควรถูกตีความเป็นคำสั่งซื้อ",
+  },
+  Action_v2_Risk_Block: {
+    title: "Action v2 Risk Block",
+    meaning: "เหตุผลที่ Action Matrix v2 บล็อกการตัดสินใจ เช่น DATA_ERROR หรือ RED_CONFLICT",
+    goodValue: "NONE แปลว่าไม่ถูกบล็อกด้วย safety guard หลัก",
+    caution: "ถ้าไม่ใช่ NONE ให้ตรวจข้อมูลหรือ conflict ก่อนอ่าน action อื่น",
+  },
+  Action_v2_Change: {
+    title: "Action v2 Change",
+    meaning: "เปรียบเทียบกลุ่ม action เดิมกับ shadow action เช่น BUY_TO_HOLD หรือ SAME_FAMILY",
+    goodValue: "SAME_FAMILY แปลว่าแนวคิดใหม่ยังอยู่กลุ่มเดียวกับ action เดิม",
+    caution: "ถ้าเปลี่ยนกลุ่มมาก ต้องให้ owner/admin รีวิวก่อนเปิดใช้งานจริง",
+  },
+  Action_v2_Rationale: {
+    title: "Action v2 Rationale",
+    meaning: "เหตุผลแบบอ่านง่ายว่าทำไม Action Matrix v2 ให้ผลทดลองแบบนั้น",
+    goodValue: "อ่านคู่กับ Conflict Alerts และ Fundamental RRR Status",
+    caution: "เป็นเหตุผลของ shadow mode ยังไม่ใช่คำสั่งให้ซื้อหรือขายจริง",
+  },
+  Decision_Engine_Mode: {
+    title: "Decision Engine Mode",
+    meaning: "โหมด feature flag ของ decision engine ปัจจุบัน",
+    goodValue: "off/shadow = ยังใช้ Target Action เดิม, enabled = เปิด Think2 เป็น effective action",
+    caution: "ค่า default ต้องไม่เปลี่ยนคำแนะนำจริงของลูกค้า",
+  },
+  Effective_Target_Action: {
+    title: "Effective Target Action",
+    meaning: "Action ที่ระบบจะถือว่าใช้งานจริงตาม feature flag ปัจจุบัน",
+    goodValue: "ใน off/shadow mode ค่านี้ควรตรงกับ Target Action เดิม",
+    caution: "ถ้าเห็นต่างจาก Target Action แปลว่าเปิด Think2 decision engine จริงแล้ว ต้องแน่ใจว่าผ่าน owner sign-off",
+  },
+  Effective_Action_Source: {
+    title: "Effective Action Source",
+    meaning: "แหล่งที่มาของ Effective Action เช่น legacy หรือ think2_shadow",
+    goodValue: "legacy คือยังใช้ระบบเดิม ปลอดภัยสำหรับ production ช่วงแรก",
+    caution: "think2_shadow แปลว่าเปิดใช้ Think2 จริง ต้องมีแผน rollback",
   },
   Sector_Score: {
     title: "Sector Score",
@@ -4752,7 +4809,12 @@ function formatCell(value, column = "") {
     return `<span class="status-badge status-${escapeHtml(status.toLowerCase().replaceAll("_", "-"))}">${escapeHtml(status.replaceAll("_", " "))}</span>`;
   }
 
-  if (column === "Conflict_Alerts" || column === "Data_Warnings") {
+  if (column === "Action_v2_Shadow" || column === "Action_v2_Confidence" || column === "Action_v2_Risk_Block" || column === "Action_v2_Change" || column === "Decision_Engine_Mode" || column === "Effective_Action_Source") {
+    const status = String(value || "-").toUpperCase();
+    return `<span class="status-badge status-${escapeHtml(status.toLowerCase().replaceAll("_", "-"))}">${escapeHtml(status.replaceAll("_", " "))}</span>`;
+  }
+
+  if (column === "Conflict_Alerts" || column === "Data_Warnings" || column === "Action_v2_Rationale") {
     const text = String(value || "");
     return text
       ? `<span class="table-warning-text">${escapeHtml(text)}</span>`

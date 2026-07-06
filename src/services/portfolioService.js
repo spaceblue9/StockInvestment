@@ -1,4 +1,6 @@
 import ExcelJS from "exceljs";
+import { buildActionMatrixShadow } from "./actionMatrixService.js";
+import { applyDecisionEngineAction } from "./decisionEngineConfigService.js";
 import { normalizeExcelValue } from "./inputService.js";
 
 const REPORT_COLUMNS = [
@@ -34,6 +36,15 @@ const REPORT_COLUMNS = [
   "Data_Warnings",
   "Conflict_Severity",
   "Conflict_Alerts",
+  "Action_v2_Shadow",
+  "Action_v2_Confidence",
+  "Action_v2_Risk_Block",
+  "Action_v2_Change",
+  "Action_v2_Rationale",
+  "Decision_Engine_Mode",
+  "Effective_Target_Action",
+  "Effective_Action_Source",
+  "Decision_Engine_Warning",
   "Advice",
   "Target_Action",
   "Volume_Ratio",
@@ -153,6 +164,15 @@ export function analyzeHolding(holding, market) {
       Data_Warnings: "No market data found for this holding",
       Conflict_Severity: "RED",
       Conflict_Alerts: "MISSING_MARKET_DATA: No market data found for this holding",
+      Action_v2_Shadow: "BLOCKED_DATA_ERROR_SHADOW",
+      Action_v2_Confidence: "HIGH",
+      Action_v2_Risk_Block: "DATA_ERROR",
+      Action_v2_Change: "SAME_FAMILY",
+      Action_v2_Rationale: "No market data found, so Action Matrix v2 is blocked.",
+      Decision_Engine_Mode: "shadow",
+      Effective_Target_Action: "No Data",
+      Effective_Action_Source: "legacy",
+      Decision_Engine_Warning: "Think2 decision engine is not replacing legacy Target_Action.",
       Advice: "No Data",
       Target_Action: "No Data",
       Volume_Ratio: 0,
@@ -188,6 +208,8 @@ export function analyzeHolding(holding, market) {
 
   row.Advice = getAdvice(row);
   row.Target_Action = getTargetAction(row);
+  Object.assign(row, buildActionMatrixShadow(row));
+  Object.assign(row, applyDecisionEngineAction(row));
   row.Entry_Zone = formatZone(row.Entry_Zone_Low, row.Entry_Zone_High);
   row.Exit_Zone = formatZone(row.Exit_Zone_Low, row.Exit_Zone_High);
 
@@ -282,6 +304,26 @@ export async function writePortfolioReport(rows, outputFile) {
       field: "Conflict_Alerts",
       meaning: "เหตุผลของคำเตือน เช่น ข้อมูลผิดปกติ คะแนนสูงแต่ RRR ต่ำ หรือ oversold ในขาลง",
       criteria: "ถ้ามี ORANGE/RED ควรตรวจหุ้นตัวนั้นก่อนซื้อเพิ่ม",
+    },
+    {
+      field: "Action_v2_Shadow",
+      meaning: "ผลทดลองจาก Action Matrix v2 ของ Think2",
+      criteria: "เป็น shadow-only เพื่อเทียบกับ Target_Action เดิม ยังไม่ใช่คำสั่งใช้งานจริง",
+    },
+    {
+      field: "Action_v2_Change",
+      meaning: "บอกว่า action v2 อยู่กลุ่มเดียวกับ Target_Action เดิมหรือเปลี่ยนกลุ่ม",
+      criteria: "ใช้ให้ owner/admin ตรวจผลต่างก่อนเปิดใช้ Think2 จริง",
+    },
+    {
+      field: "Effective_Target_Action",
+      meaning: "Action ที่ระบบจะใช้จริงตาม decision engine mode ปัจจุบัน",
+      criteria: "default/shadow mode ยังเท่ากับ Target_Action เดิม; Think2 ใช้จริงเฉพาะเมื่อเปิด flag explicit",
+    },
+    {
+      field: "Decision_Engine_Mode",
+      meaning: "โหมดของ decision engine จาก feature flag",
+      criteria: "off/shadow = ยังใช้ legacy action, enabled = ใช้ Think2 shadow action เป็น effective action",
     },
     {
       field: "Target_Action",

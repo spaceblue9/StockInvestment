@@ -3,6 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import analysisRoutes from "./routes/analysisRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import { getDecisionEngineConfig } from "./services/decisionEngineConfigService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,6 +36,7 @@ export function createApp() {
       ok: true,
       app: "Thai Stock Investment Web",
       migration: "node-web-app",
+      decisionEngine: getDecisionEngineConfig(),
     });
   });
 

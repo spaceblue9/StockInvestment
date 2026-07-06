@@ -1,4 +1,5 @@
 import fs from "fs/promises";
+import { buildActionMatrixShadow } from "./actionMatrixService.js";
 import { toCsv } from "./csvService.js";
 
 const NUMERIC_COLUMNS = [
@@ -115,11 +116,16 @@ export function analyzeStockRow(row, stats = {}) {
     Trend_Status: getTrendStatus(row.RSI, pricePosition),
   };
   const conflictSummary = getConflictSummary(analyzed);
-
-  return {
+  const withConflicts = {
     ...analyzed,
     Conflict_Severity: conflictSummary.severity,
     Conflict_Alerts: conflictSummary.alerts.map((alert) => `${alert.type}: ${alert.message}`).join(" | "),
+  };
+  const actionV2Shadow = buildActionMatrixShadow(withConflicts);
+
+  return {
+    ...withConflicts,
+    ...actionV2Shadow,
     Rationale: getRationale(analyzed),
   };
 }
