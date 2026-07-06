@@ -492,6 +492,27 @@ Baseline เดิม: tag `think-md-v1.0.0`, commit `b8a6cb5`
   - `npm run compare:python`
   - `npm run check`
 
+### T2-15 - Create Think2 Beta Local Tag
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-06 08:20:36 +07:00
+- เสร็จเมื่อ: 2026-07-06 08:25:17 +07:00
+- เป้าหมาย:
+  - สร้าง local beta tag ให้ commit `b6c2feb Add Think2 beta decision foundation`
+  - ใช้เป็นจุดอ้างอิง release/rollback ของ Think2 beta foundation
+  - ยังไม่ push tag ไป GitHub จนกว่าเอกสั่ง
+- งานที่ต้องทำ:
+  - [x] ตรวจว่า working tree สะอาด
+  - [x] ตรวจว่ายังไม่มี tag beta ซ้ำ
+  - [x] สร้าง annotated tag สำหรับ Think2 beta
+  - [x] ตรวจ tag ชี้ commit ถูกต้อง
+  - [x] อัปเดต `plan.md` หลังสร้าง tag
+- ผลลัพธ์:
+  - สร้าง local annotated tag `think2-beta-v0.1.0`
+  - tag ชี้ commit `b6c2feb Add Think2 beta decision foundation`
+  - ยังไม่ได้ push tag ไป GitHub
+  - หลังสร้าง tag มีเฉพาะ `Task.md` และ `plan.md` ที่แก้เพื่อปิด ledger
+
 ## AI Prompt สำหรับทำต่อ
 
 อ่าน `plan.md`, `Task.md`, `think.md`, และ `Think2.md` ก่อนเริ่มงานเสมอ

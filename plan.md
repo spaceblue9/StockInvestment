@@ -2666,6 +2666,33 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - ขั้นถัดไปถ้าเอกต้องการคือสร้าง beta tag จาก commit ล่าสุด หรือ push branch ไป GitHub
   - ห้ามเปิด `THINK2_DECISION_ENGINE=enabled` ให้ผู้ใช้จริงจนกว่าเอก review comparison report และ approve
 
+### T149 - Create Think2 Beta Local Tag
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-06 08:20:36 +07:00
+- เสร็จเมื่อ: 2026-07-06 08:25:17 +07:00
+- เหตุผล:
+  - Commit `b6c2feb Add Think2 beta decision foundation` เป็นจุดรวมงาน T2-10 ถึง T2-14 แล้ว
+  - ควรมี local beta tag เพื่ออ้างอิง release/rollback ก่อน push หรือเปิด feature flag จริง
+  - ยังไม่ควร push tag ไป GitHub หากเอกยังไม่ได้สั่ง
+- งานที่ต้องทำ:
+  - [x] ตรวจว่า working tree สะอาด
+  - [x] ตรวจว่ายังไม่มี tag beta ซ้ำ
+  - [x] สร้าง annotated tag สำหรับ Think2 beta
+  - [x] ตรวจ tag ชี้ commit ถูกต้อง
+  - [x] อัปเดต `Task.md` และ `plan.md`
+- ผลลัพธ์:
+  - สร้าง local annotated tag `think2-beta-v0.1.0`
+  - tag ชี้ commit `b6c2feb Add Think2 beta decision foundation`
+  - ตรวจด้วย `git rev-parse "think2-beta-v0.1.0^{}"` ได้ commit `b6c2feb8d60226ea374563b1d2e5b6baa5e4c09e`
+  - ยังไม่ได้ push tag ไป GitHub
+  - หลังสร้าง tag มีเฉพาะ `Task.md` และ `plan.md` ที่แก้เพื่อปิด ledger
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md`, `Task.md`, `docs/THINK2_BETA_RELEASE.md`
+  - T2-15 เสร็จแล้ว
+  - ขั้นถัดไปถ้าเอกต้องการคือ commit ledger update นี้ หรือ push branch/tag ไป GitHub
+  - ห้าม push tag หรือ branch จนกว่าเอกสั่งชัดเจน
+
 ### T134 - Freeze Think.md Version Before Think2 Planning
 
 - สถานะ: Done
