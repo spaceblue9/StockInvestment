@@ -513,6 +513,21 @@ Baseline เดิม: tag `think-md-v1.0.0`, commit `b8a6cb5`
   - ยังไม่ได้ push tag ไป GitHub
   - หลังสร้าง tag มีเฉพาะ `Task.md` และ `plan.md` ที่แก้เพื่อปิด ledger
 
+### T2-16 - Push Think2 Beta Branch and Tag
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: 2026-07-06 08:32:28 +07:00
+- เป้าหมาย:
+  - Push branch `codex/think2-safety-layer-planning` ไป GitHub
+  - Push local tag `think2-beta-v0.1.0` ไป GitHub
+  - ไม่ merge เข้า `main` และไม่สร้าง Pull Request
+- งานที่ต้องทำ:
+  - [ ] ตรวจ working tree, remote, branch และ tag
+  - [ ] Push branch ปัจจุบันไป `origin`
+  - [ ] Push tag `think2-beta-v0.1.0` ไป `origin`
+  - [ ] ตรวจสถานะหลัง push
+  - [ ] อัปเดต `plan.md` หลัง push สำเร็จ
+
 ## AI Prompt สำหรับทำต่อ
 
 อ่าน `plan.md`, `Task.md`, `think.md`, และ `Think2.md` ก่อนเริ่มงานเสมอ

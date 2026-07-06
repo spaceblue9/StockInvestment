@@ -2693,6 +2693,26 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - ขั้นถัดไปถ้าเอกต้องการคือ commit ledger update นี้ หรือ push branch/tag ไป GitHub
   - ห้าม push tag หรือ branch จนกว่าเอกสั่งชัดเจน
 
+### T150 - Push Think2 Beta Branch and Tag
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: 2026-07-06 08:32:28 +07:00
+- เหตุผล:
+  - Branch `codex/think2-safety-layer-planning` มี commit ล่าสุด `2c1b243 Document Think2 beta tag`
+  - Local tag `think2-beta-v0.1.0` ชี้ commit `b6c2feb Add Think2 beta decision foundation`
+  - หลังเอกสั่งทำต่อ จึงเตรียม push branch/tag ไป GitHub โดยยังไม่ merge เข้า `main`
+- งานที่ต้องทำ:
+  - [ ] ตรวจ working tree, remote, branch และ tag
+  - [ ] Push branch ปัจจุบันไป `origin`
+  - [ ] Push tag `think2-beta-v0.1.0` ไป `origin`
+  - [ ] ตรวจสถานะหลัง push
+  - [ ] อัปเดต `Task.md` และ `plan.md` หลัง push สำเร็จ
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md`, `Task.md`, `docs/THINK2_BETA_RELEASE.md`
+  - T2-16 กำลังทำอยู่
+  - Push เฉพาะ branch `codex/think2-safety-layer-planning` และ tag `think2-beta-v0.1.0`
+  - ห้าม merge เข้า `main` และห้ามเปิด PR เว้นแต่เอกสั่ง
+
 ### T134 - Freeze Think.md Version Before Think2 Planning
 
 - สถานะ: Done
