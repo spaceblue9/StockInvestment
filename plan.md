@@ -2695,34 +2695,33 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T150 - Push Think2 Beta Branch and Tag
 
-- สถานะ: Blocked
+- สถานะ: Done
 - เริ่มเมื่อ: 2026-07-06 08:32:28 +07:00
 - Blocked เมื่อ: 2026-07-06 08:36:42 +07:00
+- เสร็จเมื่อ: 2026-07-06 09:26:25 +07:00
 - เหตุผล:
   - Branch `codex/think2-safety-layer-planning` มี commit ล่าสุด `2c1b243 Document Think2 beta tag`
   - Local tag `think2-beta-v0.1.0` ชี้ commit `b6c2feb Add Think2 beta decision foundation`
   - หลังเอกสั่งทำต่อ จึงเตรียม push branch/tag ไป GitHub โดยยังไม่ merge เข้า `main`
 - งานที่ต้องทำ:
   - [x] ตรวจ working tree, remote, branch และ tag
-  - [ ] Push branch ปัจจุบันไป `origin`
+  - [x] Push branch ปัจจุบันไป `origin`
   - [x] Push tag `think2-beta-v0.1.0` ไป `origin`
   - [x] ตรวจสถานะหลัง push attempt
   - [x] อัปเดต `Task.md` และ `plan.md` หลัง push attempt
 - สถานะล่าสุด:
   - 2026-07-06: เอก push tag สำเร็จแล้ว: `think2-beta-v0.1.0 -> think2-beta-v0.1.0`
-  - Push branch ไม่สำเร็จ เพราะ GitHub HTTPS ขอ credential แล้ว dialog ถูก cancel/ไม่มี TTY
-  - Error: `fatal: could not read Username for 'https://github.com/spaceblue9/StockInvestment.git': No such file or directory`
+  - 2026-07-06: push branch สำเร็จแล้ว: `fe8beb8..51155a7 codex/think2-safety-layer-planning -> codex/think2-safety-layer-planning`
   - Local branch ปัจจุบัน: `codex/think2-safety-layer-planning`
-  - Local HEAD: `fe8beb8 Document Think2 beta push blocker`
+  - Local HEAD: `51155a7 Document Think2 beta tag push`
   - Local tag: `think2-beta-v0.1.0` ชี้ `b6c2feb Add Think2 beta decision foundation`
-  - Working tree สะอาดหลัง push attempt ก่อนอัปเดต ledger
-- คำสั่งทำต่อเมื่อ GitHub credential พร้อม:
-  - `git push -u origin codex/think2-safety-layer-planning`
+  - Remote branch และ remote tag พร้อมบน GitHub
+  - Working tree สะอาดหลัง push สำเร็จ ก่อนอัปเดต ledger
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md`, `Task.md`, `docs/THINK2_BETA_RELEASE.md`
-  - T2-16 ยังถูก block เฉพาะ branch push ที่ GitHub credential
-  - tag `think2-beta-v0.1.0` push สำเร็จแล้ว
-  - หลัง credential พร้อม ให้ push เฉพาะ branch `codex/think2-safety-layer-planning`
+  - T2-16 เสร็จแล้ว
+  - branch `codex/think2-safety-layer-planning` และ tag `think2-beta-v0.1.0` push สำเร็จแล้ว
+  - ขั้นถัดไปถ้าเอกต้องการคือเปิด Pull Request หรือรอ review โดยยังห้าม merge เข้า `main` จนกว่าเอกสั่ง
   - ห้าม merge เข้า `main` และห้ามเปิด PR เว้นแต่เอกสั่ง
 
 ### T134 - Freeze Think.md Version Before Think2 Planning

@@ -515,27 +515,25 @@ Baseline เดิม: tag `think-md-v1.0.0`, commit `b8a6cb5`
 
 ### T2-16 - Push Think2 Beta Branch and Tag
 
-- สถานะ: Blocked
+- สถานะ: Done
 - เริ่มเมื่อ: 2026-07-06 08:32:28 +07:00
 - Blocked เมื่อ: 2026-07-06 08:36:42 +07:00
+- เสร็จเมื่อ: 2026-07-06 09:26:25 +07:00
 - เป้าหมาย:
   - Push branch `codex/think2-safety-layer-planning` ไป GitHub
   - Push local tag `think2-beta-v0.1.0` ไป GitHub
   - ไม่ merge เข้า `main` และไม่สร้าง Pull Request
 - งานที่ต้องทำ:
   - [x] ตรวจ working tree, remote, branch และ tag
-  - [ ] Push branch ปัจจุบันไป `origin`
+  - [x] Push branch ปัจจุบันไป `origin`
   - [x] Push tag `think2-beta-v0.1.0` ไป `origin`
   - [x] ตรวจสถานะหลัง push attempt
   - [x] อัปเดต `plan.md` หลัง push attempt
 - สถานะล่าสุด:
   - 2026-07-06: เอก push tag สำเร็จแล้ว: `think2-beta-v0.1.0 -> think2-beta-v0.1.0`
-  - Push branch ไม่สำเร็จ เพราะ GitHub HTTPS ขอ credential แล้ว dialog ถูก cancel/ไม่มี TTY
-  - Error: `fatal: could not read Username for 'https://github.com/spaceblue9/StockInvestment.git': No such file or directory`
-  - Local branch และ local tag ยังอยู่ครบ
-  - Working tree สะอาดหลัง push attempt
-- คำสั่งทำต่อเมื่อ GitHub credential พร้อม:
-  - `git push -u origin codex/think2-safety-layer-planning`
+  - 2026-07-06: push branch สำเร็จแล้ว: `fe8beb8..51155a7 codex/think2-safety-layer-planning -> codex/think2-safety-layer-planning`
+  - Remote branch และ remote tag พร้อมบน GitHub
+  - Working tree สะอาดหลัง push สำเร็จ
 
 ## AI Prompt สำหรับทำต่อ
 
