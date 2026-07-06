@@ -2695,22 +2695,33 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T150 - Push Think2 Beta Branch and Tag
 
-- สถานะ: In Progress
+- สถานะ: Blocked
 - เริ่มเมื่อ: 2026-07-06 08:32:28 +07:00
+- Blocked เมื่อ: 2026-07-06 08:36:42 +07:00
 - เหตุผล:
   - Branch `codex/think2-safety-layer-planning` มี commit ล่าสุด `2c1b243 Document Think2 beta tag`
   - Local tag `think2-beta-v0.1.0` ชี้ commit `b6c2feb Add Think2 beta decision foundation`
   - หลังเอกสั่งทำต่อ จึงเตรียม push branch/tag ไป GitHub โดยยังไม่ merge เข้า `main`
 - งานที่ต้องทำ:
-  - [ ] ตรวจ working tree, remote, branch และ tag
+  - [x] ตรวจ working tree, remote, branch และ tag
   - [ ] Push branch ปัจจุบันไป `origin`
   - [ ] Push tag `think2-beta-v0.1.0` ไป `origin`
-  - [ ] ตรวจสถานะหลัง push
-  - [ ] อัปเดต `Task.md` และ `plan.md` หลัง push สำเร็จ
+  - [x] ตรวจสถานะหลัง push attempt
+  - [x] อัปเดต `Task.md` และ `plan.md` หลัง push attempt
+- สถานะล่าสุด:
+  - Push branch ไม่สำเร็จ เพราะ GitHub HTTPS ขอ credential แล้ว dialog ถูก cancel/ไม่มี TTY
+  - Error: `fatal: could not read Username for 'https://github.com/spaceblue9/StockInvestment.git': No such file or directory`
+  - Local branch ปัจจุบัน: `codex/think2-safety-layer-planning`
+  - Local HEAD: `9334125 Document Think2 beta push task`
+  - Local tag: `think2-beta-v0.1.0` ชี้ `b6c2feb Add Think2 beta decision foundation`
+  - Working tree สะอาดหลัง push attempt ก่อนอัปเดต ledger
+- คำสั่งทำต่อเมื่อ GitHub credential พร้อม:
+  - `git push -u origin codex/think2-safety-layer-planning`
+  - `git push origin think2-beta-v0.1.0`
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md`, `Task.md`, `docs/THINK2_BETA_RELEASE.md`
-  - T2-16 กำลังทำอยู่
-  - Push เฉพาะ branch `codex/think2-safety-layer-planning` และ tag `think2-beta-v0.1.0`
+  - T2-16 ถูก block ที่ GitHub credential
+  - หลัง credential พร้อม ให้ push เฉพาะ branch `codex/think2-safety-layer-planning` และ tag `think2-beta-v0.1.0`
   - ห้าม merge เข้า `main` และห้ามเปิด PR เว้นแต่เอกสั่ง
 
 ### T134 - Freeze Think.md Version Before Think2 Planning
