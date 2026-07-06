@@ -2722,6 +2722,35 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - T2-16 เสร็จแล้ว
   - branch `codex/think2-safety-layer-planning` และ tag `think2-beta-v0.1.0` push สำเร็จแล้ว
   - ขั้นถัดไปถ้าเอกต้องการคือเปิด Pull Request หรือรอ review โดยยังห้าม merge เข้า `main` จนกว่าเอกสั่ง
+
+### T151 - Post-Push Think2 Beta Verification
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-06 15:14:05 +07:00
+- เสร็จเมื่อ: 2026-07-06 15:14:05 +07:00
+- เหตุผล:
+  - หลัง push branch/tag สำเร็จ ควรตรวจสถานะซ้ำและบันทึก release evidence สั้น ๆ
+  - ยังไม่ควรเปิด PR หรือ merge เข้า `main` หากเอกยังไม่ได้สั่งชัดเจน
+- งานที่ทำ:
+  - [x] ตรวจ working tree
+  - [x] ตรวจ branch tracking
+  - [x] รัน Think2 beta release regression
+  - [x] รัน decision engine feature flag regression
+  - [x] รัน action matrix comparison report
+  - [x] บันทึกข้อจำกัดของ remote verification
+- ผลลัพธ์:
+  - Working tree สะอาด
+  - `git status -sb` แสดง branch `codex/think2-safety-layer-planning...origin/codex/think2-safety-layer-planning`
+  - `git ls-remote` ใน Codex ยังคืน exit code 1 แบบไม่มี output จึงใช้ push output ล่าสุดและ branch tracking เป็นหลักฐาน
+  - `npm run test:think2-beta-release` ผ่าน
+  - `npm run test:decision-engine-flag` ผ่าน
+  - `npm run action:compare -- --format text` ผ่าน
+  - comparison ล่าสุด: rows 5, changed action family 2 (40.00%), risk blocked 0, RED blocked legacy buy 0, DATA_ERROR blocked 0
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md`, `Task.md`, `docs/THINK2_BETA_RELEASE.md`
+  - T2-17 เสร็จแล้ว
+  - ขั้นถัดไปต้องให้เอกเลือก: เปิด Pull Request, review beta branch, หรือเริ่ม feature ใหม่
+  - ห้าม merge เข้า `main` และห้ามเปิด `THINK2_DECISION_ENGINE=enabled` ให้ผู้ใช้จริงโดยไม่มี approval จากเอก
   - ห้าม merge เข้า `main` และห้ามเปิด PR เว้นแต่เอกสั่ง
 
 ### T134 - Freeze Think.md Version Before Think2 Planning

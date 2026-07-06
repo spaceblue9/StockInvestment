@@ -535,6 +535,26 @@ Baseline เดิม: tag `think-md-v1.0.0`, commit `b8a6cb5`
   - Remote branch และ remote tag พร้อมบน GitHub
   - Working tree สะอาดหลัง push สำเร็จ
 
+### T2-17 - Post-Push Think2 Beta Verification
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-06 15:14:05 +07:00
+- เสร็จเมื่อ: 2026-07-06 15:14:05 +07:00
+- เป้าหมาย:
+  - ตรวจสถานะหลัง push branch/tag สำเร็จ
+  - รัน gate สั้นสำหรับ Think2 beta
+  - บันทึกข้อจำกัดของ remote verification ใน environment นี้
+- ผลลัพธ์:
+  - Working tree สะอาด
+  - `git status -sb` แสดง branch `codex/think2-safety-layer-planning...origin/codex/think2-safety-layer-planning`
+  - `git ls-remote` ใน Codex ยังคืน exit code 1 แบบไม่มี output จึงใช้ push output ล่าสุดและ branch tracking เป็นหลักฐาน
+  - `npm run test:think2-beta-release` ผ่าน
+  - `npm run test:decision-engine-flag` ผ่าน
+  - `npm run action:compare -- --format text` ผ่าน
+  - comparison ล่าสุด: rows 5, changed action family 2 (40.00%), risk blocked 0, RED blocked legacy buy 0, DATA_ERROR blocked 0
+- งานถัดไป:
+  - รอเอกสั่งว่าจะเปิด Pull Request, review beta branch, หรือเริ่ม feature ใหม่
+
 ## AI Prompt สำหรับทำต่อ
 
 อ่าน `plan.md`, `Task.md`, `think.md`, และ `Think2.md` ก่อนเริ่มงานเสมอ
