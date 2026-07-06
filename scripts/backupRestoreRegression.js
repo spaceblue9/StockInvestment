@@ -33,8 +33,8 @@ try {
     monthlyBudget: 12000,
     horizonYears: 7,
   });
-  await saveCustomerPortfolioSnapshot(customer.id, samplePortfolio("AOT", 72000, 65000, 7000, 78));
   await checkoutSubscription(customer.id, "pro");
+  await saveCustomerPortfolioSnapshot(customer.id, samplePortfolio("AOT", 72000, 65000, 7000, 78));
 
   const backup = await createLocalStateBackup({ reason: "regression" });
   assert(backup.manifest.files.some((file) => file.name === "app-state.json"), "Backup should include app-state.json.");

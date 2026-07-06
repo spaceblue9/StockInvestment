@@ -32,6 +32,7 @@ try {
     password: "strong-password-123",
   })).user;
 
+  await checkoutSubscription(customer.id, "starter");
   await saveInvestorProfile(customer.id, {
     goal: "wealth",
     experience: "beginner",

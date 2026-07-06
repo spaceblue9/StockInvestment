@@ -31,6 +31,8 @@ try {
   const customerB = await createAccount(createUser, "Customer B", "customer-b@example.test");
   const advisor = await createAccount(createUser, "Advisor", "advisor@example.test");
 
+  await checkoutSubscription(customerA.id, "starter");
+  await checkoutSubscription(customerB.id, "starter");
   await updateUserRole(owner.id, advisor.id, "advisor");
   await checkoutSubscription(advisor.id, "advisor");
   await assignAdvisor(owner.id, customerA.id, advisor.id);

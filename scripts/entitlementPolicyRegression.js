@@ -43,8 +43,8 @@ try {
 
   assertEqual(owner.entitlements.operationalOverride, true, "Owner should receive platform operator override.");
   assertEqual(hasPlanEntitlement(owner, "business.metrics"), true, "Owner should access business metrics through operator override.");
-  assertEqual(hasPlanEntitlement(customer, "simulation.run"), true, "New trial customer should receive Pro trial entitlements.");
-  assertEqual(hasPlanEntitlement(customer, "client.workspace"), false, "Pro trial customer should not receive Advisor workspace entitlements.");
+  assertEqual(hasPlanEntitlement(customer, "simulation.run"), false, "New customer should not receive Pro entitlements before package approval.");
+  assertEqual(hasPlanEntitlement(customer, "client.workspace"), false, "New customer should not receive Advisor workspace entitlements.");
 
   const starterCheckout = await checkoutSubscription(customer.id, "starter");
   assertEqual(starterCheckout.user.subscription.planId, "starter", "Starter checkout should activate Starter plan.");

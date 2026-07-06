@@ -2753,6 +2753,32 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - ห้าม merge เข้า `main` และห้ามเปิด `THINK2_DECISION_ENGINE=enabled` ให้ผู้ใช้จริงโดยไม่มี approval จากเอก
   - ห้าม merge เข้า `main` และห้ามเปิด PR เว้นแต่เอกสั่ง
 
+### T152 - Review Think2 Beta Branch Readiness
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-06 15:17:25 +07:00
+- เสร็จเมื่อ: 2026-07-06 15:24:58 +07:00
+- เหตุผล:
+  - เอกสั่งทำต่อหลัง push branch/tag และ post-push verification เสร็จ
+  - ขั้นที่ปลอดภัยที่สุดคือ review/test beta branch เพิ่ม โดยยังไม่เปิด PR และยังไม่ merge เข้า `main`
+  - ต้องใช้ regression รวมเพื่อยืนยันว่า branch beta ไม่ทำให้ workflow สำคัญแตก
+- งานที่ต้องทำ:
+  - [x] ตรวจ working tree และ branch tracking
+  - [x] รัน `npm run test-regression`
+  - [x] บันทึกผลและข้อจำกัด
+  - [x] อัปเดต `Task.md` และ `plan.md`
+- ผลลัพธ์:
+  - `npm run test-regression` ผ่านครบ
+  - `compare:python` ผ่าน: raw rows 108, recommended rows python=108/js=108, formula numeric mismatches 0, formula text mismatches 0, sector mismatches 0, portfolio report rows expected=5/js=5
+  - ปรับ regression fixtures ให้ตรงกับ flow ปัจจุบันที่ลูกค้าใหม่ต้องมี package active ก่อนใช้ feature แบบ Starter/Pro
+  - ไฟล์ทดสอบที่ปรับ: `scripts/storageReadinessRegression.js`, `scripts/approvalWorkflowRegression.js`, `scripts/entitlementPolicyRegression.js`, `scripts/backupRestoreRegression.js`
+  - ยังไม่เปิด PR, ยังไม่ merge เข้า `main`, และยังไม่เปิด `THINK2_DECISION_ENGINE=enabled`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md`, `Task.md`, `docs/THINK2_BETA_RELEASE.md`
+  - T2-18/T152 เสร็จแล้วและ `npm run test-regression` ผ่าน
+  - ห้ามเปิด PR หรือ merge เข้า `main` เว้นแต่เอกสั่ง
+  - งานถัดไปที่เหมาะสมคือ commit/push ledger และ regression fixture updates หรือเริ่ม beta review เพิ่มตามคำสั่งเอก
+
 ### T134 - Freeze Think.md Version Before Think2 Planning
 
 - สถานะ: Done

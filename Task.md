@@ -555,6 +555,25 @@ Baseline เดิม: tag `think-md-v1.0.0`, commit `b8a6cb5`
 - งานถัดไป:
   - รอเอกสั่งว่าจะเปิด Pull Request, review beta branch, หรือเริ่ม feature ใหม่
 
+### T2-18 - Review Think2 Beta Branch Readiness
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-06 15:17:25 +07:00
+- เสร็จเมื่อ: 2026-07-06 15:24:58 +07:00
+- เป้าหมาย:
+  - ตรวจ readiness ของ beta branch หลัง push โดยยังไม่เปิด PR และยังไม่ merge เข้า `main`
+  - รัน regression รวมที่ branch ปัจจุบันเพื่อจับ regression ที่ targeted gate อาจไม่ครอบคลุม
+  - บันทึกผลให้เอกใช้ตัดสินใจว่าจะเปิด PR หรือ review เพิ่ม
+- งานที่ต้องทำ:
+  - [x] ตรวจ working tree และ branch tracking
+  - [x] รัน `npm run test-regression`
+  - [x] บันทึกผลและข้อจำกัดใน `plan.md`
+  - [x] Commit/push ledger ถ้าทดสอบผ่าน
+- ผลลัพธ์:
+  - `npm run test-regression` ผ่านครบ
+  - ปรับ regression fixtures 4 ไฟล์ให้ตรงกับ flow package ปัจจุบัน: สมัครสมาชิกแล้วต้องมี package active ก่อนใช้ feature ที่มี entitlement
+  - ยังไม่เปิด PR และยังไม่ merge เข้า `main`
+
 ## AI Prompt สำหรับทำต่อ
 
 อ่าน `plan.md`, `Task.md`, `think.md`, และ `Think2.md` ก่อนเริ่มงานเสมอ
