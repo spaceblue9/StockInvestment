@@ -44,6 +44,33 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T168 - Fix Vercel Analysis Function Timeout
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-07 14:23:04 +07:00
+- เหตุผล:
+  - เอกทดสอบบน Vercel แล้ว Analyze ได้ error `FUNCTION_INVOCATION_TIMEOUT`
+  - สาเหตุคือ `/api/analysis/run` ใช้เวลานานเกินเวลาที่ Vercel serverless function อนุญาต โดยเฉพาะการดึง market data หลายหุ้นและสร้างรายงานใน request เดียว
+  - ต้องทำให้ช่วงทดลองบน Vercel ไม่ timeout และผู้ใช้เห็นข้อจำกัด/ผลลัพธ์ที่ชัดเจน
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และเปิด task ก่อนแก้
+  - [x] ตรวจ flow analysis ว่าส่วนไหนใช้เวลานานบน Vercel (เสร็จเมื่อ: 2026-07-07 14:24:20 +07:00)
+  - [x] เพิ่ม Vercel trial guard จำกัดจำนวนหุ้นต่อ request หรือใช้ reference fallback เพื่อลดเวลา (เสร็จเมื่อ: 2026-07-07 14:25:18 +07:00)
+  - [x] ทำให้ frontend แสดงข้อความจำกัด trial แบบเข้าใจง่ายถ้าไฟล์ใหญ่เกินที่ Vercel รองรับ (ครอบคลุมจาก T167: non-JSON/413 JSON error)
+  - [x] รัน regression ที่เกี่ยวข้อง (เสร็จเมื่อ: 2026-07-07 14:26:05 +07:00)
+  - [x] deploy production ใหม่และทดสอบ live (เสร็จเมื่อ: 2026-07-07 14:27:42 +07:00)
+  - [ ] อัปเดต `plan.md`, commit และ push
+- บันทึกล่าสุด:
+  - 2026-07-07 14:28:10 +07:00: พบว่า `/api/analysis/run` เดิมดึง Yahoo live market data ทีละหุ้นแบบ sequential ทำให้พอร์ตหลายตัวบน Vercel เสี่ยงชน `FUNCTION_INVOCATION_TIMEOUT`
+  - 2026-07-07 14:28:10 +07:00: เพิ่ม `liveFetchLimit` ใน `fetchThaiMarketData()` และตั้ง default บน Vercel เป็น `0` ผ่าน `vercelLiveFetchLimit()` เพื่อใช้ reference fallback จาก `recommended_stocks.csv` ในช่วง trial แทนการดึง live หลายหุ้นใน request เดียว
+  - 2026-07-07 14:28:10 +07:00: ถ้าต้องการเปิด live fetch บางตัวในอนาคต ให้ตั้ง env `STOCKINVEST_VERCEL_LIVE_FETCH_LIMIT` เป็นจำนวนหุ้นที่ยอมให้ดึง live ต่อ request
+  - 2026-07-07 14:28:10 +07:00: Production deploy สำเร็จที่ `https://thai-stock-investment-web.vercel.app`; live `/api/health` ได้ 200 JSON และ `/api/analysis/run` แบบไม่ login ได้ 401 JSON
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T168 ต่อโดยแก้ปัญหา `FUNCTION_INVOCATION_TIMEOUT` บน Vercel
+  - ระวังไม่เปิดเผย `DATABASE_URL` และไม่ commit `.env`, `.vercel`, workbook, portfolio ส่วนตัว
+  - แนวทางระยะสั้นควรทำให้ trial ใช้งานได้ก่อน ส่วน async job/background worker ค่อยแยกเป็น phase ถัดไป
+
 ### T167 - Fix Vercel Analysis JSON Parse Failure
 
 - สถานะ: Done

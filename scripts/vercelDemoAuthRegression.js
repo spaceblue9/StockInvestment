@@ -13,6 +13,7 @@ process.env.VERCEL = "1";
 process.env.APP_STATE_REPOSITORY = "local_file";
 process.env.STOCKINVEST_DATA_DIR = path.join(tempRoot, "data");
 process.chdir(tempRoot);
+await fs.writeFile(path.join(tempRoot, "recommended_stocks.csv"), referenceCsv(), "utf8");
 
 const { startServer } = await import(pathToFileURL(path.join(repoRoot, "src", "server.js")).href);
 const server = await listenInProcess();
@@ -44,6 +45,7 @@ try {
   assertEqual(analysis.data.demoMode, true, "Vercel demo analysis response should disclose demo mode.");
   assertEqual(analysis.data.portfolioRows.length, 1, "Vercel demo analysis should return portfolio rows to the frontend.");
   assertEqual(analysis.data.customerSnapshot, null, "Vercel demo analysis should not claim persisted customer snapshot state.");
+  assert(analysis.data.logs.some((line) => line.includes("live fetch is limited")), "Vercel analysis should use reference fallback to avoid serverless timeout.");
 
   console.log(JSON.stringify({
     ok: true,
@@ -141,6 +143,13 @@ function buildYahooChartPayload(symbol) {
       error: null,
     },
   };
+}
+
+function referenceCsv() {
+  return [
+    "Symbol,Sector,Price,PE,PBV,Yield,ROE,DE,High_52W,Low_52W,RSI,Volume,Avg_Vol_10D",
+    "PTT,Energy,35,10,1.1,4,12,0.6,42,28,55,1200000,1000000",
+  ].join("\n");
 }
 
 function closeServer(targetServer) {

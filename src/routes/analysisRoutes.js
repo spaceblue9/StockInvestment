@@ -68,6 +68,7 @@ router.post("/analysis/run", upload.fields([
     let marketCoverage = null;
     const rows = await fetchThaiMarketData(symbols, {
       coverageReportFile: coverageOutput,
+      liveFetchLimit: vercelLiveFetchLimit(),
       outputFile: rawOutput,
       logger: (message) => logs.push(message),
       onCoverageReport: (report) => {
@@ -334,6 +335,19 @@ function httpError(message, statusCode = 500) {
   const error = new Error(message);
   error.statusCode = statusCode;
   return error;
+}
+
+function vercelLiveFetchLimit() {
+  if (!process.env.VERCEL) {
+    return Infinity;
+  }
+
+  const configured = Number(process.env.STOCKINVEST_VERCEL_LIVE_FETCH_LIMIT);
+  if (Number.isFinite(configured) && configured >= 0) {
+    return Math.floor(configured);
+  }
+
+  return 0;
 }
 
 router.get("/analysis/outputs", (_req, res) => {

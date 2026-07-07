@@ -6,6 +6,7 @@ import { enrichWithReferenceData, loadReferenceMarketData } from "./referenceDat
 export async function fetchThaiMarketData(symbols, options = {}) {
   const {
     coverageReportFile,
+    liveFetchLimit = Infinity,
     outputFile,
     logger = () => {},
     onCoverageReport,
@@ -13,10 +14,22 @@ export async function fetchThaiMarketData(symbols, options = {}) {
 
   const rows = [];
   const referenceBySymbol = await loadReferenceMarketData();
+  const normalizedLiveFetchLimit = normalizeLiveFetchLimit(liveFetchLimit);
 
-  for (const symbol of symbols) {
+  for (const [index, symbol] of symbols.entries()) {
     const normalizedSymbol = String(symbol).trim().toUpperCase();
     const referenceRow = referenceBySymbol.get(normalizedSymbol);
+    if (index >= normalizedLiveFetchLimit) {
+      if (referenceRow) {
+        rows.push(referenceFallbackRow(normalizedSymbol, referenceRow));
+        logger(`[~] ${symbol}: Using reference fallback because live fetch is limited for this environment`);
+        continue;
+      }
+
+      logger(`[-] ${symbol}: Skipped live fetch because this environment limits live market requests and no reference row was found`);
+      continue;
+    }
+
     try {
       const row = await fetchThaiMarketDataForSymbol(symbol, {
         referenceRow,
@@ -67,6 +80,19 @@ export async function fetchThaiMarketData(symbols, options = {}) {
   }
 
   return rows;
+}
+
+function normalizeLiveFetchLimit(value) {
+  if (value === Infinity) {
+    return Infinity;
+  }
+
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return Infinity;
+  }
+
+  return Math.max(0, Math.floor(number));
 }
 
 export async function fetchThaiMarketDataForSymbol(symbol, options = {}) {
