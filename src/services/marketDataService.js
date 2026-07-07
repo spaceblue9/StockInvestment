@@ -94,7 +94,7 @@ export async function fetchThaiMarketData(symbols, options = {}) {
 }
 
 export async function fetchYahooQuoteBatch(symbols, options = {}) {
-  const { chunkSize = 40, logger = () => {} } = options;
+  const { chartConcurrency = 6, chartTimeoutMs = 4500, chunkSize = 40, logger = () => {} } = options;
   const quoteBySymbol = new Map();
   const normalizedSymbols = [...new Set((symbols || [])
     .map((symbol) => String(symbol || "").trim().toUpperCase())
@@ -114,7 +114,71 @@ export async function fetchYahooQuoteBatch(symbols, options = {}) {
     }
   }
 
+  const missingSymbols = normalizedSymbols.filter((symbol) => !quoteBySymbol.has(symbol));
+  if (missingSymbols.length) {
+    logger(`[~] Yahoo quote endpoint did not return ${missingSymbols.length} live price(s); trying chart fallback`);
+    const chartQuotes = await fetchYahooChartQuoteBatch(missingSymbols, {
+      concurrency: chartConcurrency,
+      logger,
+      timeoutMs: chartTimeoutMs,
+    });
+    for (const [symbol, quote] of chartQuotes) {
+      quoteBySymbol.set(symbol, quote);
+    }
+  }
+
   return quoteBySymbol;
+}
+
+export async function fetchYahooChartQuoteBatch(symbols, options = {}) {
+  const { concurrency = 6, logger = () => {}, timeoutMs = 4500 } = options;
+  const quoteBySymbol = new Map();
+  const normalizedSymbols = [...new Set((symbols || [])
+    .map((symbol) => String(symbol || "").trim().toUpperCase())
+    .filter(Boolean))];
+  let cursor = 0;
+
+  async function worker() {
+    while (cursor < normalizedSymbols.length) {
+      const symbol = normalizedSymbols[cursor];
+      cursor += 1;
+      try {
+        const quote = await fetchYahooChartQuote(symbol, { timeoutMs });
+        if (quote?.Price > 0) {
+          quoteBySymbol.set(symbol, quote);
+        }
+      } catch (error) {
+        logger(`[~] ${symbol}: Yahoo chart live price failed (${error.message})`);
+      }
+    }
+  }
+
+  await Promise.all(Array.from({
+    length: Math.min(Math.max(1, concurrency), normalizedSymbols.length || 1),
+  }, () => worker()));
+  return quoteBySymbol;
+}
+
+async function fetchYahooChartQuote(symbol, options = {}) {
+  const chart = await fetchChart(`${symbol}.BK`, {
+    interval: "1d",
+    range: "1d",
+    timeoutMs: options.timeoutMs,
+  });
+  const meta = chart.meta || {};
+  const history = chart.history || [];
+  const volumes = history.map((row) => numberValue(row.volume)).filter((value) => value >= 0);
+  const closes = history.map((row) => numberValue(row.close)).filter((value) => value > 0);
+  const price = numberValue(meta.regularMarketPrice) || closes.at(-1) || 0;
+  return {
+    Symbol: symbol,
+    Price: price,
+    Volume: numberValue(meta.regularMarketVolume) || volumes.at(-1) || 0,
+    Avg_Vol_10D: average(volumes.slice(-10)),
+    High_52W: numberValue(meta.fiftyTwoWeekHigh) || null,
+    Low_52W: numberValue(meta.fiftyTwoWeekLow) || null,
+    Source: "yahoo_chart_live",
+  };
 }
 
 async function fetchYahooQuoteChunk(symbols) {
@@ -227,7 +291,7 @@ function liveQuoteReferenceRow(symbol, quoteRow, referenceRow = {}) {
     RSI: numberValue(referenceRow?.RSI) || 50,
     Volume: quoteRow.Volume,
     Avg_Vol_10D: quoteRow.Avg_Vol_10D,
-    Data_Source: "yahoo_quote_live",
+    Data_Source: quoteRow.Source || "yahoo_quote_live",
   }, referenceRow);
 }
 
@@ -261,6 +325,8 @@ export async function fetchChart(ticker, options = {}) {
     interval = "1d",
     period1,
     period2,
+    signal,
+    timeoutMs,
   } = options;
   const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}`);
   if (period1) {
@@ -271,7 +337,12 @@ export async function fetchChart(ticker, options = {}) {
   }
   url.searchParams.set("interval", interval);
 
-  const response = await fetch(url);
+  const timeoutSignal = timeoutMs && typeof AbortSignal !== "undefined" && "timeout" in AbortSignal
+    ? AbortSignal.timeout(timeoutMs)
+    : null;
+  const response = await fetch(url, {
+    signal: signal || timeoutSignal || undefined,
+  });
   if (!response.ok) {
     throw new Error(`Yahoo chart request failed with ${response.status}`);
   }

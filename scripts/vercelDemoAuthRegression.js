@@ -49,7 +49,7 @@ try {
   assertEqual(analysis.data.portfolioRows[0].Price, 36.75, "Vercel analysis should use live Yahoo quote price instead of the older reference price.");
   assertEqual(analysis.data.customerSnapshot, null, "Vercel demo analysis should not claim persisted customer snapshot state.");
   assertEqual(analysis.data.portfolioReport, null, "Vercel fast mode should not generate a blocking Excel report in the request.");
-  assert(analysis.data.logs.some((line) => line.includes("Live Yahoo quote price 36.75")), "Vercel analysis should log live quote usage.");
+  assert(analysis.data.logs.some((line) => line.includes("Live Yahoo quote price 36.75")), "Vercel analysis should log live chart fallback price usage after quote endpoint is unavailable.");
 
   console.log(JSON.stringify({
     ok: true,
@@ -103,8 +103,16 @@ async function postForm(url, formData) {
 async function fakeYahooFetch(url) {
   const urlText = String(url);
   if (urlText.includes("/v7/finance/quote")) {
-    return new Response(JSON.stringify(buildYahooQuotePayload()), {
-      status: 200,
+    return new Response(JSON.stringify({
+      finance: {
+        result: null,
+        error: {
+          code: "Unauthorized",
+          description: "User is unable to access this feature",
+        },
+      },
+    }), {
+      status: 401,
       headers: { "Content-Type": "application/json" },
     });
   }
@@ -124,22 +132,6 @@ async function fakeYahooFetch(url) {
   });
 }
 
-function buildYahooQuotePayload() {
-  return {
-    quoteResponse: {
-      result: [{
-        symbol: "PTT.BK",
-        regularMarketPrice: 36.75,
-        regularMarketVolume: 2200000,
-        averageDailyVolume10Day: 1800000,
-        fiftyTwoWeekHigh: 44,
-        fiftyTwoWeekLow: 29,
-      }],
-      error: null,
-    },
-  };
-}
-
 function buildYahooChartPayload(symbol) {
   const timestampStart = 1760000000;
   const timestamps = Array.from({ length: 20 }, (_value, index) => timestampStart + (index * 86400));
@@ -153,10 +145,10 @@ function buildYahooChartPayload(symbol) {
       result: [{
         meta: {
           symbol: `${symbol}.BK`,
-          regularMarketPrice: 35,
-          regularMarketVolume: 1200000,
-          fiftyTwoWeekHigh: 42,
-          fiftyTwoWeekLow: 28,
+          regularMarketPrice: 36.75,
+          regularMarketVolume: 2200000,
+          fiftyTwoWeekHigh: 44,
+          fiftyTwoWeekLow: 29,
         },
         timestamp: timestamps,
         indicators: {

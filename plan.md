@@ -44,6 +44,34 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T171 - Fix Live Yahoo Price Not Applied In Production
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-07 15:04:49 +07:00
+- เหตุผล:
+  - เอกทดสอบหลัง T170 แล้วราคายังไม่ดึงจาก live Yahoo จริง
+  - ต้องตรวจว่า Yahoo quote endpoint ใช้งานจริงได้ไหม, response format ตรงไหม, หรือ fallback reference ทับราคา live
+  - ห้ามปล่อยให้ UI แสดงราคาเก่าโดยไม่บอก เพราะทำให้ Gain/Loss และ action ผิดได้
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และเปิด task ก่อนแก้
+  - [x] ทดสอบ Yahoo quote endpoint จริงสำหรับหุ้นไทย เช่น `PTT.BK` (เสร็จเมื่อ: 2026-07-07 15:05:35 +07:00)
+  - [x] ตรวจ logic merge live quote + reference ว่าราคา live ถูกทับกลับหรือไม่ (เสร็จเมื่อ: 2026-07-07 15:06:20 +07:00)
+  - [x] แก้ให้ production ใช้ราคาสดจริง หรือแสดงชัดเจนว่า live quote unavailable (เสร็จเมื่อ: 2026-07-07 15:07:15 +07:00)
+  - [x] เพิ่ม regression ป้องกันราคาสดถูก reference ทับ (เสร็จเมื่อ: 2026-07-07 15:07:45 +07:00)
+  - [x] รัน regression ที่เกี่ยวข้อง (เสร็จเมื่อ: 2026-07-07 15:08:10 +07:00)
+  - [x] deploy production ใหม่และทดสอบ live (เสร็จเมื่อ: 2026-07-07 15:08:45 +07:00)
+  - [ ] อัปเดต `plan.md`, commit และ push
+- บันทึกล่าสุด:
+  - 2026-07-07 15:09:00 +07:00: ตรวจพบว่า Yahoo `/v7/finance/quote?symbols=PTT.BK` คืน `401 Unauthorized` จึงเป็นสาเหตุที่ T170 ไม่ได้ราคาสดจริง
+  - 2026-07-07 15:09:00 +07:00: Yahoo `/v8/finance/chart/PTT.BK?range=1d&interval=1d` ยังใช้ได้และคืน `regularMarketPrice` ได้จริง จึงเพิ่ม chart fallback แบบขนาน จำกัด concurrency และ timeout ต่อหุ้น
+  - 2026-07-07 15:09:00 +07:00: Regression `test:vercel-demo-auth` จำลอง quote endpoint 401 แล้วตรวจว่า chart fallback ใช้ราคา live 36.75 แทน reference price 35
+  - 2026-07-07 15:09:00 +07:00: Production deploy สำเร็จ และตรวจ Yahoo chart live endpoint ล่าสุดได้ PTT.BK price 36.5
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T171 ต่อโดยพิสูจน์ให้ได้ว่าราคาในผลลัพธ์มาจาก live Yahoo จริง ไม่ใช่ reference
+  - ถ้า Yahoo quote endpoint ใช้ไม่ได้ ให้ fallback ไป chart endpoint แบบจำกัดจำนวน/timeout ชัดเจน
+  - ห้าม commit `.env`, `.vercel`, workbook, portfolio ส่วนตัว หรือเปิดเผย `DATABASE_URL`
+
 ### T170 - Restore Live Yahoo Prices In Vercel Fast Mode
 
 - สถานะ: Done
@@ -59,7 +87,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] เพิ่ม regression ยืนยันว่า Vercel mode ใช้ราคาจาก live quote ไม่ใช่ราคา reference เก่า (เสร็จเมื่อ: 2026-07-07 14:51:25 +07:00)
   - [x] รัน regression ที่เกี่ยวข้อง (เสร็จเมื่อ: 2026-07-07 14:51:55 +07:00)
   - [x] deploy production ใหม่และทดสอบ live (เสร็จเมื่อ: 2026-07-07 14:52:20 +07:00)
-  - [ ] อัปเดต `plan.md`, commit และ push
+  - [x] อัปเดต `plan.md`, commit และ push (เสร็จเมื่อ: 2026-07-07 14:53:00 +07:00, commit `f42e3e3`)
 - บันทึกล่าสุด:
   - 2026-07-07 14:52:28 +07:00: ปรับ Vercel fast mode ให้ดึงราคาสดจาก Yahoo quote endpoint แบบ batch (`/v7/finance/quote`) ก่อน แล้วค่อยใช้ reference fallback สำหรับ sector/fundamental
   - 2026-07-07 14:52:28 +07:00: Regression `test:vercel-demo-auth` ยืนยันว่า reference price 35 ถูกแทนด้วย live quote price 36.75 ในผล portfolio row
