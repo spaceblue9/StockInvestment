@@ -44,6 +44,34 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T166 - Enable Vercel Postgres Trial Runtime
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-07 13:32:13 +07:00
+- เหตุผล:
+  - เอกเพิ่ม Environment Variables ใน Vercel แล้ว ต้อง redeploy เพื่อเปิดใช้ Postgres จริง
+  - โค้ดมี Postgres adapter แล้ว แต่ production runtime ต้องมี dependency `pg`
+  - ต้องยืนยันว่า Vercel ใช้ `APP_STATE_REPOSITORY=postgres`, ปิด demo fallback และ `/api/auth/me` ไม่คืน `demoMode: true`
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และเปิด task ก่อนแก้
+  - [x] เพิ่ม dependency `pg` (เสร็จเมื่อ: 2026-07-07 13:37:20 +07:00)
+  - [x] รัน regression ที่เกี่ยวข้องกับ Postgres adapter และ Vercel demo guard (เสร็จเมื่อ: 2026-07-07 13:38:31 +07:00)
+  - [x] แก้ Environment Variables ใน Vercel Production ให้มีค่าจริง ไม่ใช่ค่าว่าง (ยืนยันผ่าน production deploy เมื่อ: 2026-07-07 13:43:20 +07:00)
+  - [x] build/deploy Vercel production ใหม่ (เสร็จเมื่อ: 2026-07-07 13:43:20 +07:00)
+  - [x] ตรวจ live endpoint ว่าไม่ใช่ demo mode และ database ใช้งานได้ (เสร็จเมื่อ: 2026-07-07 13:43:58 +07:00)
+  - [ ] commit/push การเปลี่ยนแปลง
+  - [x] อัปเดต `plan.md` พร้อมผล deploy (เสร็จเมื่อ: 2026-07-07 13:44:06 +07:00)
+- บันทึกล่าสุด:
+  - 2026-07-07 13:40:15 +07:00: ดึง Vercel Production env แล้วพบว่า `APP_STATE_REPOSITORY`, `DATABASE_URL`, `STOCKINVEST_DISABLE_VERCEL_DEMO` ยังเป็นค่าว่าง จึงยัง deploy แบบ Postgres ต่อไม่ได้ ต้องให้เอกกลับไปใส่ค่า Value จริงใน Vercel ก่อน
+  - 2026-07-07 13:40:54 +07:00: หลังเอกแก้ env แล้ว ดึงซ้ำด้วย `npx vercel pull --yes --environment production` ยังพบว่า 3 key สำคัญยังเป็นค่าว่าง แม้ `npx vercel env ls` จะแสดงว่ามี key ใน Production แล้ว จึงสรุปว่า key ถูกสร้างแล้วแต่ value ยังไม่ได้บันทึกเป็นค่าจริง
+  - 2026-07-07 13:44:06 +07:00: Deploy production สำเร็จที่ `https://thai-stock-investment-web.vercel.app` โดย Vercel build ผ่านและ alias กลับ URL หลักแล้ว ตรวจ `/api/health` ได้ `ok:true` และ `/api/auth/me` ได้ `user:null` ไม่มี `demoMode:true` แปลว่า demo fallback ถูกปิดใน production แล้ว
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T166 ต่อโดยระวังไม่เปิดเผย `DATABASE_URL`
+  - ก่อน deploy ให้รัน `npx vercel pull --yes --environment production` แล้วตรวจ key แบบ mask เท่านั้น ห้ามพิมพ์ connection string
+  - ค่า Vercel Production ที่ต้องมี: `APP_STATE_REPOSITORY=postgres`, `DATABASE_URL=<Postgres connection string>`, `STOCKINVEST_DISABLE_VERCEL_DEMO=true`
+  - ห้าม commit `.env.local`, `.vercel`, workbook, portfolio ส่วนตัว หรือไฟล์ runtime data
+
 ### T165 - Fix Vercel Analyze Button No Visible Result
 
 - สถานะ: Done
