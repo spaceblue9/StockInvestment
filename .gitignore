@@ -38,3 +38,5 @@ data/*.sqlite-*
 .npm-cache/
 portfolio_eak.xlsx
 portfolio_aom.xlsx
+.vercel
+.env*

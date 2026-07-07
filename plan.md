@@ -44,6 +44,53 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T164 - Prepare and Deploy Think2 Web App to Vercel
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-07 10:22:30 +07:00
+- เสร็จเมื่อ: 2026-07-07 10:35:45 +07:00
+- เหตุผล:
+  - เอกขอให้ deploy โปรแกรมขึ้น Vercel
+  - โปรเจกต์ปัจจุบันเป็น Express server แบบ `node src/server.js` จึงต้องเพิ่ม serverless entry/config ให้ Vercel route เข้า app เดิม
+  - Vercel filesystem เป็นแบบชั่วคราวสำหรับ runtime writes จึงต้องทำให้ upload/output/state demo เขียนไปที่ writable temp directory เมื่อรันบน Vercel
+- งานที่ต้องทำ:
+  - [x] ตรวจ working tree, package, server entry และ deploy config เดิม
+  - [x] เพิ่ม Vercel serverless entry และ `vercel.json`
+  - [x] ปรับ runtime data path ให้ Vercel เขียนลง temp directory โดยไม่กระทบ local dev
+  - [x] รัน syntax/web smoke regression ที่เกี่ยวข้อง
+  - [x] ตรวจ Vercel CLI/login และ deploy preview/production ตามที่ทำได้
+  - [x] อัปเดต `plan.md` พร้อม URL/ข้อจำกัด/ขั้นตอนส่งต่อ
+- ผลลัพธ์ตอนนี้:
+  - เพิ่ม `api/index.js` เพื่อ export Express app ให้ Vercel serverless runtime
+  - เพิ่ม `vercel.json` ให้ route ทุก request เข้า `/api/index.js`
+  - ปรับ `src/services/pathService.js` ให้ใช้ temp data dir เมื่อรันบน Vercel
+  - Vercel CLI ใช้งานได้ผ่าน `npx vercel` version `54.21.0`
+  - เอก login Vercel สำเร็จแล้ว และ `npx vercel whoami` ได้ `sarawutshi-1532`
+  - แก้ error project name โดย link ด้วยชื่อ lowercase `thai-stock-investment-web` แทนชื่อโฟลเดอร์ `StockInvestment`
+  - สร้าง Vercel project `spaceblue9/thai-stock-investment-web`
+  - Vercel build สำเร็จด้วย output `.vercel/output`
+  - Deploy สำเร็จ deployment id `dpl_FGC7n2HDpnyFJhgts5vDs67own7b`
+  - Production alias: `https://thai-stock-investment-web.vercel.app`
+  - Deployment URL: `https://thai-stock-investment-4juze8vum-spaceblue9.vercel.app`
+  - Inspector URL: `https://vercel.com/spaceblue9/thai-stock-investment-web/FGC7n2HDpnyFJhgts5vDs67own7b`
+- Regression:
+  - `node --check api/index.js` ผ่าน
+  - `node --check src/services/pathService.js` ผ่าน
+  - `npm run check` ผ่าน
+  - `npm run test:web-smoke` ผ่าน
+- Live verification:
+  - `https://thai-stock-investment-web.vercel.app/api/health` ตอบ `200`
+  - `https://thai-stock-investment-web.vercel.app/` ตอบ `200` และโหลด HTML `StockFlix Investor Studio`
+- ข้อจำกัดสำคัญ:
+  - ถ้ายังไม่มี Postgres production database, Vercel deploy นี้เหมาะกับ demo/preview ไม่ใช่ production paid subscription
+  - ข้อมูล local file/temp state บน Vercel อาจหายเมื่อ function cold start/redeploy
+  - ก่อนใช้เงินจริงควรตั้ง `APP_STATE_REPOSITORY=postgres`, `DATABASE_URL`, backup, monitoring และ run deployment checklist แบบ strict
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - T164 เสร็จแล้ว URL หลักคือ `https://thai-stock-investment-web.vercel.app`
+  - หาก deploy รอบใหม่ ให้ตรวจ `git status`, รัน `npm run test:web-smoke`, แล้วใช้ `npx vercel deploy --prebuilt --yes` หลัง `npx vercel build --yes`
+  - ระวังไม่ commit/upload workbook หรือข้อมูลส่วนตัว
+
 ### T163 - Commit, Push, and Tag Think2 Profit Protection Release
 
 - สถานะ: Done
