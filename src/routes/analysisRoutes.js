@@ -70,6 +70,7 @@ router.post("/analysis/run", upload.fields([
     let marketCoverage = null;
     const rows = await fetchThaiMarketData(symbols, {
       coverageReportFile: coverageOutput,
+      liveQuoteBatch: isVercelRuntime(),
       liveFetchLimit: vercelLiveFetchLimit(),
       outputFile: rawOutput,
       logger: (message) => logs.push(message),
@@ -353,7 +354,7 @@ function httpError(message, statusCode = 500) {
 }
 
 function vercelLiveFetchLimit() {
-  if (!process.env.VERCEL) {
+  if (!isVercelRuntime()) {
     return Infinity;
   }
 
@@ -366,12 +367,16 @@ function vercelLiveFetchLimit() {
 }
 
 function isVercelAnalysisFastMode() {
-  if (!process.env.VERCEL) {
+  if (!isVercelRuntime()) {
     return false;
   }
 
   const disabled = String(process.env.STOCKINVEST_VERCEL_FAST_ANALYSIS || "").trim().toLowerCase();
   return !["0", "false", "off", "disabled"].includes(disabled);
+}
+
+function isVercelRuntime() {
+  return Boolean(process.env.VERCEL);
 }
 
 router.get("/analysis/outputs", (_req, res) => {

@@ -46,9 +46,10 @@ try {
   assertEqual(analysis.data.runtimeMode, "vercel_fast_analysis", "Vercel analysis should use fast request mode.");
   assert((analysis.data.runtimeWarnings || []).some((line) => line.includes("skipped Excel report")), "Vercel fast mode should explain skipped Excel report generation.");
   assertEqual(analysis.data.portfolioRows.length, 1, "Vercel demo analysis should return portfolio rows to the frontend.");
+  assertEqual(analysis.data.portfolioRows[0].Price, 36.75, "Vercel analysis should use live Yahoo quote price instead of the older reference price.");
   assertEqual(analysis.data.customerSnapshot, null, "Vercel demo analysis should not claim persisted customer snapshot state.");
   assertEqual(analysis.data.portfolioReport, null, "Vercel fast mode should not generate a blocking Excel report in the request.");
-  assert(analysis.data.logs.some((line) => line.includes("live fetch is limited")), "Vercel analysis should use reference fallback to avoid serverless timeout.");
+  assert(analysis.data.logs.some((line) => line.includes("Live Yahoo quote price 36.75")), "Vercel analysis should log live quote usage.");
 
   console.log(JSON.stringify({
     ok: true,
@@ -100,6 +101,14 @@ async function postForm(url, formData) {
 }
 
 async function fakeYahooFetch(url) {
+  const urlText = String(url);
+  if (urlText.includes("/v7/finance/quote")) {
+    return new Response(JSON.stringify(buildYahooQuotePayload()), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const ticker = decodeURIComponent(String(url).split("/chart/")[1]?.split("?")[0] || "");
   const symbol = ticker.replace(/\.BK$/i, "").toUpperCase();
   if (symbol !== "PTT") {
@@ -113,6 +122,22 @@ async function fakeYahooFetch(url) {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+function buildYahooQuotePayload() {
+  return {
+    quoteResponse: {
+      result: [{
+        symbol: "PTT.BK",
+        regularMarketPrice: 36.75,
+        regularMarketVolume: 2200000,
+        averageDailyVolume10Day: 1800000,
+        fiftyTwoWeekHigh: 44,
+        fiftyTwoWeekLow: 29,
+      }],
+      error: null,
+    },
+  };
 }
 
 function buildYahooChartPayload(symbol) {

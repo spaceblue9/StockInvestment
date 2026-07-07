@@ -6,6 +6,7 @@ import { enrichWithReferenceData, loadReferenceMarketData } from "./referenceDat
 export async function fetchThaiMarketData(symbols, options = {}) {
   const {
     coverageReportFile,
+    liveQuoteBatch = false,
     liveFetchLimit = Infinity,
     outputFile,
     logger = () => {},
@@ -14,11 +15,21 @@ export async function fetchThaiMarketData(symbols, options = {}) {
 
   const rows = [];
   const referenceBySymbol = await loadReferenceMarketData();
+  const quoteBySymbol = liveQuoteBatch
+    ? await fetchYahooQuoteBatch(symbols, { logger })
+    : new Map();
   const normalizedLiveFetchLimit = normalizeLiveFetchLimit(liveFetchLimit);
 
   for (const [index, symbol] of symbols.entries()) {
     const normalizedSymbol = String(symbol).trim().toUpperCase();
     const referenceRow = referenceBySymbol.get(normalizedSymbol);
+    const quoteRow = quoteBySymbol.get(normalizedSymbol);
+    if (quoteRow) {
+      rows.push(liveQuoteReferenceRow(normalizedSymbol, quoteRow, referenceRow));
+      logger(`[+] ${symbol}: Live Yahoo quote price ${quoteRow.Price}`);
+      continue;
+    }
+
     if (index >= normalizedLiveFetchLimit) {
       if (referenceRow) {
         rows.push(referenceFallbackRow(normalizedSymbol, referenceRow));
@@ -82,6 +93,70 @@ export async function fetchThaiMarketData(symbols, options = {}) {
   return rows;
 }
 
+export async function fetchYahooQuoteBatch(symbols, options = {}) {
+  const { chunkSize = 40, logger = () => {} } = options;
+  const quoteBySymbol = new Map();
+  const normalizedSymbols = [...new Set((symbols || [])
+    .map((symbol) => String(symbol || "").trim().toUpperCase())
+    .filter(Boolean))];
+
+  for (let index = 0; index < normalizedSymbols.length; index += chunkSize) {
+    const chunk = normalizedSymbols.slice(index, index + chunkSize);
+    try {
+      const quotes = await fetchYahooQuoteChunk(chunk);
+      for (const quote of quotes) {
+        if (quote.Symbol && quote.Price > 0) {
+          quoteBySymbol.set(quote.Symbol, quote);
+        }
+      }
+    } catch (error) {
+      logger(`[~] Yahoo live quote batch failed for ${chunk.join(", ")} (${error.message})`);
+    }
+  }
+
+  return quoteBySymbol;
+}
+
+async function fetchYahooQuoteChunk(symbols) {
+  if (!symbols.length) {
+    return [];
+  }
+
+  const url = new URL("https://query1.finance.yahoo.com/v7/finance/quote");
+  url.searchParams.set("symbols", symbols.map((symbol) => `${symbol}.BK`).join(","));
+  url.searchParams.set("fields", [
+    "symbol",
+    "regularMarketPrice",
+    "regularMarketVolume",
+    "averageDailyVolume10Day",
+    "fiftyTwoWeekHigh",
+    "fiftyTwoWeekLow",
+  ].join(","));
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Yahoo quote request failed with ${response.status}`);
+  }
+
+  const payload = await response.json();
+  return (payload.quoteResponse?.result || [])
+    .map((quote) => normalizeYahooQuote(quote))
+    .filter((quote) => quote.Symbol);
+}
+
+function normalizeYahooQuote(quote = {}) {
+  const symbol = String(quote.symbol || "").replace(/\.BK$/i, "").toUpperCase();
+  const price = numberValue(quote.regularMarketPrice);
+  return {
+    Symbol: symbol,
+    Price: price,
+    Volume: numberValue(quote.regularMarketVolume),
+    Avg_Vol_10D: numberValue(quote.averageDailyVolume10Day),
+    High_52W: numberValue(quote.fiftyTwoWeekHigh) || null,
+    Low_52W: numberValue(quote.fiftyTwoWeekLow) || null,
+  };
+}
+
 function normalizeLiveFetchLimit(value) {
   if (value === Infinity) {
     return Infinity;
@@ -135,6 +210,25 @@ function referenceFallbackRow(symbol, referenceRow) {
     ...referenceRow,
     Symbol: symbol,
   };
+}
+
+function liveQuoteReferenceRow(symbol, quoteRow, referenceRow = {}) {
+  return enrichWithReferenceData({
+    Symbol: symbol,
+    Sector: referenceRow?.Sector || "Unknown",
+    Price: quoteRow.Price,
+    PE: 0,
+    PBV: 0,
+    Yield: 0,
+    ROE: 0,
+    DE: 0,
+    High_52W: quoteRow.High_52W || null,
+    Low_52W: quoteRow.Low_52W || null,
+    RSI: numberValue(referenceRow?.RSI) || 50,
+    Volume: quoteRow.Volume,
+    Avg_Vol_10D: quoteRow.Avg_Vol_10D,
+    Data_Source: "yahoo_quote_live",
+  }, referenceRow);
 }
 
 export function calculateRsi(prices, window = 14) {

@@ -44,6 +44,33 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T170 - Restore Live Yahoo Prices In Vercel Fast Mode
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-07 14:49:05 +07:00
+- เหตุผล:
+  - เอกยืนยันว่าราคาหุ้นต้องใกล้ realtime จาก live Yahoo เพราะถ้าใช้ราคา reference เก่า การตัดสินใจเรื่อง Gain/Loss, RRR, Price position และ action อาจผิด
+  - T168 แก้ timeout ด้วยการใช้ reference fallback ทั้งแถวบน Vercel ทำให้เร็วขึ้นแต่ราคาไม่สดพอสำหรับใช้งานจริง
+  - ต้องปรับเป็น hybrid: live Yahoo price แบบ batch + reference sector/fundamental
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และเปิด task ก่อนแก้
+  - [x] เพิ่ม Yahoo live quote batch สำหรับ Vercel fast mode (เสร็จเมื่อ: 2026-07-07 14:50:45 +07:00)
+  - [x] ผสาน live price/volume กับ reference fundamentals โดยไม่กลับไปดึง chart ทีละหุ้น (เสร็จเมื่อ: 2026-07-07 14:50:45 +07:00)
+  - [x] เพิ่ม regression ยืนยันว่า Vercel mode ใช้ราคาจาก live quote ไม่ใช่ราคา reference เก่า (เสร็จเมื่อ: 2026-07-07 14:51:25 +07:00)
+  - [x] รัน regression ที่เกี่ยวข้อง (เสร็จเมื่อ: 2026-07-07 14:51:55 +07:00)
+  - [x] deploy production ใหม่และทดสอบ live (เสร็จเมื่อ: 2026-07-07 14:52:20 +07:00)
+  - [ ] อัปเดต `plan.md`, commit และ push
+- บันทึกล่าสุด:
+  - 2026-07-07 14:52:28 +07:00: ปรับ Vercel fast mode ให้ดึงราคาสดจาก Yahoo quote endpoint แบบ batch (`/v7/finance/quote`) ก่อน แล้วค่อยใช้ reference fallback สำหรับ sector/fundamental
+  - 2026-07-07 14:52:28 +07:00: Regression `test:vercel-demo-auth` ยืนยันว่า reference price 35 ถูกแทนด้วย live quote price 36.75 ในผล portfolio row
+  - 2026-07-07 14:52:28 +07:00: ยังไม่กลับไปใช้ chart ทีละหุ้นบน Vercel เพื่อเลี่ยง timeout; chart path ยังใช้ใน local/standard analysis
+  - 2026-07-07 14:52:28 +07:00: Production deploy สำเร็จที่ `https://thai-stock-investment-web.vercel.app`; live `/api/health` ได้ 200 JSON และ `/api/analysis/run` แบบไม่ login ได้ 401 JSON
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T170 ต่อโดยรักษาราคาสดจาก Yahoo แต่ต้องไม่ทำให้ Vercel timeout
+  - แนวทางหลักคือ batch quote endpoint สำหรับราคา/volume และ reference fallback สำหรับ sector/fundamental
+  - ห้าม commit `.env`, `.vercel`, workbook, portfolio ส่วนตัว หรือเปิดเผย `DATABASE_URL`
+
 ### T169 - Make Vercel Analysis Request Return Fast
 
 - สถานะ: Done
