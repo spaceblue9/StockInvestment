@@ -251,13 +251,13 @@ export async function logoutSession(sessionId) {
 export async function getUserFromRequest(req) {
   const sessionId = getSessionIdFromRequest(req);
   if (!sessionId) {
-    return null;
+    return demoUserForStatelessVercel();
   }
 
   const state = await readState();
   const session = state.sessions.find((candidate) => candidate.id === sessionId);
   if (!session) {
-    return null;
+    return demoUserForStatelessVercel();
   }
 
   if (new Date(session.expiresAt) <= new Date()) {
@@ -271,11 +271,11 @@ export async function getUserFromRequest(req) {
         },
       ],
     });
-    return null;
+    return demoUserForStatelessVercel();
   }
 
   const user = state.users.find((candidate) => candidate.id === session.userId);
-  return user ? publicUser(user) : null;
+  return user ? publicUser(user) : demoUserForStatelessVercel();
 }
 
 export async function saveCustomerPortfolioSnapshot(userId, snapshot) {
@@ -2186,6 +2186,8 @@ function publicUser(user) {
       role,
       subscription,
     }),
+    demoMode: Boolean(user.demoMode),
+    deploymentMode: user.deploymentMode || "",
     createdAt: user.createdAt,
     lastLoginAt: user.lastLoginAt,
   };
@@ -2347,8 +2349,8 @@ function appendAuditEvent(state, event) {
   return auditEvent;
 }
 
-function createTrialSubscription(now) {
-  const plan = planById("pro");
+function createTrialSubscription(now, planId = "pro") {
+  const plan = planById(planId);
   const trialEndsAt = new Date(now);
   trialEndsAt.setDate(trialEndsAt.getDate() + 14);
   const renewsAt = new Date(now);
@@ -2381,6 +2383,41 @@ function createPendingManualSubscription(now) {
     renewsAt: renewsAt.toISOString(),
     manualReviewRequired: true,
   };
+}
+
+function demoUserForStatelessVercel() {
+  if (!isStatelessVercelDemoMode()) {
+    return null;
+  }
+
+  const now = new Date();
+  return publicUser({
+    id: "vercel-demo-user",
+    name: "Vercel Demo User",
+    email: "demo@stockflix.local",
+    role: "customer",
+    organizationId: "vercel-demo-workspace",
+    subscription: createTrialSubscription(now, "starter"),
+    demoMode: true,
+    deploymentMode: "vercel_stateless_demo",
+    createdAt: now.toISOString(),
+    lastLoginAt: now.toISOString(),
+  });
+}
+
+function isStatelessVercelDemoMode() {
+  const forced = String(process.env.STOCKINVEST_DEMO_MODE || "").trim().toLowerCase();
+  if (["1", "true", "yes", "enabled"].includes(forced)) {
+    return true;
+  }
+
+  const disabled = String(process.env.STOCKINVEST_DISABLE_VERCEL_DEMO || "").trim().toLowerCase();
+  if (["1", "true", "yes", "disabled"].includes(disabled)) {
+    return false;
+  }
+
+  const repository = String(process.env.APP_STATE_REPOSITORY || "local_file").trim().toLowerCase();
+  return Boolean(process.env.VERCEL) && repository !== "postgres";
 }
 
 function buildPortfolioSummary(rows) {

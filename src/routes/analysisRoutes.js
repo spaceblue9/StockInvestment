@@ -34,6 +34,7 @@ router.post("/analysis/run", upload.fields([
       return;
     }
 
+    const demoMode = Boolean(currentUser.demoMode);
     requirePlanEntitlement(currentUser, "analysis.run");
 
     const watchlistFile = req.files?.watchlist?.[0];
@@ -106,42 +107,43 @@ router.post("/analysis/run", upload.fields([
       };
     }
 
-    const customerSnapshot = await saveCustomerPortfolioSnapshot(currentUser.id, {
-      portfolioRows,
-      recommendations,
-      preserveExistingPortfolioRows: !portfolioPath,
-      outputs: {
-        raw: rawOutput,
-        recommended: recommendedOutput,
-        coverageReport: coverageOutput,
-        portfolioReport: portfolioReport?.output || null,
-      },
-    });
-    const responsePortfolioRows = customerSnapshot?.portfolioRows || portfolioRows;
-    const responsePortfolioReport = portfolioReport || preservedPortfolioReport(customerSnapshot);
-    const responseOutputs = customerSnapshot?.outputs || {
+    const runOutputs = {
       raw: rawOutput,
       recommended: recommendedOutput,
       coverageReport: coverageOutput,
       portfolioReport: portfolioReport?.output || null,
     };
-    await recordAuditEvent({
-      actorUserId: currentUser.id,
-      action: "analysis.run",
-      targetUserId: currentUser.id,
-      details: {
-        symbols: symbols.length,
-        fetchedRows: rows.length,
-        recommendationCount: recommendations.length,
-        portfolioRows: portfolioRows.length,
-        hasPortfolio: Boolean(portfolioPath),
-        uploadSummary,
-      },
-    });
+    const customerSnapshot = demoMode
+      ? null
+      : await saveCustomerPortfolioSnapshot(currentUser.id, {
+        portfolioRows,
+        recommendations,
+        preserveExistingPortfolioRows: !portfolioPath,
+        outputs: runOutputs,
+      });
+    const responsePortfolioRows = customerSnapshot?.portfolioRows || portfolioRows;
+    const responsePortfolioReport = portfolioReport || preservedPortfolioReport(customerSnapshot);
+    const responseOutputs = customerSnapshot?.outputs || runOutputs;
+    if (!demoMode) {
+      await recordAuditEvent({
+        actorUserId: currentUser.id,
+        action: "analysis.run",
+        targetUserId: currentUser.id,
+        details: {
+          symbols: symbols.length,
+          fetchedRows: rows.length,
+          recommendationCount: recommendations.length,
+          portfolioRows: portfolioRows.length,
+          hasPortfolio: Boolean(portfolioPath),
+          uploadSummary,
+        },
+      });
+    }
 
     res.json({
       ok: true,
       stage: "stock-analysis",
+      demoMode,
       symbols,
       count: rows.length,
       recommendationCount: recommendations.length,

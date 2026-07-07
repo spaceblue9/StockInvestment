@@ -1,9 +1,8 @@
 import fs from "fs";
-import os from "os";
 import path from "path";
 
 export const DATA_DIR = process.env.STOCKINVEST_DATA_DIR
-  || (process.env.VERCEL ? path.join(os.tmpdir(), "stockinvestment-data") : path.join(process.cwd(), "data"));
+  || (process.env.VERCEL ? path.join("/tmp", "stockinvestment-data") : path.join(process.cwd(), "data"));
 export const UPLOAD_DIR = path.join(DATA_DIR, "uploads");
 export const OUTPUT_DIR = path.join(DATA_DIR, "outputs");
 export const BACKUP_DIR = path.join(DATA_DIR, "backups");

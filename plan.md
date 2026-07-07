@@ -44,6 +44,55 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T165 - Fix Vercel Analyze Button No Visible Result
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-07 10:50:08 +07:00
+- เสร็จเมื่อ: 2026-07-07 11:30:04 +07:00
+- เหตุผล:
+  - เอกลองใช้งานบน Vercel แล้วเลือก Watchlist และ Portfolio จากนั้นกด `Analyze my portfolio` แต่เหมือนไม่มีอะไรเกิดขึ้น
+  - ต้องแยกสาเหตุว่า frontend ไม่ส่ง request, backend timeout/error, package entitlement blocked, หรือ Vercel runtime เขียน/อ่านไฟล์ไม่ได้
+  - Vercel serverless มีข้อจำกัดเรื่องเวลา execution และ filesystem ชั่วคราว จึงต้องเพิ่ม UX/diagnostic/fallback ให้ผู้ใช้เห็นสถานะจริง
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และเปิด task ก่อนแก้
+  - [x] ตรวจ frontend analyze flow และ backend `/api/analysis/run`
+  - [x] จำลองเรียก live Vercel endpoint ด้วยบัญชีทดสอบและไฟล์ตัวอย่าง
+  - [x] แก้ code ให้ deploy บน Vercel แล้วมีผลลัพธ์หรือ error/progress ชัดเจน
+  - [x] รัน regression ที่เกี่ยวข้อง
+  - [x] deploy/push config ใหม่ถ้าจำเป็น
+  - [x] อัปเดต `plan.md` พร้อมผลทดสอบและ URL
+- Root cause:
+  - หน้าเว็บโหลดได้ แต่ live Vercel logs แสดง `POST /api/analysis/run` ตอบ `401`
+  - สาเหตุคือ Vercel serverless ใช้ filesystem ชั่วคราวและ request ถัดไปอาจไปคนละ instance ทำให้ session ที่เขียนไว้ใน `/tmp` หายหรืออ่านไม่เจอ
+  - ก่อนแก้ ถ้าทดสอบด้วยบัญชีใหม่ backend อาจตอบ `401` หรือ `402` ทำให้ผู้ใช้เข้าใจว่า Analyze ไม่ทำงาน
+- ผลลัพธ์:
+  - เพิ่ม Vercel stateless demo fallback ใน `authService` เมื่อรันบน Vercel + local_file โดยไม่มี Postgres
+  - `/api/auth/me` บน Vercel คืน demo customer Starter trial พร้อม `analysis.run`
+  - `/api/analysis/run` ใน demo mode ไม่ save persisted snapshot/audit ลง state ชั่วคราว แต่คืน `portfolioRows`, `recommendations`, `portfolioReport` ให้ frontend แสดงผลได้
+  - เพิ่ม `scripts/vercelDemoAuthRegression.js` และ npm script `test:vercel-demo-auth`
+  - แก้ Vercel runtime data path เป็น `/tmp/stockinvestment-data` เพื่อไม่ให้ Windows build trace path `C:\...` เข้า Vercel output
+- Regression:
+  - `node --check src/services/authService.js` ผ่าน
+  - `node --check src/routes/analysisRoutes.js` ผ่าน
+  - `node --check scripts/vercelDemoAuthRegression.js` ผ่าน
+  - `npm run test:vercel-demo-auth` ผ่าน
+  - `npm run test:analysis-portfolio-flow` ผ่าน
+  - `npm run test:web-smoke` ผ่าน
+  - `npm run test:entitlements` ผ่าน
+  - `npx vercel build --yes` ผ่าน
+- Live verification:
+  - `https://thai-stock-investment-web.vercel.app/api/auth/me` ตอบ `200` และคืน `demoMode: true`
+  - `https://thai-stock-investment-web.vercel.app/api/analysis/run` ด้วยไฟล์ตัวอย่าง `PTT` ตอบ `200` ภายในประมาณ 1.4 วินาที
+  - response มี `ok: true`, `demoMode: true`, `portfolioReport`, `portfolioRows`, `recommendationCount`
+- Deploy:
+  - Preview deployment: `https://thai-stock-investment-9fcr7u1v9-spaceblue9.vercel.app`
+  - Promote ขึ้น production alias แล้ว: `https://thai-stock-investment-web.vercel.app`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - T165 เสร็จแล้ว URL production คือ `https://thai-stock-investment-web.vercel.app`
+  - ถ้าจะใช้งานจริงแบบ paid production ต้องปิด demo fallback ด้วย `STOCKINVEST_DISABLE_VERCEL_DEMO=true` และตั้ง `APP_STATE_REPOSITORY=postgres` + `DATABASE_URL`
+  - ระวังไม่ commit/upload workbook, portfolio ส่วนตัว, `.env.local`, `.vercel`, หรือข้อมูลส่วนตัว
+
 ### T164 - Prepare and Deploy Think2 Web App to Vercel
 
 - สถานะ: Done
