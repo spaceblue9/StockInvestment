@@ -103,12 +103,12 @@ function actionFamily(action) {
     return "BUY";
   }
 
-  if (/WAIT|WATCH|REVIEW|HOLD|KEEP/.test(text)) {
-    return "HOLD";
+  if (/SELL|REDUCE|EXIT|CUT|TP|TAKE_PROFIT/.test(text)) {
+    return "REDUCE";
   }
 
-  if (/SELL|REDUCE|EXIT|CUT|TP/.test(text)) {
-    return "REDUCE";
+  if (/WAIT|WATCH|REVIEW|HOLD|KEEP/.test(text)) {
+    return "HOLD";
   }
 
   if (/AVOID/.test(text)) {

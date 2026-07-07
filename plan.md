@@ -44,6 +44,82 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T163 - Commit, Push, and Tag Think2 Profit Protection Release
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-07 10:13:29 +07:00
+- เสร็จเมื่อ: 2026-07-07 10:15:07 +07:00
+- เหตุผล:
+  - เอกสั่ง `git commit and git push to github and tag Release`
+  - T162 เพิ่ม Think2 profit-protection logic สำหรับ holding ที่กำไรสูง RSI ร้อน และ Technical RRR ต่ำ เช่น BCP
+  - tag ล่าสุดคือ `think2-beta-v0.2.0` ดังนั้น release ถัดไปจะใช้ `think2-beta-v0.3.0`
+- งานที่ต้องทำ:
+  - [x] ตรวจ working tree และ tag เดิม
+  - [x] รัน targeted regression ก่อน commit
+  - [x] Stage เฉพาะไฟล์งาน T162/T163
+  - [x] Commit งาน Think2 profit protection
+  - [x] Push branch `codex/think2-safety-layer-planning`
+  - [x] สร้างและ push tag `think2-beta-v0.3.0`
+  - [x] อัปเดต `plan.md` พร้อม commit/tag/release result
+- ไฟล์ที่ตั้งใจ commit:
+  - `plan.md`
+  - `src/services/actionMatrixService.js`
+  - `src/services/actionMatrixComparisonService.js`
+  - `scripts/think2DataValidationRegression.js`
+  - `scripts/actionMatrixComparisonRegression.js`
+- ผลลัพธ์:
+  - Commit message: `Add Think2 profit protection shadow action`
+  - Release tag: `think2-beta-v0.3.0`
+  - Branch release target: `codex/think2-safety-layer-planning`
+  - ไม่มี workbook, portfolio, raw output, app-state runtime หรือไฟล์ข้อมูลส่วนตัวใน staged scope
+- Regression:
+  - `npm run test:think2-data-validation` ผ่าน
+  - `npm run test:action-matrix-comparison` ผ่าน
+  - `npm run test:decision-engine-flag` ผ่าน
+  - `npm run test:think2-beta-release` ผ่าน
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - T163 เสร็จแล้ว โดย release tag คือ `think2-beta-v0.3.0`
+  - ห้าม stage workbook, portfolio, raw output, app-state runtime หรือไฟล์ข้อมูลส่วนตัว
+
+### T162 - Add Think2 Profit Protection for Overheated Low-RRR Holdings
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-07 09:32:31 +07:00
+- เสร็จเมื่อ: 2026-07-07 09:36:58 +07:00
+- เหตุผล:
+  - เอกพบว่า `think.md` เดิมแนะนำ Reduce `BCP` แต่ Think2/current เตือนเพียง `WATCH_LIQUIDITY_SHADOW`
+  - เคส `BCP` มีกำไรในพอร์ตสูงมาก, RSI ร้อน, Technical RRR ต่ำ และ upside เหลือน้อย จึงควรมีชั้นเตือนแบบ profit protection สำหรับมือใหม่
+  - ต้องเพิ่ม logic แบบ additive ใน Think2 shadow เท่านั้น โดยไม่เปลี่ยน `Advice`, `Target_Action`, `Total_Score`, `RRR` หรือ Simulation rules
+- งานที่ต้องทำ:
+  - [x] เพิ่ม task นี้ใน `plan.md` ก่อนแก้โปรแกรม
+  - [x] เพิ่ม action matrix rule ใหม่สำหรับ holding ที่กำไรสูง + RSI สูง + Technical RRR ต่ำ
+  - [x] เพิ่ม/ปรับ regression test ให้ครอบคลุม `TAKE_PROFIT_REVIEW_SHADOW`
+  - [x] รันทดสอบ targeted regression ที่เกี่ยวข้อง
+  - [x] อัปเดต `plan.md` พร้อมวันเวลาที่ทำเสร็จและ prompt ส่งต่อ
+- เกณฑ์ตัดสินใจ:
+  - ถ้า `Gain_Loss_Pct >= 30`, `RSI >= 70`, และ `Technical_RRR < 1.0` ให้ Think2 shadow เป็น `TAKE_PROFIT_REVIEW_SHADOW`
+  - ถ้า `Gain_Loss_Pct >= 50`, `RSI >= 70`, และ `Technical_RRR < 1.0` ให้ confidence สูงขึ้นเป็น `HIGH`
+  - สัญญาณนี้แปลว่า "พิจารณาแบ่งขายทำกำไร/ลดความเสี่ยง" ไม่ใช่ "บริษัทพื้นฐานแย่เสมอไป"
+- ผลลัพธ์:
+  - เพิ่ม rule ใน `src/services/actionMatrixService.js` ให้ Think2 shadow ตรวจ `Gain_Loss_Pct`, `RSI` และ `Technical_RRR`
+  - เพิ่ม `TAKE_PROFIT_REVIEW_SHADOW` เป็น action family กลุ่ม `REDUCE` ทั้งใน action matrix และ comparison report
+  - เคสจำลอง `BCP` จาก `recommended_stocks.csv` + Avg Price 14.52 ได้ผล `Target_Action = Keep Holding`, `Effective_Target_Action = Keep Holding`, `Action_v2_Shadow = TAKE_PROFIT_REVIEW_SHADOW`, `Action_v2_Confidence = HIGH`, `Action_v2_Change = HOLD_TO_REDUCE`
+- Regression:
+  - `node --check src/services/actionMatrixService.js` ผ่าน
+  - `node --check src/services/actionMatrixComparisonService.js` ผ่าน
+  - `node --check scripts/think2DataValidationRegression.js` ผ่าน
+  - `node --check scripts/actionMatrixComparisonRegression.js` ผ่าน
+  - `npm run test:think2-data-validation` ผ่าน
+  - `npm run test:action-matrix-comparison` ผ่าน
+  - `npm run test:decision-engine-flag` ผ่าน
+  - `npm run test:think2-beta-release` ผ่าน
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` และทำ T162 ต่อ ห้ามลบ `plan.md`
+  - T162 เสร็จแล้ว: Think2 shadow มี profit-protection rule สำหรับ holding ที่กำไรสูง RSI ร้อน และ Technical RRR ต่ำ เช่น BCP
+  - ต้องไม่เปิด `THINK2_DECISION_ENGINE=enabled` ให้ผู้ใช้จริงจนกว่าเอก review comparison report และ approve
+  - งานถัดไปที่แนะนำคือรัน comparison report จากพอร์ตจริง/fixture เพิ่ม เพื่อดูจำนวนหุ้นที่เปลี่ยนกลุ่มเป็น `TAKE_PROFIT_REVIEW_SHADOW`
+
 ### T161 - Commit, Push, and Tag Think2 Release
 
 - สถานะ: Done

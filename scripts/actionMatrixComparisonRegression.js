@@ -53,22 +53,37 @@ const report = buildActionMatrixComparisonReport([
     Composite_Score_v2: "",
     Technical_RRR: "",
   },
+  {
+    Symbol: "TP",
+    Sector: "Energy",
+    Target_Action: "Keep Holding",
+    Action_v2_Shadow: "TAKE_PROFIT_REVIEW_SHADOW",
+    Action_v2_Risk_Block: "NONE",
+    Action_v2_Change: "HOLD_TO_REDUCE",
+    Conflict_Severity: "YELLOW",
+    Data_Status: "VALID",
+    Total_Score: 47,
+    Composite_Score_v2: 42,
+    Technical_RRR: 0.3,
+  },
 ], { source: "regression-fixture", sampleLimit: 10 });
 
 assertEqual(report.mode, "shadow_only", "Comparison report should be explicitly shadow-only.");
-assertEqual(report.totalRows, 4, "All fixture rows should be counted.");
-assertEqual(report.changedRows, 2, "Only rows with changed action families should be counted as changed.");
+assertEqual(report.totalRows, 5, "All fixture rows should be counted.");
+assertEqual(report.changedRows, 3, "Rows with changed action families should be counted as changed.");
 assertEqual(report.sameFamilyRows, 2, "Same-family rows should be counted separately.");
 assertEqual(report.riskBlockedRows, 2, "RED and DATA_ERROR rows should be risk-blocked.");
 assertEqual(report.redBlockedBuyRows, 1, "Legacy buy blocked by RED conflict should be highlighted.");
 assertEqual(report.dataBlockedRows, 1, "DATA_ERROR blocked row should be counted.");
 assertEqual(report.legacyActionMix.BUY, 3, "Legacy action mix should group buy actions.");
 assertEqual(report.shadowActionMix.BLOCK, 2, "Shadow action mix should group blocked actions.");
+assertEqual(report.shadowActionMix.REDUCE, 1, "Take-profit shadow action should be grouped as REDUCE.");
 assertEqual(report.changeMatrix.BUY_TO_HOLD, 1, "Change matrix should include BUY_TO_HOLD.");
 assertEqual(report.changeMatrix.BUY_TO_BLOCK, 1, "Change matrix should include BUY_TO_BLOCK.");
+assertEqual(report.changeMatrix.HOLD_TO_REDUCE, 1, "Change matrix should include HOLD_TO_REDUCE for take-profit review.");
 assertEqual(report.riskBlockMix.RED_CONFLICT, 1, "Risk block mix should include RED_CONFLICT.");
 assertEqual(report.riskBlockMix.DATA_ERROR, 1, "Risk block mix should include DATA_ERROR.");
-assertEqual(report.reviewSamples.length, 2, "Changed action rows should appear in review samples.");
+assertEqual(report.reviewSamples.length, 3, "Changed action rows should appear in review samples.");
 assertEqual(report.redBlockedBuySamples.length, 1, "RED blocked buy should appear in dedicated samples.");
 assertIncludes(report.recommendation, "Review blocked cases first", "Recommendation should warn before rollout.");
 

@@ -6,6 +6,8 @@ export function buildActionMatrixShadow(row = {}) {
   const liquidity = numberValue(row.Liquidity_Score);
   const composite = numberValue(row.Composite_Score_v2);
   const technicalRrr = numberValue(row.Technical_RRR ?? row.RRR);
+  const gainLossPct = numberValue(row.Gain_Loss_Pct);
+  const rsi = numberValue(row.RSI);
   const conflict = String(row.Conflict_Severity || "GREEN").toUpperCase();
   const dataStatus = String(row.Data_Status || "VALID").toUpperCase();
   const fundamentalStatus = String(row.Fundamental_RRR_Status || "INSUFFICIENT_DATA").toUpperCase();
@@ -34,6 +36,10 @@ export function buildActionMatrixShadow(row = {}) {
     action = "WAIT_FOR_ENTRY_SHADOW";
     confidence = "MEDIUM";
     reasons.push("หุ้นคุณภาพดี แต่จังหวะเข้าและความคุ้มค่ายังไม่พอ");
+  } else if (gainLossPct >= 30 && rsi >= 70 && technicalRrr < 1) {
+    action = "TAKE_PROFIT_REVIEW_SHADOW";
+    confidence = gainLossPct >= 50 ? "HIGH" : "MEDIUM";
+    reasons.push("กำไรสะสมสูง แต่ RSI ร้อนและ Reward/Risk เหลือน้อย ควรพิจารณาแบ่งขายทำกำไรหรือลดความเสี่ยง");
   } else if (balanceRisk < 45) {
     action = "REVIEW_BALANCE_RISK_SHADOW";
     confidence = "MEDIUM";
@@ -84,12 +90,12 @@ function actionFamily(action) {
     return "BUY";
   }
 
-  if (/WAIT|WATCH|REVIEW|HOLD|KEEP/.test(text)) {
-    return "HOLD";
+  if (/SELL|REDUCE|EXIT|CUT|TP|TAKE_PROFIT/.test(text)) {
+    return "REDUCE";
   }
 
-  if (/SELL|REDUCE|EXIT|CUT|TP/.test(text)) {
-    return "REDUCE";
+  if (/WAIT|WATCH|REVIEW|HOLD|KEEP/.test(text)) {
+    return "HOLD";
   }
 
   if (/AVOID/.test(text)) {

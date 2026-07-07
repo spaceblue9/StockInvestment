@@ -73,6 +73,21 @@ const lowLiquidityRow = {
   Avg_Vol_10D: 1000000,
 };
 
+const overheatedProfitRow = {
+  ...validRow,
+  Symbol: "PROFIT",
+  Sector: "Energy",
+  Price: 35.75,
+  PE: 16.6,
+  ROE: 7.716,
+  DE: 1.37,
+  High_52W: 40.75,
+  Low_52W: 24.2,
+  RSI: 76,
+  Volume: 5000000,
+  Avg_Vol_10D: 7700000,
+};
+
 const stats = {
   Sector_PE: 15,
   Sector_ROE: 14,
@@ -182,6 +197,22 @@ assertEqual(holdingWithReviewMarket.Effective_Action_Source, "legacy", "Default 
 assertEqual(holdingWithReviewMarket.Advice, "Buy More", "Phase 1 validation must not change existing Advice logic.");
 assertEqual(holdingWithReviewMarket.Target_Action, "Buy Now (Good RRR)", "Phase 1 validation must not change existing Target_Action logic.");
 
+const overheatedProfitMarket = analyzeStockRow(overheatedProfitRow, {
+  Sector_PE: 9.7,
+  Sector_ROE: 7.707,
+  Sector_Yield: 4.6,
+});
+const overheatedProfitHolding = analyzeHolding(
+  { Symbol: "PROFIT", Quantity: 100, Avg_Price: 14.52 },
+  overheatedProfitMarket,
+);
+assertEqual(overheatedProfitHolding.Target_Action, "Keep Holding", "Profit protection must not mutate legacy Target_Action in shadow mode.");
+assertEqual(overheatedProfitHolding.Action_v2_Shadow, "TAKE_PROFIT_REVIEW_SHADOW", "High-profit, overheated, low-RRR holdings should get a Think2 take-profit review shadow action.");
+assertEqual(overheatedProfitHolding.Action_v2_Confidence, "HIGH", "High profit above 50% should make profit protection high confidence.");
+assertEqual(overheatedProfitHolding.Action_v2_Change, "HOLD_TO_REDUCE", "Take-profit review should be grouped as a reduce/profit-taking action.");
+assertIncludes(overheatedProfitHolding.Action_v2_Rationale, "Reward/Risk", "Profit protection rationale should explain low reward/risk.");
+assertEqual(overheatedProfitHolding.Effective_Target_Action, "Keep Holding", "Default shadow mode should keep the legacy effective action.");
+
 console.log(JSON.stringify({
   ok: true,
   checked: [
@@ -194,6 +225,7 @@ console.log(JSON.stringify({
     "derived-score-matrix",
     "technical-fundamental-rrr-placeholder",
     "action-matrix-v2-shadow",
+    "take-profit-review-shadow",
     "decision-engine-feature-flag-default-safe",
     "phase-one-action-unchanged",
   ],
