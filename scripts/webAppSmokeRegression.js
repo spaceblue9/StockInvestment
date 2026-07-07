@@ -128,7 +128,7 @@ try {
     "Sign in before downloading templates, browsing files, or running analysis.",
     "Simulation",
     "data-frontend-version",
-    "/app.js?v=20260707-1405",
+    "/app.js?v=20260707-1435",
   ], "Main HTML should expose the dashboard navigation.");
   assert(!html.includes('data-view="onboarding"'), "Launch navigation should not expose the hidden Guide view.");
   assert(!html.includes('data-view="approvals"'), "Launch navigation should not expose the deferred Approvals view.");
@@ -160,7 +160,7 @@ try {
     "Sign in to analyze",
     "Create an account or sign in before downloading templates",
     "frontendBuildVersion",
-    "20260707-1405",
+    "20260707-1435",
     "canRunPortfolioAnalysis",
     "analysisPackageRequiredMessage",
     "Portfolio analysis requires Starter or Pro",
@@ -179,6 +179,8 @@ try {
     "readJsonResponse",
     "The server returned invalid JSON",
     "Analysis request failed.",
+    "Trial note:",
+    "runtimeWarnings",
     "renderUploadSummaryMessages",
     "Read portfolio file",
     "Combined unique symbols sent to market data",

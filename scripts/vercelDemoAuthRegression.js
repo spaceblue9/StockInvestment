@@ -43,8 +43,11 @@ try {
   assertEqual(analysis.response.status, 200, "Vercel demo analysis should not fail with 401 when no persisted session exists.");
   assertEqual(analysis.data.ok, true, "Vercel demo analysis should succeed.");
   assertEqual(analysis.data.demoMode, true, "Vercel demo analysis response should disclose demo mode.");
+  assertEqual(analysis.data.runtimeMode, "vercel_fast_analysis", "Vercel analysis should use fast request mode.");
+  assert((analysis.data.runtimeWarnings || []).some((line) => line.includes("skipped Excel report")), "Vercel fast mode should explain skipped Excel report generation.");
   assertEqual(analysis.data.portfolioRows.length, 1, "Vercel demo analysis should return portfolio rows to the frontend.");
   assertEqual(analysis.data.customerSnapshot, null, "Vercel demo analysis should not claim persisted customer snapshot state.");
+  assertEqual(analysis.data.portfolioReport, null, "Vercel fast mode should not generate a blocking Excel report in the request.");
   assert(analysis.data.logs.some((line) => line.includes("live fetch is limited")), "Vercel analysis should use reference fallback to avoid serverless timeout.");
 
   console.log(JSON.stringify({

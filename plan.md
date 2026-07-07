@@ -44,6 +44,32 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T169 - Make Vercel Analysis Request Return Fast
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-07 14:34:42 +07:00
+- เหตุผล:
+  - หลัง T168 ยังพบ `FUNCTION_INVOCATION_TIMEOUT` แปลว่ายังมีงานหนักอื่นใน request เช่น สร้าง Excel report, เขียน Postgres snapshot หรือ audit event
+  - Vercel serverless ไม่เหมาะกับงานวิเคราะห์ยาวใน HTTP request เดียว
+  - ช่วงทดลองต้องให้หน้าเว็บแสดงผลวิเคราะห์ได้ก่อน แล้วค่อยแยก background job/persistence เป็น phase ถัดไป
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และเปิด task ก่อนแก้
+  - [x] เพิ่ม Vercel fast mode ให้ `/api/analysis/run` ไม่สร้าง Excel report ใน request (เสร็จเมื่อ: 2026-07-07 14:37:10 +07:00)
+  - [x] เพิ่ม Vercel fast mode ให้ไม่รอ snapshot/audit persistence ที่อาจทำให้ timeout (เสร็จเมื่อ: 2026-07-07 14:37:10 +07:00)
+  - [x] ส่งข้อความให้ frontend รู้ว่า report/persistence ถูกจำกัดใน Vercel trial (เสร็จเมื่อ: 2026-07-07 14:38:00 +07:00)
+  - [x] รัน regression ที่เกี่ยวข้อง (เสร็จเมื่อ: 2026-07-07 14:38:55 +07:00)
+  - [x] deploy production ใหม่และทดสอบ live (เสร็จเมื่อ: 2026-07-07 14:39:40 +07:00)
+  - [ ] อัปเดต `plan.md`, commit และ push
+- บันทึกล่าสุด:
+  - 2026-07-07 14:40:05 +07:00: เพิ่ม Vercel fast analysis mode ให้ข้าม Excel report generation, snapshot persistence และ audit logging ใน request เพื่อไม่ให้ชน serverless timeout
+  - 2026-07-07 14:40:05 +07:00: Response จะมี `runtimeMode: "vercel_fast_analysis"` และ `runtimeWarnings` เพื่อให้ frontend แสดง Trial note ชัดเจน
+  - 2026-07-07 14:40:05 +07:00: อัปเดต frontend cache-bust/version เป็น `20260707-1435`
+  - 2026-07-07 14:40:05 +07:00: Production deploy สำเร็จที่ `https://thai-stock-investment-web.vercel.app`; live HTML โหลด `app.js?v=20260707-1435`, app.js มี runtime warning UI, และ `/api/analysis/run` แบบไม่ login คืน 401 JSON
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T169 ต่อโดยโฟกัสให้ Vercel `/api/analysis/run` ตอบเร็ว ไม่ timeout
+  - ระวังไม่เปิดเผย `DATABASE_URL` และไม่ commit `.env`, `.vercel`, workbook, portfolio ส่วนตัว
+
 ### T168 - Fix Vercel Analysis Function Timeout
 
 - สถานะ: Done

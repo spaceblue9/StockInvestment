@@ -25,7 +25,7 @@ const customerSnapshot = document.querySelector("#customerSnapshot");
 const plansList = document.querySelector("#plansList");
 const businessViewButton = document.querySelector("[data-view='business']");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20260707-1405";
+const frontendBuildVersion = "20260707-1435";
 
 const state = {
   user: null,
@@ -1024,6 +1024,10 @@ async function runAnalysis(event) {
     if (data.portfolioReport) {
       messages.push(`Generated ${data.portfolioReport.count} portfolio rows.`);
       messages.push(`<a href="${data.portfolioReport.downloadUrl}">Download portfolio report</a>`);
+    }
+
+    if (Array.isArray(data.runtimeWarnings) && data.runtimeWarnings.length) {
+      messages.push(...data.runtimeWarnings.map((warning) => `Trial note: ${escapeHtml(warning)}`));
     }
 
     messages.push(data.message);

@@ -64,6 +64,8 @@ router.post("/analysis/run", upload.fields([
     const rawOutput = outputPath("siamchart_raw.csv");
     const recommendedOutput = outputPath("recommended_stocks.csv");
     const coverageOutput = outputPath("live_market_coverage_report.json");
+    const fastMode = isVercelAnalysisFastMode();
+    const runtimeWarnings = [];
     const logs = [];
     let marketCoverage = null;
     const rows = await fetchThaiMarketData(symbols, {
@@ -97,15 +99,19 @@ router.post("/analysis/run", upload.fields([
       const reportFileName = `${safeBaseName(portfolioFile.originalname)}_analysis_report.xlsx`;
       const reportOutput = outputPath(reportFileName);
       portfolioRows = await analyzePortfolio(portfolioPath, recommendations, {
-        outputFile: reportOutput,
+        outputFile: fastMode ? null : reportOutput,
       });
       uploadSummary.portfolio.holdings = portfolioRows.length;
-      portfolioReport = {
-        count: portfolioRows.length,
-        fileName: reportFileName,
-        output: reportOutput,
-        downloadUrl: `/api/analysis/report/${encodeURIComponent(reportFileName)}`,
-      };
+      if (fastMode) {
+        runtimeWarnings.push("Vercel trial mode skipped Excel report generation so the analysis can finish before the serverless timeout.");
+      } else {
+        portfolioReport = {
+          count: portfolioRows.length,
+          fileName: reportFileName,
+          output: reportOutput,
+          downloadUrl: `/api/analysis/report/${encodeURIComponent(reportFileName)}`,
+        };
+      }
     }
 
     const runOutputs = {
@@ -114,7 +120,7 @@ router.post("/analysis/run", upload.fields([
       coverageReport: coverageOutput,
       portfolioReport: portfolioReport?.output || null,
     };
-    const customerSnapshot = demoMode
+    const customerSnapshot = demoMode || fastMode
       ? null
       : await saveCustomerPortfolioSnapshot(currentUser.id, {
         portfolioRows,
@@ -122,10 +128,13 @@ router.post("/analysis/run", upload.fields([
         preserveExistingPortfolioRows: !portfolioPath,
         outputs: runOutputs,
       });
+    if (fastMode && !demoMode) {
+      runtimeWarnings.push("Vercel trial mode skipped saving the portfolio snapshot in this request. The on-screen results are still available now, but refresh may require running analysis again.");
+    }
     const responsePortfolioRows = customerSnapshot?.portfolioRows || portfolioRows;
     const responsePortfolioReport = portfolioReport || preservedPortfolioReport(customerSnapshot);
     const responseOutputs = customerSnapshot?.outputs || runOutputs;
-    if (!demoMode) {
+    if (!demoMode && !fastMode) {
       await recordAuditEvent({
         actorUserId: currentUser.id,
         action: "analysis.run",
@@ -139,12 +148,16 @@ router.post("/analysis/run", upload.fields([
           uploadSummary,
         },
       });
+    } else if (fastMode && !demoMode) {
+      runtimeWarnings.push("Vercel trial mode skipped audit logging in this request to avoid timeout.");
     }
 
     res.json({
       ok: true,
       stage: "stock-analysis",
       demoMode,
+      runtimeMode: fastMode ? "vercel_fast_analysis" : "standard_analysis",
+      runtimeWarnings,
       symbols,
       count: rows.length,
       recommendationCount: recommendations.length,
@@ -156,7 +169,9 @@ router.post("/analysis/run", upload.fields([
       recommendations,
       portfolioRows: responsePortfolioRows,
       logs,
-      message: portfolioReport
+      message: fastMode
+        ? "Analysis finished in Vercel trial mode. Dashboard results are ready, while Excel report download and snapshot saving are deferred to avoid timeout."
+        : portfolioReport
         ? "Market data, stock scoring, and portfolio report were generated."
         : responsePortfolioRows.length
           ? "Market data and stock scoring were generated. Existing portfolio holdings were kept because no new portfolio file was uploaded."
@@ -348,6 +363,15 @@ function vercelLiveFetchLimit() {
   }
 
   return 0;
+}
+
+function isVercelAnalysisFastMode() {
+  if (!process.env.VERCEL) {
+    return false;
+  }
+
+  const disabled = String(process.env.STOCKINVEST_VERCEL_FAST_ANALYSIS || "").trim().toLowerCase();
+  return !["0", "false", "off", "disabled"].includes(disabled);
 }
 
 router.get("/analysis/outputs", (_req, res) => {
