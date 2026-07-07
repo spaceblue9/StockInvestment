@@ -25,7 +25,7 @@ const customerSnapshot = document.querySelector("#customerSnapshot");
 const plansList = document.querySelector("#plansList");
 const businessViewButton = document.querySelector("[data-view='business']");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20260706-0758";
+const frontendBuildVersion = "20260707-1405";
 
 const state = {
   user: null,
@@ -897,6 +897,22 @@ async function checkoutPlan(planId) {
   }
 }
 
+async function readJsonResponse(response, fallbackMessage = "Request failed.") {
+  const contentType = response.headers.get("content-type") || "";
+  const bodyText = await response.text();
+  if (contentType.includes("application/json")) {
+    try {
+      return bodyText ? JSON.parse(bodyText) : {};
+    } catch {
+      throw new Error("The server returned invalid JSON. Please try again.");
+    }
+  }
+
+  const plainText = bodyText.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const detail = plainText.slice(0, 180);
+  throw new Error(detail || `${fallbackMessage} HTTP ${response.status}`);
+}
+
 async function runAnalysis(event) {
   event.preventDefault();
 
@@ -974,7 +990,7 @@ async function runAnalysis(event) {
       method: "POST",
       body: formData,
     });
-    const data = await response.json();
+    const data = await readJsonResponse(response, "Analysis request failed.");
 
     if (!data.ok) {
       showAnalysisStatus("error", {

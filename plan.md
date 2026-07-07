@@ -44,6 +44,32 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T167 - Fix Vercel Analysis JSON Parse Failure
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-07 14:04:23 +07:00
+- เหตุผล:
+  - เอกทดสอบบน Vercel แล้วกด Analyze พบ error `JSON.parse: unexpected character at line 1 column 1`
+  - อาการนี้มักเกิดจาก frontend เรียก `response.json()` แต่ backend ส่ง HTML/error page หรือข้อความ plain text กลับมา
+  - ต้องทำให้ frontend แสดง error จริงที่อ่านง่าย และแก้สาเหตุ backend/Vercel ให้ `/api/analysis/run` คืน JSON เสมอ
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และเปิด task ก่อนแก้
+  - [x] ตรวจ frontend analyze fetch ว่ารับ non-JSON response อย่างไร (เสร็จเมื่อ: 2026-07-07 14:07:20 +07:00)
+  - [x] ตรวจ live Vercel response/log สำหรับ `/api/analysis/run` (เสร็จเมื่อ: 2026-07-07 14:13:48 +07:00)
+  - [x] แก้ code ให้ analysis error คืน JSON หรือ frontend อ่าน error ได้ปลอดภัย (เสร็จเมื่อ: 2026-07-07 14:09:10 +07:00)
+  - [x] รัน regression ที่เกี่ยวข้อง (เสร็จเมื่อ: 2026-07-07 14:12:06 +07:00)
+  - [x] deploy production ใหม่และทดสอบ live (เสร็จเมื่อ: 2026-07-07 14:16:20 +07:00)
+  - [x] อัปเดต `plan.md`, commit และ push (เสร็จเมื่อ: 2026-07-07 14:18:40 +07:00, บันทึกใน commit นี้)
+- บันทึกล่าสุด:
+  - 2026-07-07 14:16:47 +07:00: แก้ frontend `/api/analysis/run` ให้ใช้ `readJsonResponse()` แทน `response.json()` ตรง ๆ เพื่อไม่ให้ browser แสดง `JSON.parse: unexpected character` เมื่อ Vercel ส่ง non-JSON กลับมา
+  - 2026-07-07 14:16:47 +07:00: เพิ่ม API 404/error middleware ให้ `/api/*` คืน JSON เสมอ และ map `LIMIT_FILE_SIZE` เป็น HTTP 413 พร้อมข้อความไฟล์ใหญ่เกิน 10 MB
+  - 2026-07-07 14:16:47 +07:00: อัปเดต frontend cache-bust/version เป็น `20260707-1405`; production URL ตรวจแล้วว่า HTML โหลด version ใหม่และ app.js มี safe JSON helper
+  - 2026-07-07 14:16:47 +07:00: Live check `/api/analysis/run` แบบไม่ login คืน `401 application/json` พร้อม payload JSON ไม่ใช่ HTML
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T167 ต่อโดยห้ามเปิดเผยค่า `DATABASE_URL`
+  - โฟกัส `/api/analysis/run`, frontend JSON parsing, Vercel serverless error response และ regression ที่ป้องกัน HTML/non-JSON response
+
 ### T166 - Enable Vercel Postgres Trial Runtime
 
 - สถานะ: Done
@@ -59,7 +85,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] แก้ Environment Variables ใน Vercel Production ให้มีค่าจริง ไม่ใช่ค่าว่าง (ยืนยันผ่าน production deploy เมื่อ: 2026-07-07 13:43:20 +07:00)
   - [x] build/deploy Vercel production ใหม่ (เสร็จเมื่อ: 2026-07-07 13:43:20 +07:00)
   - [x] ตรวจ live endpoint ว่าไม่ใช่ demo mode และ database ใช้งานได้ (เสร็จเมื่อ: 2026-07-07 13:43:58 +07:00)
-  - [ ] commit/push การเปลี่ยนแปลง
+  - [x] commit/push การเปลี่ยนแปลง (เสร็จเมื่อ: 2026-07-07 13:47:10 +07:00, commit `dee6196`)
   - [x] อัปเดต `plan.md` พร้อมผล deploy (เสร็จเมื่อ: 2026-07-07 13:44:06 +07:00)
 - บันทึกล่าสุด:
   - 2026-07-07 13:40:15 +07:00: ดึง Vercel Production env แล้วพบว่า `APP_STATE_REPOSITORY`, `DATABASE_URL`, `STOCKINVEST_DISABLE_VERCEL_DEMO` ยังเป็นค่าว่าง จึงยัง deploy แบบ Postgres ต่อไม่ได้ ต้องให้เอกกลับไปใส่ค่า Value จริงใน Vercel ก่อน

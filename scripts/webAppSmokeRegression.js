@@ -63,6 +63,19 @@ try {
   assertEqual(ownerRegister.body.ok, true, "Owner registration should succeed for authenticated downloads.");
   const ownerCookie = cookieHeader(ownerRegister.response);
 
+  const oversizedUpload = new FormData();
+  oversizedUpload.set("watchlist", new Blob([Buffer.alloc(11 * 1024 * 1024, "A")]), "oversized-watchlist.txt");
+  const oversizedAnalysis = await fetch(`${baseUrl}/api/analysis/run`, {
+    method: "POST",
+    headers: { Cookie: ownerCookie },
+    body: oversizedUpload,
+  });
+  assertEqual(oversizedAnalysis.status, 413, "Oversized analysis uploads should return HTTP 413.");
+  assert((oversizedAnalysis.headers.get("content-type") || "").includes("application/json"), "Oversized analysis uploads should return JSON, not an HTML error page.");
+  const oversizedAnalysisBody = await oversizedAnalysis.json();
+  assertEqual(oversizedAnalysisBody.ok, false, "Oversized analysis upload body should be a JSON error payload.");
+  assert(oversizedAnalysisBody.message.includes("smaller than 10 MB"), "Oversized analysis upload should explain the 10 MB file limit.");
+
   await fs.mkdir(path.join(tempRoot, "data", "outputs"), { recursive: true });
   await fs.writeFile(path.join(tempRoot, "data", "outputs", "siamchart_raw.csv"), "Symbol,Price\nPTT,35\n", "utf8");
   const rawCsvDownload = await getTextWithHeaders(`${baseUrl}/api/analysis/raw`, ownerCookie);
@@ -115,7 +128,7 @@ try {
     "Sign in before downloading templates, browsing files, or running analysis.",
     "Simulation",
     "data-frontend-version",
-    "/app.js?v=20260706-0758",
+    "/app.js?v=20260707-1405",
   ], "Main HTML should expose the dashboard navigation.");
   assert(!html.includes('data-view="onboarding"'), "Launch navigation should not expose the hidden Guide view.");
   assert(!html.includes('data-view="approvals"'), "Launch navigation should not expose the deferred Approvals view.");
@@ -147,7 +160,7 @@ try {
     "Sign in to analyze",
     "Create an account or sign in before downloading templates",
     "frontendBuildVersion",
-    "20260706-0758",
+    "20260707-1405",
     "canRunPortfolioAnalysis",
     "analysisPackageRequiredMessage",
     "Portfolio analysis requires Starter or Pro",
@@ -163,6 +176,9 @@ try {
     "isAttachedUploadFile",
     "The selected files could not be attached",
     "The browser could not prepare the upload",
+    "readJsonResponse",
+    "The server returned invalid JSON",
+    "Analysis request failed.",
     "renderUploadSummaryMessages",
     "Read portfolio file",
     "Combined unique symbols sent to market data",

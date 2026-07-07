@@ -42,6 +42,27 @@ export function createApp() {
 
   app.use("/api", authRoutes);
   app.use("/api", analysisRoutes);
+  app.use("/api", (_req, res) => {
+    res.status(404).json({
+      ok: false,
+      message: "API endpoint not found.",
+    });
+  });
+  app.use((error, req, res, next) => {
+    if (!req.path?.startsWith("/api")) {
+      next(error);
+      return;
+    }
+    const statusCode = error.code === "LIMIT_FILE_SIZE"
+      ? 413
+      : error.statusCode || error.status || 500;
+    res.status(statusCode).json({
+      ok: false,
+      message: error.code === "LIMIT_FILE_SIZE"
+        ? "Uploaded file is too large. Please use a file smaller than 10 MB."
+        : error.message || "Server error.",
+    });
+  });
 
   return app;
 }
