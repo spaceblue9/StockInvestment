@@ -1479,14 +1479,22 @@ td select {
   margin: 0;
 }
 
+.chart-filter-context {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+  margin: -4px 0 10px;
+}
+
 .scatter-frame {
-  background: #0b0b0b;
-  border: 1px solid #242424;
+  background: linear-gradient(180deg, #101010, #080808);
+  border: 1px solid #303030;
   border-radius: 8px;
   display: grid;
-  gap: 8px;
+  gap: 10px;
   overflow: hidden;
-  padding: 10px;
+  padding: 12px;
 }
 
 .scatter-frame svg {
@@ -1519,18 +1527,58 @@ td select {
 }
 
 .axis-line {
-  stroke: #555;
-  stroke-width: 1.4;
+  stroke: rgba(255, 255, 255, 0.48);
+  stroke-width: 1.6;
 }
 
 .guide-line {
-  stroke: rgba(229, 9, 20, 0.35);
-  stroke-dasharray: 5 5;
+  stroke: rgba(229, 9, 20, 0.62);
+  stroke-dasharray: 6 5;
+  stroke-width: 1.4;
+}
+
+.tick-line {
+  stroke: rgba(255, 255, 255, 0.36);
   stroke-width: 1;
 }
 
+.tick-text,
+.axis-caption {
+  fill: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.axis-caption {
+  fill: #ddd;
+}
+
+.quadrant-label {
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.8);
+  stroke-width: 4px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.quadrant-label-best {
+  fill: #d7ffe9;
+}
+
+.quadrant-label-watch {
+  fill: #ffe7a6;
+}
+
+.quadrant-label-risky {
+  fill: #ffd2b8;
+}
+
+.quadrant-label-avoid {
+  fill: #ffc2c6;
+}
+
 .quadrant-zone {
-  opacity: 0.14;
+  opacity: 0.19;
 }
 
 .quadrant-zone-best {
@@ -1551,16 +1599,17 @@ td select {
 
 .scatter-point {
   fill: var(--red);
-  opacity: 0.82;
+  opacity: 0.86;
   stroke: #fff;
-  stroke-width: 1;
+  stroke-width: 1.4;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.45));
 }
 
 .scatter-point.top-idea-point {
   fill: #00b86b;
   opacity: 1;
   stroke: #d7ffe9;
-  stroke-width: 2;
+  stroke-width: 2.4;
 }
 
 .stock-chart-trigger {
@@ -1580,6 +1629,53 @@ td select {
 .stock-chart-trigger.selected .scatter-point:not(.top-idea-point),
 .stock-chart-trigger:focus-visible .scatter-point:not(.top-idea-point) {
   fill: var(--gold);
+}
+
+.scatter-legend {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.scatter-legend span {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.legend-dot {
+  border-radius: 999px;
+  display: inline-block;
+  height: 10px;
+  width: 10px;
+}
+
+.legend-dot-top {
+  background: #00b86b;
+  border: 2px solid #d7ffe9;
+}
+
+.legend-dot-normal {
+  background: var(--red);
+  border: 2px solid #fff;
+}
+
+.legend-line {
+  border-top: 2px dashed rgba(229, 9, 20, 0.75);
+  display: inline-block;
+  width: 22px;
+}
+
+.scatter-note {
+  color: #ddd;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.45;
+  margin: -2px 0 0;
 }
 
 .axis-text {

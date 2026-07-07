@@ -2832,7 +2832,12 @@ function renderScreenerView() {
     document.querySelector("#screenerTable").innerHTML = `
       ${renderThink2SafetySummary(rows, { context: "screener" })}
       ${renderScoreMatrixGuide(rows)}
-      ${renderScreenerInsights(rows, { selectedSector: sectorFilter.value })}
+      ${renderScreenerInsights(rows, {
+        selectedSector: sectorFilter.value,
+        filterSummary: activeFilters.length ? activeFilters.join(" · ") : "beginner defaults",
+        scoreThreshold: numberValue(minScore.value),
+        rrrThreshold: numberValue(minRrr.value),
+      })}
       <p class="muted table-focus-status" data-stock-highlight-status>Click a stock in Quality vs reward or Top ideas to focus its table row.</p>
       ${renderTable(rows, [
         "Symbol",
@@ -2864,7 +2869,10 @@ function renderScreenerView() {
     attachStockHighlightControls(document.querySelector("#screenerTable"));
   };
 
-  [symbolSearch, minScore, minRrr, maxDe].forEach((input) => input.addEventListener("input", renderFiltered));
+  [symbolSearch, minScore, minRrr, maxDe].forEach((input) => {
+    input.addEventListener("input", renderFiltered);
+    input.addEventListener("change", renderFiltered);
+  });
   [sectorFilter, trendFilter].forEach((input) => input.addEventListener("change", renderFiltered));
   renderFiltered();
 }
@@ -2899,6 +2907,14 @@ function renderSectorView() {
           ${sectorNames.map((sector) => `<option value="${escapeHtml(sector)}">${escapeHtml(sector)}</option>`).join("")}
         </select>
       </label>
+      <label>
+        Min Score
+        <input id="sectorMinScore" type="number" min="0" max="100" value="0" data-sector-score-filter>
+      </label>
+      <label>
+        Price position line
+        <input id="sectorPricePositionThreshold" type="number" min="0" max="100" value="60" data-sector-price-position-filter>
+      </label>
     </div>
     <div id="sectorDetails"></div>
     <details class="advanced-sector-details" data-sector-advanced-table>
@@ -2908,10 +2924,15 @@ function renderSectorView() {
   `;
 
   const sectorSelect = document.querySelector("#sectorSelect");
+  const sectorMinScore = document.querySelector("#sectorMinScore");
+  const sectorPricePositionThreshold = document.querySelector("#sectorPricePositionThreshold");
   const renderDetails = () => {
     const selectedSector = sectorSelect.value;
     const isAllSectors = selectedSector === "__all";
+    const minScore = numberValue(sectorMinScore.value);
+    const pricePositionThreshold = clamp(numberValue(sectorPricePositionThreshold.value || 60), 0, 100);
     const sectorRows = (isAllSectors ? state.recommendations : (sectors[selectedSector] || []))
+      .filter((row) => numberValue(row.Total_Score) >= minScore)
       .slice()
       .sort((left, right) => numberValue(right.Total_Score) - numberValue(left.Total_Score));
     const leader = sectorRows[0];
@@ -2931,7 +2952,11 @@ function renderSectorView() {
       </div>
       ${isAllSectors ? `<p class="muted">ตอนนี้แสดงหุ้นทั้งหมดจาก analysis ล่าสุด หากต้องการดูหุ้นในกลุ่มเดียว ให้เลือก sector จาก dropdown หรือกดการ์ด sector ด้านล่าง</p>` : ""}
       ${renderSectorProInsights(sectorInsights, insight)}
-      ${renderSectorVisuals(sectorRows, stats)}
+      ${renderSectorVisuals(sectorRows, stats, {
+        filterSummary: `${isAllSectors ? "All sectors" : selectedSector} · score >= ${formatNumber(minScore)} · price line ${formatNumber(pricePositionThreshold)}`,
+        scoreThreshold: minScore,
+        pricePositionThreshold,
+      })}
       <p class="muted table-focus-status" data-stock-highlight-status>Click a stock in Sector leaders or Timing vs quality to focus its table row.</p>
       ${renderTable(sectorRows, ["Symbol", "Price", "Total_Score", "RRR", "Upside_Pct", "Price_Position", "PE", "ROE", "Yield", "DE", "Trend_Status", "Rationale"], { stockHighlight: true })}
     `;
@@ -2940,6 +2965,10 @@ function renderSectorView() {
   };
 
   sectorSelect.addEventListener("change", renderDetails);
+  [sectorMinScore, sectorPricePositionThreshold].forEach((input) => {
+    input.addEventListener("input", renderDetails);
+    input.addEventListener("change", renderDetails);
+  });
   renderDetails();
 }
 
@@ -3186,6 +3215,8 @@ function renderScreenerInsights(rows, options = {}) {
     return "";
   }
 
+  const scoreThreshold = clamp(numberValue(options.scoreThreshold ?? 70), 0, 100);
+  const rrrThreshold = clamp(numberValue(options.rrrThreshold ?? 1.5), 0, 5);
   const topIdeas = rows
     .slice()
     .sort((left, right) => numberValue(right.Total_Score) - numberValue(left.Total_Score))
@@ -3206,20 +3237,28 @@ function renderScreenerInsights(rows, options = {}) {
     <div class="visual-grid two-columns">
       <section class="chart-panel wide">
         <h3>Quality vs reward</h3>
+        <p class="chart-filter-context" data-chart-filter-context>
+          กราฟนี้อัปเดตตาม filter ปัจจุบัน: ${formatNumber(rows.length)} stocks · ${escapeHtml(options.filterSummary || "current filters")}
+        </p>
         ${renderScatterPlot(rows, {
           xKey: "RRR",
           yKey: "Total_Score",
           labelKey: "Symbol",
           xLabel: "Reward/Risk",
           yLabel: "Quality score",
+          xHelp: "Reward/Risk ขวา = ผลตอบแทนเทียบความเสี่ยงดีขึ้น",
+          yHelp: "Quality score สูง = คุณภาพดีขึ้น",
+          xCaption: "Reward/Risk สูงขึ้น = คุ้มความเสี่ยงขึ้น",
+          yCaption: "Quality score สูงขึ้น = คุณภาพดีขึ้น",
+          note: "วิธีอ่านเร็ว: เริ่มดูหุ้นที่อยู่โซนขวาบนก่อน แล้วคลิกจุดเพื่อไฮไลต์แถวในตาราง.",
           xMax: 5,
           yMax: 100,
           action: "stock-highlight",
           highlightLabels: topIdeaSymbols,
           highlightClass: "top-idea-point",
           quadrant: {
-            xThreshold: 1.5,
-            yThreshold: 70,
+            xThreshold: rrrThreshold,
+            yThreshold: scoreThreshold,
             best: "น่าสนใจสุด",
             watch: "คุณภาพดี reward ต่ำ",
             risky: "reward ดีแต่เสี่ยง",
@@ -3228,8 +3267,8 @@ function renderScreenerInsights(rows, options = {}) {
         })}
         <div class="quadrant-guide" data-screener-quadrant-guide>
           <strong>อ่านกราฟนี้แบบง่าย:</strong>
-          <span><i class="zone-dot zone-best"></i><b>ขวาบน</b> ดีสุด: Score 70+ และ RRR 1.5+.</span>
-          <span><i class="zone-dot zone-watch"></i><b>ซ้ายบน</b> คุณภาพดีแต่ reward ยังไม่คุ้ม.</span>
+          <span><i class="zone-dot zone-best"></i><b>ขวาบน</b> ดีสุด: Score ${formatNumber(scoreThreshold)}+ และ RRR ${formatNumber(rrrThreshold)}+.</span>
+          <span><i class="zone-dot zone-watch"></i><b>ซ้ายบน</b> Score ผ่านเกณฑ์ แต่ reward ยังไม่คุ้ม.</span>
           <span><i class="zone-dot zone-risky"></i><b>ขวาล่าง</b> reward ดูดีแต่คะแนนรวมยังอ่อน ต้องระวัง.</span>
           <span><i class="zone-dot zone-avoid"></i><b>ซ้ายล่าง</b> มือใหม่ควรข้ามก่อน.</span>
         </div>
@@ -3246,7 +3285,9 @@ function renderScreenerInsights(rows, options = {}) {
   `;
 }
 
-function renderSectorVisuals(rows, stats) {
+function renderSectorVisuals(rows, stats, options = {}) {
+  const scoreThreshold = clamp(numberValue(options.scoreThreshold ?? 70), 0, 100);
+  const pricePositionThreshold = clamp(numberValue(options.pricePositionThreshold ?? 60), 0, 100);
   const leaders = rows
     .slice(0, 6)
     .map((row) => ({
@@ -3272,16 +3313,45 @@ function renderSectorVisuals(rows, stats) {
       </section>
       <section class="chart-panel wide">
         <h3>Timing vs quality</h3>
+        <p class="chart-filter-context" data-sector-chart-filter-context>
+          กราฟนี้อัปเดตตาม filter ปัจจุบัน: ${formatNumber(rows.length)} stocks · ${escapeHtml(options.filterSummary || "current sector filter")}
+        </p>
         ${renderScatterPlot(rows.slice(0, 80), {
           xKey: "Price_Position",
           yKey: "Total_Score",
           labelKey: "Symbol",
           xLabel: "Price position",
           yLabel: "Quality score",
+          xHelp: "Price position ขวา = ราคาอยู่ใกล้กรอบบนมากขึ้น",
+          yHelp: "Quality score สูง = คุณภาพดีขึ้น",
+          xCaption: "Price position สูงขึ้น = ราคาอยู่ใกล้กรอบบนมากขึ้น",
+          yCaption: "Quality score สูงขึ้น = คุณภาพดีขึ้น",
+          note: "วิธีอ่านเร็ว: เริ่มจากโซนซ้ายบนก่อน เพราะคะแนนดีและราคายังไม่ไล่ขึ้นมากเกินไป.",
           xMax: 100,
           yMax: 100,
           action: "stock-highlight",
+          quadrant: {
+            xThreshold: pricePositionThreshold,
+            yThreshold: scoreThreshold,
+            best: "คุณภาพดี แต่ราคาเริ่มสูง",
+            watch: "น่าสนใจ: คุณภาพดี ราคาไม่สูง",
+            risky: "ราคาไล่ขึ้น ต้องระวัง",
+            avoid: "คะแนนอ่อน รอดูก่อน",
+            zoneClasses: {
+              topLeft: "best",
+              topRight: "watch",
+              bottomLeft: "avoid",
+              bottomRight: "risky",
+            },
+          },
         })}
+        <div class="quadrant-guide sector-chart-guide" data-sector-chart-guide>
+          <strong>อ่านกราฟ Sector แบบง่าย:</strong>
+          <span><i class="zone-dot zone-best"></i><b>ซ้ายบน</b> น่าสนใจกว่า: คะแนนดีและ Price position ต่ำกว่า ${formatNumber(pricePositionThreshold)}.</span>
+          <span><i class="zone-dot zone-watch"></i><b>ขวาบน</b> คุณภาพดี แต่ Price position สูงกว่า ${formatNumber(pricePositionThreshold)} ต้องดูจังหวะ.</span>
+          <span><i class="zone-dot zone-risky"></i><b>ขวาล่าง</b> ราคาอยู่สูงกว่าเส้น แต่คะแนนยังไม่แข็งแรง ควรระวัง.</span>
+          <span><i class="zone-dot zone-avoid"></i><b>ซ้ายล่าง</b> ยังไม่เด่น รอดูข้อมูลเพิ่มก่อน.</span>
+        </div>
       </section>
     </div>
   `;
@@ -4290,10 +4360,28 @@ function renderBarList(items, options = {}) {
   `;
 }
 
-function renderScatterPlot(rows, { xKey, yKey, labelKey, xLabel, yLabel, xMax, yMax, action, highlightLabels, highlightClass, quadrant }) {
+function renderScatterPlot(rows, {
+  xKey,
+  yKey,
+  labelKey,
+  xLabel,
+  yLabel,
+  xHelp,
+  yHelp,
+  xCaption,
+  yCaption,
+  note,
+  xMax,
+  yMax,
+  action,
+  highlightLabels,
+  highlightClass,
+  quadrant,
+}) {
+  const supportedQuadrantZoneClasses = "quadrant-zone-watch quadrant-zone-best quadrant-zone-avoid quadrant-zone-risky";
   const width = 560;
-  const height = 260;
-  const padding = 34;
+  const height = 300;
+  const padding = 46;
   const plotWidth = width - padding * 2;
   const plotHeight = height - padding * 2;
   const xThreshold = quadrant?.xThreshold ?? xMax * 0.4;
@@ -4302,12 +4390,40 @@ function renderScatterPlot(rows, { xKey, yKey, labelKey, xLabel, yLabel, xMax, y
   const thresholdY = height - padding - (clamp(yThreshold, 0, yMax) / yMax) * plotHeight;
   const plotBottom = height - padding;
   const plotRight = width - padding;
+  const zoneClasses = {
+    topLeft: quadrant?.zoneClasses?.topLeft || "watch",
+    topRight: quadrant?.zoneClasses?.topRight || "best",
+    bottomLeft: quadrant?.zoneClasses?.bottomLeft || "avoid",
+    bottomRight: quadrant?.zoneClasses?.bottomRight || "risky",
+  };
   const quadrantZones = quadrant ? `
-        <rect class="quadrant-zone quadrant-zone-watch" x="${padding}" y="${padding}" width="${Math.max(0, thresholdX - padding)}" height="${Math.max(0, thresholdY - padding)}"></rect>
-        <rect class="quadrant-zone quadrant-zone-best" x="${thresholdX}" y="${padding}" width="${Math.max(0, plotRight - thresholdX)}" height="${Math.max(0, thresholdY - padding)}"></rect>
-        <rect class="quadrant-zone quadrant-zone-avoid" x="${padding}" y="${thresholdY}" width="${Math.max(0, thresholdX - padding)}" height="${Math.max(0, plotBottom - thresholdY)}"></rect>
-        <rect class="quadrant-zone quadrant-zone-risky" x="${thresholdX}" y="${thresholdY}" width="${Math.max(0, plotRight - thresholdX)}" height="${Math.max(0, plotBottom - thresholdY)}"></rect>
+        <rect class="quadrant-zone quadrant-zone-${zoneClasses.topLeft}" x="${padding}" y="${padding}" width="${Math.max(0, thresholdX - padding)}" height="${Math.max(0, thresholdY - padding)}"></rect>
+        <rect class="quadrant-zone quadrant-zone-${zoneClasses.topRight}" x="${thresholdX}" y="${padding}" width="${Math.max(0, plotRight - thresholdX)}" height="${Math.max(0, thresholdY - padding)}"></rect>
+        <rect class="quadrant-zone quadrant-zone-${zoneClasses.bottomLeft}" x="${padding}" y="${thresholdY}" width="${Math.max(0, thresholdX - padding)}" height="${Math.max(0, plotBottom - thresholdY)}"></rect>
+        <rect class="quadrant-zone quadrant-zone-${zoneClasses.bottomRight}" x="${thresholdX}" y="${thresholdY}" width="${Math.max(0, plotRight - thresholdX)}" height="${Math.max(0, plotBottom - thresholdY)}"></rect>
   ` : "";
+  const quadrantLabels = quadrant ? [
+    { label: quadrant.watch, className: zoneClasses.topLeft, x: padding + Math.max(46, (thresholdX - padding) / 2), y: padding + 20 },
+    { label: quadrant.best, className: zoneClasses.topRight, x: thresholdX + Math.max(54, (plotRight - thresholdX) / 2), y: padding + 20 },
+    { label: quadrant.avoid, className: zoneClasses.bottomLeft, x: padding + Math.max(46, (thresholdX - padding) / 2), y: plotBottom - 12 },
+    { label: quadrant.risky, className: zoneClasses.bottomRight, x: thresholdX + Math.max(54, (plotRight - thresholdX) / 2), y: plotBottom - 12 },
+  ].map((item) => `
+        <text class="quadrant-label quadrant-label-${item.className}" x="${clamp(item.x, padding + 42, plotRight - 42)}" y="${item.y}" text-anchor="middle">${escapeHtml(item.label)}</text>
+  `).join("") : "";
+  const xTicks = [0, xThreshold, xMax].map((value) => {
+    const x = padding + (clamp(value, 0, xMax) / xMax) * plotWidth;
+    return `
+        <line class="tick-line" x1="${x}" y1="${plotBottom}" x2="${x}" y2="${plotBottom + 4}"></line>
+        <text class="tick-text" x="${x}" y="${plotBottom + 18}" text-anchor="middle">${formatNumber(value)}</text>
+    `;
+  }).join("");
+  const yTicks = [0, yThreshold, yMax].map((value) => {
+    const y = height - padding - (clamp(value, 0, yMax) / yMax) * plotHeight;
+    return `
+        <line class="tick-line" x1="${padding - 4}" y1="${y}" x2="${padding}" y2="${y}"></line>
+        <text class="tick-text" x="${padding - 8}" y="${y + 4}" text-anchor="end">${formatNumber(value)}</text>
+    `;
+  }).join("");
   const points = rows
     .filter((row) => numberValue(row[xKey]) || numberValue(row[yKey]))
     .slice(0, 90)
@@ -4331,20 +4447,25 @@ function renderScatterPlot(rows, { xKey, yKey, labelKey, xLabel, yLabel, xMax, y
   return `
     <div class="scatter-frame">
       <div class="scatter-axis-summary">
-        <span><b>${escapeHtml(yLabel)}</b> สูง = คุณภาพดีขึ้น</span>
-        <span><b>${escapeHtml(xLabel)}</b> ขวา = ผลตอบแทนเทียบความเสี่ยงดีขึ้น</span>
+        <span>${escapeHtml(yHelp || `${yLabel} สูง = คุณภาพดีขึ้น`)}</span>
+        <span>${escapeHtml(xHelp || `${xLabel} ขวา = ค่าสูงขึ้น`)}</span>
       </div>
       <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(`${xLabel} by ${yLabel}`)}">
         ${quadrantZones}
+        ${quadrantLabels}
         <line class="axis-line" x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}"></line>
         <line class="axis-line" x1="${padding}" y1="${padding}" x2="${padding}" y2="${height - padding}"></line>
         <line class="guide-line" x1="${padding}" y1="${thresholdY}" x2="${width - padding}" y2="${thresholdY}"></line>
         <line class="guide-line" x1="${thresholdX}" y1="${padding}" x2="${thresholdX}" y2="${height - padding}"></line>
+        ${xTicks}
+        ${yTicks}
+        <text class="axis-caption x-axis-caption" x="${padding + plotWidth / 2}" y="${height - 8}" text-anchor="middle">${escapeHtml(xCaption || `${xLabel} สูงขึ้น`)}</text>
+        <text class="axis-caption y-axis-caption" x="14" y="${padding + plotHeight / 2}" text-anchor="middle" transform="rotate(-90 14 ${padding + plotHeight / 2})">${escapeHtml(yCaption || `${yLabel} สูงขึ้น`)}</text>
         ${points.map((point) => {
           const title = `${point.label}: ${xLabel} ${formatNumber(point.xValue)}, ${yLabel} ${formatNumber(point.yValue)}`;
           const pointClass = point.highlighted && highlightClass ? ` ${highlightClass}` : "";
           const circle = `
-            <circle class="scatter-point${pointClass}" cx="${point.x}" cy="${point.y}" r="${point.highlighted ? 6 : 5}">
+            <circle class="scatter-point${pointClass}" cx="${point.x}" cy="${point.y}" r="${point.highlighted ? 7 : 5.5}">
               <title>${escapeHtml(title)}</title>
             </circle>
           `;
@@ -4358,6 +4479,12 @@ function renderScatterPlot(rows, { xKey, yKey, labelKey, xLabel, yLabel, xMax, y
           return circle;
         }).join("")}
       </svg>
+      <div class="scatter-legend">
+        <span><i class="legend-dot legend-dot-top"></i>Top ideas</span>
+        <span><i class="legend-dot legend-dot-normal"></i>หุ้นในผลกรอง</span>
+        <span><i class="legend-line"></i>เส้นแดง = เกณฑ์เริ่มน่าสนใจ</span>
+      </div>
+      <p class="scatter-note">${escapeHtml(note || "คลิกจุดในกราฟเพื่อไฮไลต์แถวในตาราง.")}</p>
     </div>
   `;
 }

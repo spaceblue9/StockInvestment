@@ -44,6 +44,253 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T161 - Commit, Push, and Tag Think2 Release
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-07 09:03:30 +07:00
+- เสร็จเมื่อ: 2026-07-07 09:04:08 +07:00
+- เหตุผล:
+  - เอกสั่ง `git commit and git push to github and tag release think2.md`
+  - มีงานปรับกราฟ Screener/Sector จาก T154-T160 ที่ทดสอบผ่านแล้วแต่ยังไม่ได้ commit/push
+  - tag เดิมมี `think2-beta-v0.1.0` แล้ว จึงใช้ release tag ถัดไปเป็น `think2-beta-v0.2.0`
+- งานที่ต้องทำ:
+  - [x] ตรวจไฟล์ค้างและ tag เดิม
+  - [x] รัน regression frontend ที่เกี่ยวข้องก่อน commit
+  - [x] Commit เฉพาะไฟล์ที่เกี่ยวข้องกับ Think2 chart UX และ `plan.md`
+  - [x] Push branch `codex/think2-safety-layer-planning`
+  - [x] สร้างและ push tag `think2-beta-v0.2.0`
+  - [x] อัปเดต `plan.md` พร้อมผลลัพธ์และเวลาปิดงาน
+- ผลลัพธ์:
+  - เตรียม release tag `think2-beta-v0.2.0`
+  - ไฟล์ที่จะ commit เฉพาะงาน Think2 chart UX: `plan.md`, `src/public/app.js`, `src/public/styles.css`, `scripts/frontendViewportRegression.js`
+  - ไม่มี workbook หรือไฟล์ข้อมูลส่วนตัวใน staged scope
+- Regression:
+  - `node --check src/public/app.js` ผ่าน
+  - `npm run test:frontend-viewport` ผ่าน
+  - `npm run test:web-smoke` ผ่าน
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ
+  - T161 เสร็จแล้ว release tag คือ `think2-beta-v0.2.0`
+  - ห้ามลบ `plan.md`
+  - ก่อน commit/push รอบถัดไปต้องตรวจ staged files ไม่ให้มี workbook หรือข้อมูลส่วนตัวติดไป
+
+### T160 - ปรับสี Quadrant หน้า Sector ให้สื่อความหมายถูกต้อง
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-06 16:40:04 +07:00
+- เสร็จเมื่อ: 2026-07-06 16:41:59 +07:00
+- เหตุผล:
+  - เอกชี้ว่ากราฟ Sector โซน `น่าสนใจ: คุณภาพดี ราคาไม่สูง` ควรเป็นสีเขียวมากกว่าสีเหลือง
+  - วิเคราะห์ UX แล้วเห็นด้วย เพราะโซนซ้ายบนของ Sector คือจุดเริ่มดูที่ดีที่สุด: คะแนนดีและราคาไม่อยู่สูงเกินไป
+  - โซนขวาบนควรเป็นสีเหลือง/ทอง เพราะคุณภาพดีแต่ราคาเริ่มสูง ต้องดูจังหวะ
+- งานที่ต้องทำ:
+  - [x] ปรับ `renderScatterPlot` ให้รองรับ class สี quadrant แบบกำหนดเฉพาะกราฟได้
+  - [x] ตั้งค่า Sector ให้ซ้ายบนเป็นสีเขียว และขวาบนเป็นสีเหลือง
+  - [x] อัปเดต guide/legend ให้สีตรงกับความหมาย
+  - [x] รัน regression frontend ที่เกี่ยวข้อง
+  - [x] อัปเดต `plan.md` พร้อมผลลัพธ์และเวลาปิดงาน
+- ผลลัพธ์:
+  - เพิ่ม `zoneClasses` ให้ `renderScatterPlot` เพื่อกำหนดสี quadrant แยกตามกราฟได้
+  - Sector ตั้งค่า top-left เป็น `best` สีเขียว เพราะเป็นโซนน่าสนใจที่สุด: คุณภาพดีและราคาไม่สูง
+  - Sector ตั้งค่า top-right เป็น `watch` สีเหลือง/ทอง เพราะคุณภาพดีแต่ราคาเริ่มสูง ต้องดูจังหวะ
+  - อัปเดต icon สีใน guide ใต้กราฟ Sector ให้ตรงกับสีโซนจริง
+  - Screener ยังใช้ mapping สีเดิม ไม่กระทบกราฟ Quality vs reward
+- Regression:
+  - `node --check src/public/app.js` ผ่าน
+  - `npm run test:frontend-viewport` ผ่าน
+  - `npm run test:web-smoke` ผ่าน
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ
+  - T160 เสร็จแล้ว Sector top-left เป็นสีเขียวและ top-right เป็นสีเหลืองแล้ว
+  - งานนี้ต่อจาก T154-T159 และยังมีไฟล์แก้ค้างอยู่
+  - ห้ามลบ `plan.md`
+  - ห้ามเปลี่ยนสูตรวิเคราะห์หุ้น ให้แก้เฉพาะสี/visual mapping ของกราฟ
+
+### T159 - เพิ่ม Parameter Price Position ในกราฟ Sector
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-06 16:32:48 +07:00
+- เสร็จเมื่อ: 2026-07-06 16:33:57 +07:00
+- เหตุผล:
+  - เอกแจ้งว่าหน้า Sector ควรปรับกราฟได้เหมือน Screener แต่ยังไม่มีช่องปรับค่า Price position
+  - กราฟ Timing vs quality ยังใช้ `xThreshold: 60` แบบ hard-code ทำให้เส้นแนวตั้งไม่ปรับตามผู้ใช้
+- งานที่ต้องทำ:
+  - [x] เพิ่ม input สำหรับ Price position threshold ในหน้า Sector
+  - [x] ส่งค่า Price position threshold เข้า `renderSectorVisuals`
+  - [x] เปลี่ยนเส้นแนวตั้งและ guide ของ Sector ตามค่า Price position จริง
+  - [x] รัน regression frontend ที่เกี่ยวข้อง
+  - [x] อัปเดต `plan.md` พร้อมผลลัพธ์และเวลาปิดงาน
+- ผลลัพธ์:
+  - เพิ่มช่อง `Price position line` ในหน้า Sector ค่าเริ่มต้น 60
+  - ส่งค่า input เข้า `renderSectorVisuals` เป็น `pricePositionThreshold`
+  - เส้นแนวตั้งของกราฟ Timing vs quality ใช้ `pricePositionThreshold` จริงแทน `xThreshold: 60` แบบตายตัว
+  - guide ใต้กราฟ Sector แสดงค่าตัด Price position ตามค่าที่ผู้ใช้ปรับ
+  - เพิ่ม regression markers สำหรับ `data-sector-price-position-filter`, `pricePositionThreshold`, และ `Price position line`
+- Regression:
+  - `node --check src/public/app.js` ผ่าน
+  - `npm run test:frontend-viewport` ผ่าน
+  - `npm run test:web-smoke` ผ่าน
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ
+  - T159 เสร็จแล้ว หน้า Sector มี parameter `Price position line` แล้ว
+  - งานนี้ต่อจาก T154-T158 และยังมีไฟล์แก้ค้างอยู่
+  - ห้ามลบ `plan.md`
+  - ห้ามเปลี่ยนสูตรวิเคราะห์หุ้น ให้แก้เฉพาะ threshold/render behavior
+
+### T158 - แก้เส้น Reward/Risk Threshold ให้เปลี่ยนตาม Min RRR
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-06 16:26:16 +07:00
+- เสร็จเมื่อ: 2026-07-06 16:27:25 +07:00
+- เหตุผล:
+  - เอกแจ้งว่า Score ปรับแล้วกราฟเปลี่ยน แต่ Reward/Risk ปรับแล้วเส้นกราฟไม่เปลี่ยน
+  - ปัญหาคือกราฟ Screener ยังใช้ `xThreshold: 1.5` แบบ hard-code แม้ rows จะ filter ตาม Min RRR แล้ว
+- งานที่ต้องทำ:
+  - [x] ส่งค่า Min RRR ปัจจุบันเข้า `renderScreenerInsights`
+  - [x] เปลี่ยนเส้นแนวตั้งและ quadrant ตาม Reward/Risk parameter จริง
+  - [x] เปลี่ยน guide text จาก `RRR 1.5+` เป็นค่าจริงจาก filter
+  - [x] รัน regression frontend ที่เกี่ยวข้อง
+  - [x] อัปเดต `plan.md` พร้อมผลลัพธ์และเวลาปิดงาน
+- ผลลัพธ์:
+  - Screener ส่งค่า `minRrr.value` เข้า `renderScreenerInsights` เป็น `rrrThreshold`
+  - เส้นแดงแนวตั้งและ quadrant ใช้ค่า `rrrThreshold` จริง แทน `xThreshold: 1.5` แบบตายตัว
+  - ข้อความ guide แสดง `RRR ${formatNumber(rrrThreshold)}+` ตามค่า filter จริง
+  - เพิ่ม regression marker สำหรับ `rrrThreshold`
+- Regression:
+  - `node --check src/public/app.js` ผ่าน
+  - `npm run test:frontend-viewport` ผ่าน
+  - `npm run test:web-smoke` ผ่าน
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ
+  - T158 เสร็จแล้ว เส้น Reward/Risk threshold เปลี่ยนตาม Min RRR แล้ว
+  - งานนี้ต่อจาก T154-T157 และยังมีไฟล์แก้ค้างอยู่
+  - ห้ามลบ `plan.md`
+  - ห้ามเปลี่ยนสูตรวิเคราะห์หุ้น ให้แก้เฉพาะ threshold/render behavior
+
+### T157 - แก้เส้น Threshold กราฟให้เปลี่ยนตาม Min Score
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-06 16:11:47 +07:00
+- เสร็จเมื่อ: 2026-07-06 16:12:51 +07:00
+- เหตุผล:
+  - เอกแนบภาพและแจ้งว่าไม่ว่าจะปรับ Score เท่าไหร่ เส้นแดงในกราฟยังอยู่ที่ 70%
+  - ปัญหาคือกราฟใช้ `yThreshold: 70` แบบ hard-code แม้ rows/table จะเปลี่ยนตาม filter แล้ว
+- งานที่ต้องทำ:
+  - [x] ส่งค่า Min Score ปัจจุบันเข้า `renderScreenerInsights`
+  - [x] ส่งค่า Min Score ปัจจุบันเข้า `renderSectorVisuals`
+  - [x] เปลี่ยน threshold line และ quadrant ตาม score parameter จริง
+  - [x] รัน regression frontend ที่เกี่ยวข้อง
+  - [x] อัปเดต `plan.md` พร้อมผลลัพธ์และเวลาปิดงาน
+- ผลลัพธ์:
+  - Screener ส่งค่า `minScore.value` เข้า `renderScreenerInsights` เป็น `scoreThreshold`
+  - Sector ส่งค่า `sectorMinScore.value` เข้า `renderSectorVisuals` เป็น `scoreThreshold`
+  - เส้นแดงแนวนอนและ quadrant ของกราฟใช้ค่า `scoreThreshold` จริง แทน `yThreshold: 70` แบบตายตัว
+  - ข้อความ guide ของ Screener แสดง `Score ${formatNumber(scoreThreshold)}+` ตามค่า filter จริง
+  - เพิ่ม regression marker สำหรับ `scoreThreshold`
+- Regression:
+  - `node --check src/public/app.js` ผ่าน
+  - `npm run test:frontend-viewport` ผ่าน
+  - `npm run test:web-smoke` ผ่าน
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ
+  - T157 เสร็จแล้ว เส้น threshold กราฟเปลี่ยนตาม Min Score แล้ว
+  - งานนี้ต่อจาก T154-T156 และยังมีไฟล์แก้ค้างอยู่
+  - ห้ามลบ `plan.md`
+  - ห้ามเปลี่ยนสูตรวิเคราะห์หุ้น ให้แก้เฉพาะ threshold/render behavior
+
+### T156 - แก้กราฟไม่เปลี่ยนตาม Parameter Filter
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-06 16:03:00 +07:00
+- เสร็จเมื่อ: 2026-07-06 16:05:33 +07:00
+- เหตุผล:
+  - เอกแจ้งว่าเปลี่ยนค่า parameter เช่น Score แล้วกราฟไม่เปลี่ยนตาม
+  - กราฟ Screener/Sector ต้อง re-render จากข้อมูลที่ผ่าน filter ปัจจุบัน ไม่ใช่ค้างจากข้อมูลเดิม
+- งานที่ต้องทำ:
+  - [x] ตรวจ event/render flow ของ filter parameter
+  - [x] แก้ให้กราฟและตารางใช้ filtered rows เดียวกัน
+  - [x] เพิ่ม/ปรับ regression marker ถ้าจำเป็น
+  - [x] รัน regression frontend ที่เกี่ยวข้อง
+  - [x] อัปเดต `plan.md` พร้อมผลลัพธ์และเวลาปิดงาน
+- ผลลัพธ์:
+  - Screener numeric filters เช่น Min Score, Min RRR, Max D/E ฟังทั้ง `input` และ `change` เพื่อ re-render กราฟเมื่อพิมพ์, กด spinner, หรือ blur field
+  - เพิ่มข้อความบนกราฟ Screener ว่ากราฟนี้ใช้หุ้นกี่ตัวหลัง filter ปัจจุบัน
+  - เพิ่ม Min Score filter ในหน้า Sector เพื่อให้กราฟ Timing vs quality และตาราง sector เปลี่ยนตาม score ได้จริง
+  - เพิ่มข้อความบนกราฟ Sector ว่ากราฟนี้ใช้หุ้นกี่ตัวหลัง filter ปัจจุบัน
+  - เพิ่ม regression markers สำหรับ chart filter context และ Sector score filter
+- Regression:
+  - `node --check src/public/app.js` ผ่าน
+  - `npm run test:frontend-viewport` ผ่าน
+  - `npm run test:web-smoke` ผ่าน
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ
+  - T156 เสร็จแล้ว งานแก้ filter/render อยู่ที่ `src/public/app.js`, `src/public/styles.css`, และ `scripts/frontendViewportRegression.js`
+  - งานนี้รวมกับ T154/T155 ที่ยังมีไฟล์แก้ค้างอยู่
+  - ห้ามลบ `plan.md`
+  - ห้ามเปลี่ยนสูตรวิเคราะห์หุ้น ให้แก้เฉพาะ render/filter behavior
+
+### T155 - ปรับกราฟ Sector ให้อ่านง่ายสำหรับมือใหม่
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-06 15:56:14 +07:00
+- เสร็จเมื่อ: 2026-07-06 15:57:56 +07:00
+- เหตุผล:
+  - เอกต้องการให้กราฟในหน้า Sector อ่านง่ายขึ้นเหมือน Screener
+  - หน้า Sector ใช้กราฟ Timing vs quality ซึ่งมือใหม่อาจไม่เข้าใจว่าแกน Price position ดีหรือเสี่ยงอย่างไร
+- งานที่ต้องทำ:
+  - [x] ปรับกราฟ Timing vs quality ให้มี quadrant/label/legend ที่อธิบายง่าย
+  - [x] เพิ่มคำอธิบายใต้กราฟและ guide สำหรับการอ่าน sector
+  - [x] รัน regression frontend ที่เกี่ยวข้อง
+  - [x] อัปเดต `plan.md` พร้อมผลลัพธ์และเวลาปิดงาน
+- ผลลัพธ์:
+  - ปรับกราฟ Timing vs quality ให้มี quadrant labels สำหรับ Sector โดยเฉพาะ
+  - แกน X ของ Sector อธิบายเป็น `Price position` สูงขึ้น = ราคาอยู่ใกล้กรอบบนมากขึ้น ไม่ใช่ reward ดีขึ้น
+  - เพิ่ม note ใต้กราฟให้เริ่มดูโซนซ้ายบนก่อน เพราะคะแนนดีและราคาไม่ไล่ขึ้นมากเกินไป
+  - เพิ่ม guide ใต้กราฟ Sector: ซ้ายบน, ขวาบน, ขวาล่าง, ซ้ายล่าง อ่านง่ายสำหรับมือใหม่
+  - ไม่เปลี่ยนสูตรคะแนนหรือผลวิเคราะห์ เปลี่ยนเฉพาะการแสดงผลและคำอธิบาย
+- Regression:
+  - `node --check src/public/app.js` ผ่าน
+  - `npm run test:frontend-viewport` ผ่าน
+  - `npm run test:web-smoke` ผ่าน
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ
+  - T155 เสร็จแล้ว งานแก้กราฟ Sector อยู่ที่ `src/public/app.js`
+  - งานนี้รวมกับ T154 ที่ยังมีไฟล์ `src/public/app.js`, `src/public/styles.css`, และ `plan.md` แก้ค้างอยู่
+  - ห้ามลบ `plan.md`
+  - ห้ามเปลี่ยนสูตรวิเคราะห์หรือคะแนนหุ้น ให้แก้เฉพาะ visual/UX
+
+### T154 - ปรับกราฟ Screener ให้อ่านง่ายสำหรับมือใหม่
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-06 15:50:13 +07:00
+- เสร็จเมื่อ: 2026-07-06 15:52:43 +07:00
+- เหตุผล:
+  - เอกแจ้งว่ากราฟในหน้า Screener ไม่สวยและดูยาก
+  - กลุ่มผู้ใช้เป็นมือใหม่ ต้องเห็นทันทีว่าโซนไหนดี/ควรระวัง โดยไม่ต้องตีความแกนเอง
+- งานที่ต้องทำ:
+  - [x] ปรับกราฟ Quality vs reward ให้มี label/zone/legend อ่านง่ายขึ้น
+  - [x] ปรับ style จุดและสีให้แยก Top ideas ได้ชัดแต่ไม่รก
+  - [x] รัน regression frontend ที่เกี่ยวข้อง
+  - [x] อัปเดต `plan.md` พร้อมผลลัพธ์และเวลาปิดงาน
+- ผลลัพธ์:
+  - เพิ่ม label ใน quadrant ของกราฟ เช่น น่าสนใจสุด, คุณภาพดี reward ต่ำ, reward ดีแต่เสี่ยง, ควรข้ามก่อน
+  - เพิ่ม tick label และ axis caption เพื่อให้มือใหม่อ่านแกน Reward/Risk และ Quality score ได้ง่ายขึ้น
+  - เพิ่ม legend แยก Top ideas, หุ้นทั่วไป และเส้นแดงเกณฑ์เริ่มน่าสนใจ
+  - เพิ่ม note ใต้กราฟให้ผู้ใช้เริ่มจากโซนขวาบนและคลิกจุดเพื่อไฮไลต์ตาราง
+  - ปรับสี เส้น จุด และพื้นกราฟให้ contrast ชัดขึ้นโดยไม่เปลี่ยนสูตรคำนวณหรือผลวิเคราะห์
+- Regression:
+  - `node --check src/public/app.js` ผ่าน
+  - `npm run test:frontend-viewport` ผ่าน
+  - `npm run test:web-smoke` ผ่าน
+- หมายเหตุ:
+  - Browser local เปิดได้ แต่ไม่มี session/data Screener ใน browser ใหม่ จึงยังไม่ได้บันทึก screenshot หลัง login
+  - ไม่สร้าง user ทดสอบเพิ่มใน local state เพื่อเลี่ยงข้อมูลทดสอบค้าง
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ
+  - T154 เสร็จแล้ว งานแก้กราฟอยู่ที่ `src/public/app.js` และ `src/public/styles.css`
+  - ห้ามลบ `plan.md`
+  - เน้น UX/visual ของกราฟเท่านั้น ห้ามเปลี่ยนสูตรวิเคราะห์หรือผลคะแนนหุ้น
+
 ### T153 - ตรวจและแก้ Layout หน้า Screener
 
 - สถานะ: Done
