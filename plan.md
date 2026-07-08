@@ -44,6 +44,36 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T175 - Fix Score Matrix Status Dot Colors
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-08 08:02:45 +07:00
+- เหตุผล:
+  - หลังเพิ่ม status สีใน Score matrix จุดสียังแสดงเป็นสีเทาทั้งหมด
+  - สาเหตุคือ CSS เดิม `.score-matrix-card span` ทับสีของ `span.score-status-dot`
+  - ต้องแก้เฉพาะ CSS/UI ไม่เปลี่ยนสูตรคะแนนหรือ logic วิเคราะห์
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และเปิด task ก่อนแก้
+  - [x] ตรวจ CSS ที่ทับสี dot
+    - Done: `2026-07-08 08:03:00 +07:00`
+    - Note: `.score-matrix-card span` ตั้ง `color: var(--muted)` ให้ dot ที่เป็น span ด้วย
+  - [x] แก้ CSS ให้ dot ใช้สีเดียวกับ status pill
+    - Done: `2026-07-08 08:04:00 +07:00`
+    - Note: เพิ่ม selector เฉพาะ `.score-matrix-card .score-status-{color} .score-status-dot` ให้ชนะ rule สีเทาเดิม
+  - [x] รัน regression ที่เกี่ยวข้อง
+    - Done: `2026-07-08 08:05:30 +07:00`
+    - Result: `npm run check`, `npm run test:frontend-viewport`, `npm run test:web-smoke` ผ่านทั้งหมด
+  - [x] deploy production ใหม่
+    - Done: `2026-07-08 08:07:00 +07:00`
+    - Result: Vercel production alias `https://thai-stock-investment-web.vercel.app` deploy สำเร็จ และตรวจพบ CSS version/cache-bust กับ selector dot สีครบ
+  - [x] อัปเดต `plan.md`, commit และ push
+    - Done: `2026-07-08 08:07:30 +07:00`
+    - Note: `plan.md` บันทึกสถานะเสร็จก่อน commit; commit/push ทำหลังบรรทัดนี้
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T175 ต่อโดยแก้ dot ใน Score matrix ให้แสดงสีตาม `score-status-green/orange/yellow/red`
+  - ห้ามเปลี่ยนสูตร scoring เดิม และห้าม commit `.env`, `.vercel`, workbook, portfolio ส่วนตัว
+
 ### T174 - Add Beginner Score Matrix Status Hints
 
 - สถานะ: Done

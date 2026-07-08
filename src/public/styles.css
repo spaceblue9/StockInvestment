@@ -926,7 +926,7 @@ td select {
   white-space: nowrap;
 }
 
-.score-status-dot {
+.score-matrix-card .score-status-dot {
   background: currentColor;
   border-radius: 999px;
   color: inherit;
@@ -935,19 +935,23 @@ td select {
   width: 7px;
 }
 
-.score-status-green {
+.score-matrix-card .score-status-green,
+.score-matrix-card .score-status-green .score-status-dot {
   color: #35d07f;
 }
 
-.score-status-orange {
+.score-matrix-card .score-status-orange,
+.score-matrix-card .score-status-orange .score-status-dot {
   color: #f28c28;
 }
 
-.score-status-yellow {
+.score-matrix-card .score-status-yellow,
+.score-matrix-card .score-status-yellow .score-status-dot {
   color: #f6c85f;
 }
 
-.score-status-red {
+.score-matrix-card .score-status-red,
+.score-matrix-card .score-status-red .score-status-dot {
   color: #e50914;
 }
 

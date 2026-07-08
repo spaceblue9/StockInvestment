@@ -25,6 +25,7 @@ assertIncludes(html, [
   'data-frontend-version',
   'leftRailToggle',
   'Hide panel',
+  '/styles.css?v=20260708-0804',
   '/app.js?v=20260708-0750',
 ], "HTML should expose viewport meta, brand, and primary dashboard navigation.");
 if (html.includes('data-view="approvals"')) {
@@ -89,7 +90,11 @@ assertIncludes(styles, [
   ".score-matrix-card",
   ".score-card-header",
   ".score-status",
-  ".score-status-dot",
+  ".score-matrix-card .score-status-dot",
+  ".score-matrix-card .score-status-green .score-status-dot",
+  ".score-matrix-card .score-status-orange .score-status-dot",
+  ".score-matrix-card .score-status-yellow .score-status-dot",
+  ".score-matrix-card .score-status-red .score-status-dot",
   ".score-card-hint",
   ".database-mode-advisor",
   ".mode-status",

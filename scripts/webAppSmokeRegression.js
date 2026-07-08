@@ -130,6 +130,7 @@ try {
     "data-frontend-version",
     "leftRailToggle",
     "Hide panel",
+    "/styles.css?v=20260708-0804",
     "/app.js?v=20260708-0750",
   ], "Main HTML should expose the dashboard navigation.");
   assert(!html.includes('data-view="onboarding"'), "Launch navigation should not expose the hidden Guide view.");
@@ -362,7 +363,11 @@ try {
     ".score-matrix-card",
     ".score-card-header",
     ".score-status",
-    ".score-status-dot",
+    ".score-matrix-card .score-status-dot",
+    ".score-matrix-card .score-status-green .score-status-dot",
+    ".score-matrix-card .score-status-orange .score-status-dot",
+    ".score-matrix-card .score-status-yellow .score-status-dot",
+    ".score-matrix-card .score-status-red .score-status-dot",
     ".score-card-hint",
     ".table-control-panel",
     ".field-picker-grid",
