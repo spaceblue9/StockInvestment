@@ -44,6 +44,39 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T174 - Add Beginner Score Matrix Status Hints
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-08 07:50:38 +07:00
+- เหตุผล:
+  - เอกเสนอให้ Score matrix มีสัญลักษณ์สีและ hint เพื่อให้มือใหม่อ่านค่าดี/ไม่ดีได้ทันที
+  - ตัวเลขเฉลี่ยของพอร์ตอย่างเดียวทำให้ผู้ใช้ไม่รู้ว่าคะแนนระดับไหนควรกังวลหรือถือว่าดี
+  - ต้องเพิ่มคำอธิบายโดยไม่เปลี่ยนสูตรคะแนนเดิม
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และเปิด task ก่อนแก้
+  - [x] ตรวจ render score matrix ปัจจุบัน
+    - Done: `2026-07-08 07:56:00 +07:00`
+    - Note: Score matrix render อยู่ใน `src/public/app.js` และเป็นค่าเฉลี่ยของ `Quality_Score`, `Valuation_Score`, `Setup_Score`, `Balance_Risk_Score`, `Liquidity_Score`
+  - [x] เพิ่ม status สี เขียว/ส้ม/เหลือง/แดง ตามช่วงคะแนน
+    - Done: `2026-07-08 07:56:00 +07:00`
+    - Note: เพิ่ม helper `scoreStatusForValue()` โดยไม่เปลี่ยนสูตรคะแนนหรือคำแนะนำเดิม
+  - [x] เพิ่ม hint คำอธิบายค่าเท่าไหร่ดีหรือไม่ดี
+    - Done: `2026-07-08 07:56:00 +07:00`
+    - Note: เพิ่มเกณฑ์อ่านง่าย `75+ ดี`, `60-74 ค่อนข้างดี`, `45-59 ปานกลาง`, `ต่ำกว่า 45 ควรระวัง`
+  - [x] รัน regression/frontend smoke ที่เกี่ยวข้อง
+    - Done: `2026-07-08 07:57:30 +07:00`
+    - Result: `npm run check`, `npm run test:frontend-viewport`, `npm run test:web-smoke` ผ่านทั้งหมด
+  - [x] deploy production ใหม่
+    - Done: `2026-07-08 08:00:30 +07:00`
+    - Result: Vercel production alias `https://thai-stock-investment-web.vercel.app` deploy สำเร็จ และตรวจพบ `app.js?v=20260708-0750`, `scoreStatusForValue`, `.score-status`, `.score-card-hint`
+  - [x] อัปเดต `plan.md`, commit และ push
+    - Done: `2026-07-08 08:02:00 +07:00`
+    - Note: `plan.md` บันทึกสถานะเสร็จก่อน commit; commit/push ทำหลังบรรทัดนี้
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T174 ต่อโดยเพิ่ม beginner-friendly status/hints ให้ Score matrix
+  - ห้ามเปลี่ยนสูตร scoring เดิม และห้าม commit `.env`, `.vercel`, workbook, portfolio ส่วนตัว
+
 ### T173 - Clean Production Analysis Debug Messages
 
 - สถานะ: Done

@@ -27,7 +27,7 @@ const plansList = document.querySelector("#plansList");
 const businessViewButton = document.querySelector("[data-view='business']");
 const leftRailToggle = document.querySelector("#leftRailToggle");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20260708-0733";
+const frontendBuildVersion = "20260708-0750";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 
 const state = {
@@ -1533,24 +1533,52 @@ function renderScoreMatrixGuide(rows) {
       text: "มี volume ยืนยันและซื้อขายง่ายขึ้นไหม",
     },
   ];
+  const scoreThresholdHint = "75+ ดี · 60-74 ค่อนข้างดี · 45-59 ปานกลาง · ต่ำกว่า 45 ควรระวัง";
 
   return `
     <section class="score-matrix-guide" data-score-matrix-guide>
       <div class="score-matrix-intro">
         <strong>Score matrix แบบอ่านง่าย</strong>
-        <span>คะแนนชุดนี้ช่วยแยกเหตุผล ไม่ได้แทน Total Score หรือ Target Action ในช่วงทดลอง Think2</span>
+        <span>คะแนนชุดนี้เป็นค่าเฉลี่ยของพอร์ตเพื่อช่วยแยกเหตุผล ไม่ได้แทน Total Score หรือ Target Action ในช่วงทดลอง Think2</span>
       </div>
       <div class="score-matrix-cards">
-        ${items.map((item) => `
+        ${items.map((item) => {
+          const status = scoreStatusForValue(item.value);
+          return `
           <article class="score-matrix-card">
-            <span>${escapeHtml(item.label)}</span>
+            <div class="score-card-header">
+              <span>${escapeHtml(item.label)}</span>
+              <span class="score-status score-status-${status.tone}" title="${escapeHtml(scoreThresholdHint)}">
+                <span class="score-status-dot" aria-hidden="true"></span>
+                ${escapeHtml(status.label)}
+              </span>
+            </div>
             <strong>${formatNumber(item.value)}</strong>
             <p>${escapeHtml(item.text)}</p>
+            <p class="score-card-hint">${escapeHtml(scoreThresholdHint)}</p>
           </article>
-        `).join("")}
+        `;
+        }).join("")}
       </div>
     </section>
   `;
+}
+
+function scoreStatusForValue(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return { tone: "red", label: "ข้อมูลไม่พอ" };
+  }
+  if (numericValue >= 75) {
+    return { tone: "green", label: "ดี" };
+  }
+  if (numericValue >= 60) {
+    return { tone: "orange", label: "ค่อนข้างดี" };
+  }
+  if (numericValue >= 45) {
+    return { tone: "yellow", label: "ปานกลาง" };
+  }
+  return { tone: "red", label: "ควรระวัง" };
 }
 
 function renderRecommendedActionsControls(rows) {
