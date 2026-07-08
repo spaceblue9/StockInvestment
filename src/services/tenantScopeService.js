@@ -18,6 +18,7 @@ const STATE_ARRAY_KEYS = [
   "billingEvents",
   "paymentSessions",
   "paymentWebhookEvents",
+  "planRequests",
   "advisorAssignments",
   "approvalRequests",
   "auditEvents",
@@ -89,6 +90,7 @@ export function filterStateByTenantScope(state = {}, rawTenantScope = {}) {
   scopedState.billingEvents = scopedState.billingEvents.filter((record) => recordVisible(record, userIds, organizationIds));
   scopedState.paymentSessions = scopedState.paymentSessions.filter((record) => recordVisible(record, userIds, organizationIds));
   scopedState.paymentWebhookEvents = scopedState.paymentWebhookEvents.filter((record) => recordVisible(record, userIds, organizationIds));
+  scopedState.planRequests = scopedState.planRequests.filter((record) => recordVisible(record, userIds, organizationIds));
   scopedState.advisorAssignments = scopedState.advisorAssignments.filter((record) => (
     userIds.has(record.customerId) || userIds.has(record.advisorId)
   ));

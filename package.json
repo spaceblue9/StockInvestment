@@ -1,6 +1,6 @@
 {
   "name": "thai-stock-investment-web",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Node.js web app migration for the Thai stock investment analysis system.",
   "type": "module",
   "main": "src/server.js",

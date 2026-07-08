@@ -30,6 +30,7 @@ const DEFAULT_PAYMENT_WEBHOOK_SECRET = "stockflix-local-webhook-secret";
 const APPROVAL_STATUSES = ["pending", "approved", "rejected"];
 const APPROVAL_ACTION_TYPES = ["portfolio_review", "rebalance", "buy_plan", "risk_action", "subscription_support", "other"];
 const APPROVAL_RISK_LEVELS = ["low", "medium", "high"];
+const PLAN_REQUEST_STATUSES = ["pending", "approved", "rejected", "canceled"];
 const ROLE_POLICIES = {
   owner: ["analysis", "business_metrics", "team_management", "role_management", "advisor_assignment", "billing", "audit_log", "organization_management", "approval_workflow"],
   admin: ["analysis", "business_metrics", "team_management", "advisor_assignment", "billing", "audit_log", "organization_management", "approval_workflow"],
@@ -498,6 +499,107 @@ export async function createPaymentSession(userId, planId) {
   };
 }
 
+export async function getPlanRequestStatus(userId) {
+  const state = await readState();
+  const user = state.users.find((candidate) => candidate.id === userId);
+  if (!user || isDeletedUser(user)) {
+    throw new Error("User not found.");
+  }
+
+  const requests = state.planRequests
+    .filter((request) => request.userId === user.id)
+    .sort((left, right) => new Date(right.updatedAt || right.createdAt) - new Date(left.updatedAt || left.createdAt))
+    .map((request) => publicPlanRequest(request, state));
+
+  return {
+    currentSubscription: publicUser(user).subscription,
+    requests,
+    pendingRequest: requests.find((request) => request.status === "pending") || null,
+  };
+}
+
+export async function createPlanRequest(userId, input = {}) {
+  const state = await readState();
+  const user = state.users.find((candidate) => candidate.id === userId);
+  if (!user || isDeletedUser(user)) {
+    throw new Error("User not found.");
+  }
+
+  const plan = publicSubscriptionPlans().find((candidate) => candidate.id === String(input.planId || "").trim().toLowerCase());
+  if (!plan) {
+    throw new Error("Plan request is limited to Starter or Pro during launch.");
+  }
+
+  const existingPending = latestPendingPlanRequestForUser(state, user.id);
+  if (existingPending && existingPending.planId === plan.id) {
+    return {
+      request: publicPlanRequest(existingPending, state),
+      duplicate: true,
+    };
+  }
+
+  const now = new Date().toISOString();
+  if (existingPending) {
+    existingPending.status = "canceled";
+    existingPending.updatedAt = now;
+    existingPending.decidedAt = now;
+    existingPending.decisionNote = "Replaced by a newer package request.";
+  }
+
+  const request = {
+    id: crypto.randomUUID(),
+    userId: user.id,
+    organizationId: user.organizationId || organizationIdForUser(state, user.id),
+    planId: plan.id,
+    planName: plan.name,
+    amountThb: plan.priceThb,
+    billing: plan.billing,
+    status: "pending",
+    source: "monthly_plans",
+    note: cleanApprovalSummary(input.note || "Manual offline payment approval requested."),
+    createdAt: now,
+    updatedAt: now,
+    decidedByUserId: "",
+    decidedAt: "",
+    decisionNote: "",
+  };
+  state.planRequests.push(request);
+
+  const operations = [];
+  if (existingPending) {
+    operations.push({
+      type: "upsert",
+      collection: "planRequests",
+      record: existingPending,
+    });
+  }
+  operations.push({
+    type: "append",
+    collection: "planRequests",
+    record: request,
+  });
+
+  await patchStateWithAudit(state, operations, {
+    actorUserId: user.id,
+    action: "subscription.plan_request_created",
+    targetUserId: user.id,
+    organizationId: request.organizationId,
+    details: {
+      requestId: request.id,
+      planId: request.planId,
+      planName: request.planName,
+      amountThb: request.amountThb,
+      status: request.status,
+      replacedRequestId: existingPending?.id || "",
+    },
+  });
+
+  return {
+    request: publicPlanRequest(request, state),
+    duplicate: false,
+  };
+}
+
 export async function processPaymentWebhook(actorUserId, input = {}) {
   const state = await readState();
   const actor = state.users.find((user) => user.id === actorUserId);
@@ -891,6 +993,7 @@ export async function tenantAccessSummary(viewerUserId) {
       billingEvents: state.billingEvents.filter(recordVisible).length,
       paymentSessions: state.paymentSessions.filter(recordVisible).length,
       paymentWebhookEvents: state.paymentWebhookEvents.filter(recordVisible).length,
+      planRequests: state.planRequests.filter(recordVisible).length,
       approvalRequests: state.approvalRequests.filter((record) => (
         visibleUserIds.has(record.customerId)
         || visibleUserIds.has(record.requestedByUserId)
@@ -1291,6 +1394,28 @@ export async function listWorkspaceUsers(viewerUserId) {
   return buildWorkspaceUsers([viewer], state);
 }
 
+export async function listPlanRequests(viewerUserId, options = {}) {
+  const { state, viewer } = await readScopedStateForViewer(viewerUserId, "plan_requests_read");
+  const viewerRole = normalizeRole(viewer.role);
+  const limit = Math.max(1, Math.min(100, Number(options.limit) || 50));
+  const visibleUserIds = usersVisibleToUser(state, viewer);
+  const visibleOrganizationIds = organizationsVisibleToUser(state, viewer);
+
+  if (!["owner", "admin"].includes(viewerRole)) {
+    return state.planRequests
+      .filter((request) => request.userId === viewer.id)
+      .sort((left, right) => new Date(right.updatedAt || right.createdAt) - new Date(left.updatedAt || left.createdAt))
+      .slice(0, limit)
+      .map((request) => publicPlanRequest(request, state));
+  }
+
+  return state.planRequests
+    .filter((request) => visibleUserIds.has(request.userId) || visibleOrganizationIds.has(request.organizationId))
+    .sort((left, right) => new Date(right.updatedAt || right.createdAt) - new Date(left.updatedAt || left.createdAt))
+    .slice(0, limit)
+    .map((request) => publicPlanRequest(request, state));
+}
+
 export async function updateUserRole(actorUserId, targetUserId, nextRole) {
   const state = await readState();
   const actor = state.users.find((user) => user.id === actorUserId);
@@ -1403,6 +1528,106 @@ export async function updateUserSubscription(actorUserId, targetUserId, input = 
     },
   });
   return buildWorkspaceUsers([target], state)[0];
+}
+
+export async function approvePlanRequest(actorUserId, requestId, input = {}) {
+  const state = await readState();
+  const actor = state.users.find((user) => user.id === actorUserId);
+  if (!actor || !["owner", "admin"].includes(normalizeRole(actor.role))) {
+    throw new Error("Only owner or admin can approve plan requests.");
+  }
+  requirePlanEntitlement(actor, "business.metrics");
+
+  const request = state.planRequests.find((candidate) => candidate.id === requestId);
+  if (!request) {
+    throw new Error("Plan request not found.");
+  }
+  if (request.status !== "pending") {
+    throw new Error("This plan request has already been decided.");
+  }
+
+  const target = state.users.find((user) => user.id === request.userId);
+  if (!target || isDeletedUser(target)) {
+    throw new Error("Requesting user not found.");
+  }
+
+  const plan = publicSubscriptionPlans().find((candidate) => candidate.id === request.planId);
+  if (!plan) {
+    throw new Error("Plan request is limited to Starter or Pro during launch.");
+  }
+
+  const status = normalizeManualSubscriptionStatus(input.status || "active");
+  const now = new Date();
+  const expiresAt = manualSubscriptionExpiry(input.expiresAt || input.renewsAt || input.trialEndsAt, status, now);
+  const previousSubscription = normalizeSubscription(target.subscription || {}, target.createdAt);
+  target.subscription = {
+    ...target.subscription,
+    plan: plan.name,
+    planId: plan.id,
+    status,
+    priceThb: plan.priceThb,
+    billing: plan.billing,
+    provider: "manual_admin",
+    trialEndsAt: status === "trialing" ? expiresAt : target.subscription?.trialEndsAt || expiresAt,
+    renewsAt: expiresAt,
+    manuallyManagedAt: now.toISOString(),
+    manuallyManagedBy: actor.id,
+    planRequestId: request.id,
+  };
+  request.status = "approved";
+  request.updatedAt = now.toISOString();
+  request.decidedAt = now.toISOString();
+  request.decidedByUserId = actor.id;
+  request.decisionNote = cleanApprovalSummary(input.note || "Approved by admin after offline payment check.");
+
+  await patchStateWithAudit(state, [
+    {
+      type: "upsert",
+      collection: "users",
+      record: target,
+    },
+    {
+      type: "upsert",
+      collection: "planRequests",
+      record: request,
+    },
+  ], [
+    {
+      actorUserId: actor.id,
+      action: "subscription.plan_request_approved",
+      targetUserId: target.id,
+      organizationId: request.organizationId,
+      details: {
+        requestId: request.id,
+        previousPlanId: previousSubscription.planId,
+        previousStatus: previousSubscription.status,
+        nextPlanId: plan.id,
+        nextStatus: status,
+        expiresAt,
+        provider: "manual_admin",
+      },
+    },
+    {
+      actorUserId: actor.id,
+      action: "team.subscription_update",
+      targetUserId: target.id,
+      organizationId: request.organizationId,
+      details: {
+        previousPlanId: previousSubscription.planId,
+        previousStatus: previousSubscription.status,
+        nextPlanId: plan.id,
+        nextStatus: status,
+        expiresAt,
+        provider: "manual_admin",
+        planRequestId: request.id,
+      },
+    },
+  ]);
+
+  return {
+    request: publicPlanRequest(request, state),
+    user: buildWorkspaceUsers([target], state)[0],
+  };
 }
 
 export async function deleteUserAccount(actorUserId, targetUserId, input = {}) {
@@ -1631,6 +1856,12 @@ export async function businessMetrics() {
     .reduce((total, event) => total + numberValue(event.amountThb), 0);
   const pendingPaymentSessions = state.paymentSessions.filter((session) => session.status === "pending").length;
   const failedPaymentSessions = state.paymentSessions.filter((session) => session.status === "failed").length;
+  const pendingPlanRequests = state.planRequests.filter((request) => request.status === "pending").length;
+  const planRequestsByStatus = state.planRequests.reduce((counts, request) => {
+    const status = normalizePlanRequestStatus(request.status);
+    counts[status] = (counts[status] || 0) + 1;
+    return counts;
+  }, {});
   const approvalRequestsByStatus = state.approvalRequests.reduce((counts, request) => {
     const status = normalizeApprovalStatus(request.status);
     counts[status] = (counts[status] || 0) + 1;
@@ -1666,6 +1897,9 @@ export async function businessMetrics() {
     revenueCollected,
     pendingPaymentSessions,
     failedPaymentSessions,
+    planRequests: state.planRequests.length,
+    pendingPlanRequests,
+    planRequestsByStatus,
     approvalRequests: state.approvalRequests.length,
     pendingApprovalRequests: approvalRequestsByStatus.pending || 0,
     approvedApprovalRequests: approvalRequestsByStatus.approved || 0,
@@ -1739,6 +1973,11 @@ export async function businessMetrics() {
       .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt))
       .slice(0, 10)
       .map(publicPaymentWebhookEvent),
+    recentPlanRequests: state.planRequests
+      .slice()
+      .sort((left, right) => new Date(right.updatedAt || right.createdAt) - new Date(left.updatedAt || left.createdAt))
+      .slice(0, 20)
+      .map((request) => publicPlanRequest(request, state)),
     recentApprovalRequests: state.approvalRequests
       .slice()
       .sort((left, right) => new Date(right.updatedAt || right.createdAt) - new Date(left.updatedAt || left.createdAt))
@@ -2367,6 +2606,43 @@ function createTrialSubscription(now, planId = "pro") {
   };
 }
 
+function publicPlanRequest(request, state) {
+  if (!request) {
+    return null;
+  }
+
+  const user = state.users.find((candidate) => candidate.id === request.userId);
+  const decider = state.users.find((candidate) => candidate.id === request.decidedByUserId);
+  const plan = planById(request.planId);
+  return {
+    id: request.id,
+    userId: request.userId || "",
+    userName: user?.name || "",
+    userEmail: user?.email || "",
+    organizationId: request.organizationId || user?.organizationId || "",
+    planId: plan.id,
+    planName: request.planName || plan.name,
+    amountThb: numberValue(request.amountThb || plan.priceThb),
+    billing: request.billing || plan.billing,
+    status: normalizePlanRequestStatus(request.status),
+    source: request.source || "monthly_plans",
+    note: cleanApprovalSummary(request.note),
+    createdAt: request.createdAt || "",
+    updatedAt: request.updatedAt || request.createdAt || "",
+    decidedByUserId: request.decidedByUserId || "",
+    decidedByName: decider?.name || "",
+    decidedByEmail: decider?.email || "",
+    decidedAt: request.decidedAt || "",
+    decisionNote: cleanApprovalSummary(request.decisionNote),
+  };
+}
+
+function latestPendingPlanRequestForUser(state, userId) {
+  return state.planRequests
+    .filter((request) => request.userId === userId && request.status === "pending")
+    .sort((left, right) => new Date(right.updatedAt || right.createdAt) - new Date(left.updatedAt || left.createdAt))[0] || null;
+}
+
 function createPendingManualSubscription(now) {
   const plan = planById("starter");
   const renewsAt = new Date(now);
@@ -2676,6 +2952,7 @@ function tenantMetadataReport(state) {
     billingEvents: countMissingOrganizationId(state.billingEvents),
     paymentSessions: countMissingOrganizationId(state.paymentSessions),
     paymentWebhookEvents: countMissingOrganizationId(state.paymentWebhookEvents),
+    planRequests: countMissingOrganizationId(state.planRequests),
     approvalRequests: countMissingOrganizationId(state.approvalRequests),
     auditEvents: countMissingOrganizationId(state.auditEvents),
   };
@@ -3053,6 +3330,11 @@ function normalizeApprovalStatus(status) {
   return APPROVAL_STATUSES.includes(normalized) ? normalized : "pending";
 }
 
+function normalizePlanRequestStatus(status) {
+  const normalized = String(status || "").trim().toLowerCase();
+  return PLAN_REQUEST_STATUSES.includes(normalized) ? normalized : "pending";
+}
+
 function normalizeApprovalActionType(actionType) {
   const normalized = String(actionType || "").trim().toLowerCase();
   return APPROVAL_ACTION_TYPES.includes(normalized) ? normalized : "portfolio_review";
@@ -3119,6 +3401,7 @@ function normalizeState(parsed) {
     billingEvents: parsed.billingEvents || [],
     paymentSessions: parsed.paymentSessions || [],
     paymentWebhookEvents: parsed.paymentWebhookEvents || [],
+    planRequests: parsed.planRequests || [],
     advisorAssignments: parsed.advisorAssignments || [],
     approvalRequests: parsed.approvalRequests || [],
     auditEvents: parsed.auditEvents || [],
@@ -3236,6 +3519,30 @@ function normalizeState(parsed) {
       signedAt: event.signedAt || "",
       signatureAgeSeconds: event.signatureAgeSeconds ?? null,
     }));
+  state.planRequests = state.planRequests
+    .filter((request) => request && request.id && request.userId)
+    .map((request) => {
+      const user = state.users.find((candidate) => candidate.id === request.userId);
+      const plan = planById(request.planId);
+      const createdAt = request.createdAt || new Date(0).toISOString();
+      return {
+        id: String(request.id),
+        userId: user?.id || request.userId,
+        organizationId: request.organizationId || user?.organizationId || organizationIdForUser(state, request.userId),
+        planId: plan.id,
+        planName: request.planName || plan.name,
+        amountThb: numberValue(request.amountThb || plan.priceThb),
+        billing: request.billing || plan.billing,
+        status: normalizePlanRequestStatus(request.status),
+        source: request.source || "monthly_plans",
+        note: cleanApprovalSummary(request.note),
+        createdAt,
+        updatedAt: request.updatedAt || request.decidedAt || createdAt,
+        decidedByUserId: request.decidedByUserId || "",
+        decidedAt: request.decidedAt || "",
+        decisionNote: cleanApprovalSummary(request.decisionNote),
+      };
+    });
   state.approvalRequests = state.approvalRequests
     .filter((request) => request && request.id && request.customerId)
     .map((request) => {

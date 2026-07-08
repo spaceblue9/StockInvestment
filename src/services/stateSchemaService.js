@@ -97,6 +97,18 @@ const STATE_COLLECTIONS = [
     productionTable: "payment_webhook_events",
   },
   {
+    name: "planRequests",
+    primaryKey: "id",
+    requiredFields: ["id", "userId", "organizationId", "planId", "status", "createdAt", "updatedAt"],
+    tenantScoped: true,
+    references: [
+      { field: "userId", collection: "users" },
+      { field: "organizationId", collection: "organizations" },
+      { field: "decidedByUserId", collection: "users", optional: true },
+    ],
+    productionTable: "plan_requests",
+  },
+  {
     name: "advisorAssignments",
     primaryKey: ["customerId", "advisorId"],
     requiredFields: ["customerId", "advisorId", "assignedBy", "assignedAt"],

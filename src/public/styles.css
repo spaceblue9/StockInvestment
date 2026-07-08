@@ -975,6 +975,20 @@ td select {
   margin-top: 8px;
 }
 
+.plan-request-panel {
+  background: rgba(229, 9, 20, 0.08);
+  border: 1px solid rgba(229, 9, 20, 0.28);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 12px;
+}
+
+.compact-title {
+  margin-bottom: 0;
+}
+
 .ops-alert-grid {
   display: grid;
   gap: 12px;

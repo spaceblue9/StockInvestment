@@ -44,6 +44,48 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T176 - Manual Plan Request Flow and Product Build Metadata
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-08 08:26:53 +07:00
+- เหตุผล:
+  - เอกเลือก flow ใช้งานจริงช่วงแรกแบบยังไม่รับเงินผ่านเว็บ: user สมัคร/เลือกแพ็กเกจ -> ระบบสร้าง `plan_request` -> admin ตรวจชำระเงินนอกระบบ -> admin approve เปิด package
+  - หน้า Monthly Plans ตอนนี้ยังสื่อว่าให้ admin assign เองมากกว่าให้ user request plan
+  - เอกต้องการเพิ่มเลข Version โปรแกรม, เลข deploy/build บน GitHub และผู้สร้างโปรแกรม `penthammachat`
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และเปิด task ก่อนแก้
+  - [x] ตรวจ auth/subscription/admin API และ state schema ปัจจุบัน
+    - Done: `2026-07-08 08:36:00 +07:00`
+    - Note: พบระบบ manual subscription update เดิม จึงต่อยอดด้วย `planRequests` collection ใหม่
+  - [x] เพิ่ม API/Service สำหรับสร้างและอ่าน `plan_request`
+    - Done: `2026-07-08 08:45:00 +07:00`
+    - Note: เพิ่ม `/api/subscription/request`, `/api/admin/plan-requests`, `/api/admin/plan-requests/:requestId/approve`
+  - [x] ปรับหน้า Monthly Plans ให้ user ขอ Starter/Pro ได้หลัง login
+    - Done: `2026-07-08 08:50:00 +07:00`
+    - Note: ปุ่มเปลี่ยนเป็น `Request Starter/Pro`, แสดง pending/current package และไม่เรียก checkout online
+  - [x] ปรับ Business/Admin ให้เห็นคำขอและ approve เปิด package ได้
+    - Done: `2026-07-08 08:55:00 +07:00`
+    - Note: เพิ่ม panel `Pending package requests` ใน User Management พร้อมปุ่ม `Approve package`
+  - [x] เพิ่ม Program Version, GitHub deploy/build id และ Created by `penthammachat` ใน UI
+    - Done: `2026-07-08 08:56:00 +07:00`
+    - Note: แสดงใน account panel: `Think2 Manual Plan Request v0.2.0`, `codex/think2-safety-layer-planning@20260708-0830`, `penthammachat`
+  - [x] เพิ่ม/ปรับ regression tests ที่เกี่ยวข้อง
+    - Done: `2026-07-08 08:59:00 +07:00`
+    - Result: เพิ่มเคส `createPlanRequest -> approvePlanRequest` ใน `scripts/subscriptionLifecycleRegression.js`
+  - [x] รัน regression/frontend smoke ที่เกี่ยวข้อง
+    - Done: `2026-07-08 09:03:00 +07:00`
+    - Result: ผ่าน `npm run check`, `npm run test:subscription-lifecycle`, `npm run test:frontend-viewport`, `npm run test:web-smoke`, `npm run test:storage-readiness`, `npm run test:state-patch`, `npm run test:tenant-access`
+  - [x] deploy production ใหม่
+    - Done: `2026-07-08 09:06:00 +07:00`
+    - Result: Vercel production alias `https://thai-stock-investment-web.vercel.app` deploy สำเร็จ และตรวจพบ app/css version `20260708-0830`, request endpoints, admin panel marker, version metadata และ creator `penthammachat`
+  - [x] อัปเดต `plan.md`, commit และ push
+    - Done: `2026-07-08 09:08:00 +07:00`
+    - Note: `plan.md` บันทึกสถานะเสร็จก่อน commit; commit/push ทำหลังบรรทัดนี้
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T176 ต่อโดยเพิ่ม manual `plan_request` flow แบบ user เลือกแพ็กเกจเอง และ admin approve เปิดสิทธิ์
+  - ห้ามเปลี่ยนสูตร scoring เดิม และห้าม commit `.env`, `.vercel`, workbook, portfolio ส่วนตัว
+
 ### T175 - Fix Score Matrix Status Dot Colors
 
 - สถานะ: Done

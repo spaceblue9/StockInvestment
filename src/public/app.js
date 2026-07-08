@@ -27,7 +27,10 @@ const plansList = document.querySelector("#plansList");
 const businessViewButton = document.querySelector("[data-view='business']");
 const leftRailToggle = document.querySelector("#leftRailToggle");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20260708-0750";
+const frontendBuildVersion = "20260708-0830";
+const programVersion = "Think2 Manual Plan Request v0.2.0";
+const githubDeployBuild = "codex/think2-safety-layer-planning@20260708-0830";
+const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 
 const state = {
@@ -43,6 +46,8 @@ const state = {
   businessMetrics: null,
   billingEvents: [],
   paymentSessions: [],
+  planRequests: [],
+  currentPlanRequest: null,
   teamUsers: [],
   policy: null,
   auditEvents: [],
@@ -466,7 +471,7 @@ document.querySelectorAll("[data-view]").forEach((button) => {
 document.addEventListener("click", (event) => {
   const upgradeButton = event.target.closest("[data-upgrade-plan]");
   if (upgradeButton) {
-    checkoutPlan(upgradeButton.dataset.upgradePlan);
+    requestPlan(upgradeButton.dataset.upgradePlan);
   }
 
   const launchEvidenceCopyButton = event.target.closest("[data-launch-evidence-copy]");
@@ -490,7 +495,7 @@ async function initialize() {
   renderAuthState();
   renderPlans();
   if (state.user) {
-    await Promise.all([loadSavedPortfolio(), loadBillingHistory(), loadPaymentSessions(), loadBusinessMetrics(), loadTeamUsers(), loadOrganizations(), loadAuditEvents(), loadTenantScope()]);
+    await Promise.all([loadSavedPortfolio(), loadBillingHistory(), loadPaymentSessions(), loadPlanRequests(), loadBusinessMetrics(), loadTeamUsers(), loadOrganizations(), loadAuditEvents(), loadTenantScope()]);
     renderAuthState();
   }
   renderActiveView();
@@ -649,6 +654,34 @@ async function loadPaymentSessions() {
   }
 }
 
+async function loadPlanRequests() {
+  if (!state.user) {
+    state.planRequests = [];
+    state.currentPlanRequest = null;
+    return;
+  }
+
+  const endpoint = canManageSubscriptions()
+    ? "/api/admin/plan-requests?limit=80"
+    : "/api/subscription/request";
+  const response = await fetch(endpoint);
+  const data = await response.json();
+  if (!data.ok) {
+    state.planRequests = [];
+    state.currentPlanRequest = null;
+    return;
+  }
+
+  if (canManageSubscriptions()) {
+    state.planRequests = data.requests || [];
+    state.currentPlanRequest = null;
+    return;
+  }
+
+  state.planRequests = data.planRequest?.requests || [];
+  state.currentPlanRequest = data.planRequest?.pendingRequest || null;
+}
+
 async function loadAuditEvents() {
   if (!state.user) {
     state.auditEvents = [];
@@ -744,7 +777,7 @@ async function submitAuth(event) {
   authMessage.textContent = "";
   renderAuthState();
   renderPlans();
-  await Promise.all([loadSavedPortfolio(), loadBillingHistory(), loadPaymentSessions(), loadBusinessMetrics(), loadTeamUsers(), loadOrganizations(), loadAuditEvents(), loadTenantScope()]);
+  await Promise.all([loadSavedPortfolio(), loadBillingHistory(), loadPaymentSessions(), loadPlanRequests(), loadBusinessMetrics(), loadTeamUsers(), loadOrganizations(), loadAuditEvents(), loadTenantScope()]);
   renderAuthState();
   renderActiveView();
 }
@@ -759,6 +792,8 @@ async function logout() {
   state.portfolioHealthFilters = defaultPortfolioHealthFilters();
   state.billingEvents = [];
   state.paymentSessions = [];
+  state.planRequests = [];
+  state.currentPlanRequest = null;
   state.teamUsers = [];
   state.policy = null;
   state.auditEvents = [];
@@ -817,26 +852,48 @@ function renderAuthState() {
     <span>Billing: ${escapeHtml(subscription.provider || "trial")}</span>
     ${latestPaymentSession ? `<span>Payment: ${escapeHtml(latestPaymentSession.status)} · ${escapeHtml(latestPaymentSession.provider)}</span>` : ""}
     ${latestBillingEvent ? `<span>Latest invoice: ${escapeHtml(latestBillingEvent.invoiceNumber)} · ${money(latestBillingEvent.amountThb || 0)}</span>` : ""}
-    <span>${state.user.email}</span>
+    <span>${escapeHtml(state.user.email)}</span>
+    <span>Version: ${escapeHtml(programVersion)}</span>
+    <span>GitHub deploy: ${escapeHtml(githubDeployBuild)}</span>
+    <span>Created by: ${escapeHtml(programCreator)}</span>
   `;
 }
 
 function renderPlans() {
-  plansList.innerHTML = state.plans.map((plan) => `
-    <div class="plan-card ${plan.highlighted ? "highlighted" : ""}" data-public-launch-plan="${escapeHtml(plan.id)}">
-      <strong>${escapeHtml(plan.name)} · ${money(plan.priceThb)} / month</strong>
-      <span class="muted">${escapeHtml(plan.billing)}</span>
-      <p class="plan-meta">${escapeHtml(plan.bestFor || "")}</p>
-      <div class="plan-tags">
-        <span>${formatNumber((plan.entitlements || []).length)} features</span>
-        <span>${formatNumber(plan.limits?.clientWorkspaces || 0)} client workspaces</span>
+  const currentPlanId = currentPlanIdForUser();
+  const activeSubscription = ["active", "trialing"].includes(state.user?.subscription?.status);
+  plansList.innerHTML = state.plans.map((plan) => {
+    const pendingRequest = state.currentPlanRequest?.planId === plan.id
+      ? state.currentPlanRequest
+      : state.planRequests.find((request) => request.planId === plan.id && request.status === "pending");
+    const isCurrentPlan = activeSubscription && currentPlanId === plan.id;
+    const buttonText = !state.user
+      ? "Create account to request"
+      : pendingRequest
+        ? "Waiting for admin approval"
+        : isCurrentPlan
+          ? "Current package"
+          : `Request ${plan.name}`;
+    const disabled = !state.user || Boolean(pendingRequest) || isCurrentPlan;
+    return `
+      <div class="plan-card ${plan.highlighted ? "highlighted" : ""}" data-public-launch-plan="${escapeHtml(plan.id)}">
+        <strong>${escapeHtml(plan.name)} · ${money(plan.priceThb)} / month</strong>
+        <span class="muted">${escapeHtml(plan.billing)}</span>
+        <p class="plan-meta">${escapeHtml(plan.bestFor || "")}</p>
+        <div class="plan-tags">
+          <span>${formatNumber((plan.entitlements || []).length)} features</span>
+          <span>${formatNumber(plan.limits?.clientWorkspaces || 0)} client workspaces</span>
+          ${pendingRequest ? `<span class="status-pill warning">Pending admin</span>` : ""}
+          ${isCurrentPlan ? `<span class="status-pill ready">Active now</span>` : ""}
+        </div>
+        <ul>${(plan.features || []).map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}</ul>
+        <button class="plan-action" type="button" data-upgrade-plan="${escapeHtml(plan.id)}" ${disabled ? "disabled" : ""}>
+          ${escapeHtml(buttonText)}
+        </button>
+        ${pendingRequest ? `<p class="muted">ส่งคำขอเมื่อ ${escapeHtml(formatDate(pendingRequest.createdAt))}. Admin จะตรวจการชำระเงินนอกระบบแล้วกด approve ให้</p>` : ""}
       </div>
-      <ul>${(plan.features || []).map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}</ul>
-      <button class="plan-action" type="button" disabled>
-        ${state.user ? "Admin assigns this package" : "Create account first"}
-      </button>
-    </div>
-  `).join("");
+    `;
+  }).join("");
   const deferredPlanNames = state.deferredPlans.map((plan) => plan.name).join(", ");
   if (deferredPlanNames) {
     plansList.insertAdjacentHTML("beforeend", `
@@ -847,10 +904,10 @@ function renderPlans() {
       </div>
     `);
   }
-  plansList.insertAdjacentHTML("afterbegin", `<p id="billingMessage" class="muted" data-launch-plan-note data-manual-package-flow>Launch phase: สมัครบัญชีไว้ก่อน แล้ว owner/admin จะกำหนด Starter หรือ Pro ให้จาก Business > User Management. ยังไม่รับชำระผ่านหน้าเว็บในรอบนี้.</p>`);
+  plansList.insertAdjacentHTML("afterbegin", `<p id="billingMessage" class="muted" data-launch-plan-note data-manual-package-flow>Launch phase: สมัครหรือเข้าสู่ระบบ แล้วเลือก Request Starter/Pro ได้เลย ระบบจะส่งคำขอให้ admin ตรวจการชำระเงินนอกระบบและกด approve จาก Business > User Management.</p>`);
 }
 
-async function checkoutPlan(planId) {
+async function requestPlan(planId) {
   const billingMessage = document.querySelector("#billingMessage");
   if (!state.user) {
     billingMessage.textContent = "Please sign in before choosing a plan.";
@@ -862,12 +919,12 @@ async function checkoutPlan(planId) {
     return;
   }
 
-  billingMessage.textContent = "Creating payment session...";
-  plansList.querySelectorAll("[data-plan-id]").forEach((button) => {
+  billingMessage.textContent = "Sending package request to admin...";
+  plansList.querySelectorAll("[data-upgrade-plan]").forEach((button) => {
     button.disabled = true;
   });
 
-  const response = await fetch("/api/subscription/checkout", {
+  const response = await fetch("/api/subscription/request", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ planId }),
@@ -876,24 +933,16 @@ async function checkoutPlan(planId) {
 
   if (!data.ok) {
     renderPlans();
-    document.querySelector("#billingMessage").textContent = data.message || "Checkout failed.";
+    document.querySelector("#billingMessage").textContent = data.message || "Package request failed.";
     return;
   }
 
-  state.user = data.user;
-  state.billingEvents = [data.billingEvent, ...state.billingEvents].filter(Boolean);
-  state.paymentSessions = [data.paymentSession, ...state.paymentSessions].filter(Boolean);
-  renderAuthState();
+  state.currentPlanRequest = data.request || null;
+  state.planRequests = [data.request, ...state.planRequests].filter(Boolean);
   renderPlans();
   const updatedBillingMessage = document.querySelector("#billingMessage");
-  if (data.paymentSession?.requiresRedirect && data.paymentSession?.checkoutUrl) {
-    updatedBillingMessage.innerHTML = `Payment session created with ${escapeHtml(data.paymentSession.provider)}. <a href="${escapeHtml(data.paymentSession.checkoutUrl)}" target="_blank" rel="noopener">Open secure checkout</a>`;
-  } else {
-    updatedBillingMessage.textContent = data.duplicate
-      ? `Payment webhook was already processed for ${data.user.subscription?.plan || "plan"}.`
-      : `Payment succeeded via local gateway. Subscribed to ${data.user.subscription?.plan || "plan"}.`;
-  }
-  await Promise.all([loadBillingHistory(), loadPaymentSessions(), loadBusinessMetrics(), loadAuditEvents(), loadTenantScope()]);
+  updatedBillingMessage.textContent = data.message || "Package request sent. Admin will approve it after offline payment check.";
+  await Promise.all([loadPlanRequests(), loadBusinessMetrics(), loadAuditEvents(), loadTenantScope()]);
   renderAuthState();
   if (state.activeView === "business") {
     renderBusinessView();
@@ -3619,6 +3668,7 @@ function renderTeamWorkspace(options = {}) {
   const subscriptionStatuses = ["active", "trialing", "past_due", "canceled", "inactive"];
   const canManagePackages = canManageSubscriptions();
   const canDeleteUserAccounts = canDeleteUsers();
+  const pendingPlanRequests = state.planRequests.filter((request) => request.status === "pending");
   const pendingManualPackages = state.teamUsers.filter((user) => user.subscription?.status === "inactive").length;
   const activeMembers = state.teamUsers.filter((user) => user.subscription?.status === "active").length;
   const expiredMembers = state.teamUsers.filter((user) => {
@@ -3639,9 +3689,11 @@ function renderTeamWorkspace(options = {}) {
       ${canManagePackages ? `
         <div class="guidance-grid package-admin-guide" data-admin-package-management>
           <div class="guidance-card"><span>New signups</span><strong>${formatNumber(pendingManualPackages)} account(s) waiting for package assignment</strong></div>
+          <div class="guidance-card"><span>Package requests</span><strong>${formatNumber(pendingPlanRequests.length)} request(s) waiting for approval</strong></div>
           <div class="guidance-card"><span>Active members</span><strong>${formatNumber(activeMembers)} account(s) currently active</strong></div>
           <div class="guidance-card"><span>Expired / check date</span><strong>${formatNumber(expiredMembers)} account(s) need expiry review</strong></div>
         </div>
+        ${renderPlanRequestAdminPanel(pendingPlanRequests)}
       ` : ""}
       <div class="table-wrap">
         <table>
@@ -3949,6 +4001,8 @@ function auditActionLabel(action) {
     "simulation.run": "Simulation",
     "profile.update": "Investor profile updated",
     "billing.checkout": "Subscription checkout",
+    "subscription.plan_request_created": "Package requested",
+    "subscription.plan_request_approved": "Package request approved",
     "team.role_update": "Role updated",
     "team.subscription_update": "Package updated",
     "team.user_deleted": "User deleted",
@@ -3976,6 +4030,14 @@ function summarizeAuditDetails(event) {
 
   if (event.action === "billing.checkout") {
     return `${details.planName || details.planId || "Plan"} · ${money(details.amountThb || 0)} · ${details.invoiceNumber || "-"}`;
+  }
+
+  if (event.action === "subscription.plan_request_created") {
+    return `${details.planName || details.planId || "Plan"} · ${money(details.amountThb || 0)} · ${details.status || "pending"}`;
+  }
+
+  if (event.action === "subscription.plan_request_approved") {
+    return `${details.previousPlanId || "-"} → ${details.nextPlanId || "-"} · ${details.nextStatus || "active"} · expires ${formatDate(details.expiresAt)}`;
   }
 
   if (event.action === "team.role_update") {
@@ -4069,6 +4131,9 @@ function attachTeamActions() {
   });
   document.querySelectorAll("[data-delete-user]").forEach((button) => {
     button.addEventListener("click", () => deleteManagedUser(button.dataset.deleteUser, button.dataset.deleteUserLabel));
+  });
+  document.querySelectorAll("[data-approve-plan-request]").forEach((button) => {
+    button.addEventListener("click", () => approvePlanRequest(button.dataset.approvePlanRequest));
   });
 }
 
@@ -4306,6 +4371,33 @@ async function updateUserSubscription(userId) {
   renderBusinessView();
 }
 
+async function approvePlanRequest(requestId) {
+  const expiryInput = document.querySelector(`[data-plan-request-expiry="${cssEscape(requestId)}"]`);
+  const teamMessage = document.querySelector("#teamMessage");
+  if (!requestId || !expiryInput || !teamMessage) return;
+
+  teamMessage.textContent = "Approving package request...";
+  const response = await fetch(`/api/admin/plan-requests/${encodeURIComponent(requestId)}/approve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      status: "active",
+      expiresAt: expiryInput.value,
+      note: "Approved after offline payment check.",
+    }),
+  });
+  const data = await response.json();
+
+  if (!data.ok) {
+    teamMessage.textContent = data.message || "Package request approval failed.";
+    return;
+  }
+
+  await refreshWorkspaceData({ includeCurrentUser: state.user?.id === data.user?.id });
+  renderAuthState();
+  renderBusinessView();
+}
+
 async function deleteManagedUser(userId, label = "this user") {
   const teamMessage = document.querySelector("#teamMessage");
   if (!teamMessage || !userId) return;
@@ -4381,7 +4473,7 @@ async function updateUserOrganization(userId) {
 }
 
 async function refreshWorkspaceData(options = {}) {
-  const loaders = [loadBusinessMetrics(), loadReferenceMasterReview(), loadTeamUsers(), loadOrganizations(), loadPaymentSessions(), loadAuditEvents(), loadTenantScope()];
+  const loaders = [loadBusinessMetrics(), loadReferenceMasterReview(), loadTeamUsers(), loadOrganizations(), loadPaymentSessions(), loadPlanRequests(), loadAuditEvents(), loadTenantScope()];
   if (options.includeCurrentUser) {
     loaders.push(loadCurrentUser());
   }
@@ -4593,6 +4685,54 @@ function renderScatterPlot(rows, {
   `;
 }
 
+function renderPlanRequestAdminPanel(requests = []) {
+  if (!requests.length) {
+    return `
+      <div class="plan-request-panel" data-plan-request-admin-panel>
+        <strong>Pending package requests</strong>
+        <p class="muted">ยังไม่มีคำขอแพ็กเกจที่รอ approve</p>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="plan-request-panel" data-plan-request-admin-panel>
+      <div class="section-title compact-title">
+        <div>
+          <span class="eyebrow">Manual approval</span>
+          <h3>Pending package requests</h3>
+          <p class="muted">ตรวจการโอน/ชำระเงินนอกระบบก่อน แล้วกด Approve เพื่อเปิดสิทธิ์ให้สมาชิก</p>
+        </div>
+        <span class="status-pill warning">${formatNumber(requests.length)} pending</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th>Requested package</th>
+              <th>Requested at</th>
+              <th>Approve expiry</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${requests.map((request) => `
+              <tr data-plan-request-row="${escapeHtml(request.id)}">
+                <td><strong>${escapeHtml(request.userName || "Investor")}</strong><br><span class="muted">${escapeHtml(request.userEmail || "-")}</span></td>
+                <td><strong>${escapeHtml(request.planName)}</strong><br><span class="muted">${money(request.amountThb)} / ${escapeHtml(request.billing || "monthly")}</span></td>
+                <td>${escapeHtml(formatDate(request.createdAt))}</td>
+                <td><input type="date" data-plan-request-expiry="${escapeHtml(request.id)}" value="${escapeHtml(defaultPlanRequestExpiryDate())}" aria-label="Package expiry date for ${escapeHtml(request.userEmail || request.userName || "member")}"></td>
+                <td><button class="table-action" type="button" data-approve-plan-request="${escapeHtml(request.id)}">Approve package</button></td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
 function breakdownBy(rows, labelGetter, valueGetter, limit) {
   const groups = rows.reduce((totals, row) => {
     const label = typeof labelGetter === "function" ? labelGetter(row) : row[labelGetter];
@@ -4762,6 +4902,20 @@ function subscriptionExpiryValue(subscription = {}) {
   }
 
   return parsed.toISOString().slice(0, 10);
+}
+
+function defaultPlanRequestExpiryDate() {
+  const date = new Date();
+  date.setMonth(date.getMonth() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function currentPlanIdForUser() {
+  const subscription = state.user?.subscription || {};
+  if (subscription.planId) {
+    return String(subscription.planId).toLowerCase();
+  }
+  return String(subscription.plan || "").trim().toLowerCase();
 }
 
 function approvalActionTypeLabel(actionType) {

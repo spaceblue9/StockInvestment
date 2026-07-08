@@ -1,11 +1,13 @@
 import express from "express";
 import {
   assignAdvisor,
+  approvePlanRequest,
   auditIntegritySummary,
   auditTrailSummary,
   businessMetrics,
   clearSessionCookie,
   createApprovalRequest,
+  createPlanRequest,
   createOrganization,
   createUser,
   decideApprovalRequest,
@@ -15,11 +17,13 @@ import {
   getInvestorProfile,
   getCustomerPortfolioSnapshot,
   getPaymentSessions,
+  getPlanRequestStatus,
   getSessionIdFromRequest,
   getUserFromRequest,
   listOrganizations,
   listApprovalRequests,
   listWorkspaceUsers,
+  listPlanRequests,
   loginUser,
   logoutSession,
   moveUserToOrganization,
@@ -182,6 +186,51 @@ router.post("/subscription/payment-session", async (req, res) => {
     launchMode: "manual_admin_assignment",
     message: "Payment sessions are disabled during launch. Owner/admin should update the member package manually from User Management.",
   });
+});
+
+router.get("/subscription/request", async (req, res) => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    res.status(401).json({
+      ok: false,
+      message: "Please sign in to view package requests.",
+    });
+    return;
+  }
+
+  try {
+    res.json({
+      ok: true,
+      planRequest: await getPlanRequestStatus(user.id),
+    });
+  } catch (error) {
+    sendAuthError(res, error, 400);
+  }
+});
+
+router.post("/subscription/request", async (req, res) => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    res.status(401).json({
+      ok: false,
+      message: "Please sign in before requesting a package.",
+    });
+    return;
+  }
+
+  try {
+    const result = await createPlanRequest(user.id, req.body || {});
+    res.json({
+      ok: true,
+      request: result.request,
+      duplicate: result.duplicate,
+      message: result.duplicate
+        ? "You already have a pending request for this package."
+        : "Package request sent. Admin will approve it after offline payment check.",
+    });
+  } catch (error) {
+    sendAuthError(res, error, 400);
+  }
 });
 
 router.post("/payment/webhook/simulate", async (req, res) => {
@@ -826,6 +875,59 @@ router.get("/admin/users", async (req, res) => {
       users: await listWorkspaceUsers(user.id),
       policy: rolePolicy(user.role),
       entitlements: user.entitlements,
+    });
+  } catch (error) {
+    sendAuthError(res, error, 403);
+  }
+});
+
+router.get("/admin/plan-requests", async (req, res) => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    res.status(401).json({
+      ok: false,
+      message: "Please sign in to view package requests.",
+    });
+    return;
+  }
+
+  if (!["owner", "admin"].includes(user.role)) {
+    res.status(403).json({
+      ok: false,
+      message: "Package requests are available to owner and admin accounts only.",
+    });
+    return;
+  }
+
+  try {
+    requirePlanEntitlement(user, "business.metrics");
+    res.json({
+      ok: true,
+      requests: await listPlanRequests(user.id, {
+        limit: Number(req.query.limit) || 50,
+      }),
+    });
+  } catch (error) {
+    sendAuthError(res, error, 403);
+  }
+});
+
+router.post("/admin/plan-requests/:requestId/approve", async (req, res) => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    res.status(401).json({
+      ok: false,
+      message: "Please sign in to approve package requests.",
+    });
+    return;
+  }
+
+  try {
+    const result = await approvePlanRequest(user.id, req.params.requestId, req.body || {});
+    res.json({
+      ok: true,
+      request: result.request,
+      user: result.user,
     });
   } catch (error) {
     sendAuthError(res, error, 403);

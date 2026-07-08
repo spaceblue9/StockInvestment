@@ -13,13 +13,17 @@ try {
   const auth = await import(pathToFileURL(path.join(repoRoot, "src", "services", "authService.js")).href);
   const {
     auditIntegritySummary,
+    approvePlanRequest,
     businessMetrics,
     createPaymentSession,
+    createPlanRequest,
     createPaymentWebhookSignature,
     createUser,
     getAuditEvents,
     getBillingHistory,
     getPaymentSessions,
+    getPlanRequestStatus,
+    listPlanRequests,
     processPaymentWebhook,
     processSignedPaymentWebhook,
     subscriptionPlans,
@@ -28,6 +32,7 @@ try {
 
   const owner = await createAccount(createUser, "Owner", "owner@example.test");
   const customer = await createAccount(createUser, "Customer", "customer@example.test");
+  const requestCustomer = await createAccount(createUser, "Request Customer", "request-customer@example.test");
   const plans = subscriptionPlans();
   const starterPlan = plans.find((plan) => plan.id === "starter");
   const proPlan = plans.find((plan) => plan.id === "pro");
@@ -35,6 +40,23 @@ try {
   assert(starterPlan && proPlan, "Starter and Pro plans should exist.");
   assertEqual(customer.subscription.status, "inactive", "New customers should wait for manual admin package assignment.");
   assertEqual(customer.subscription.provider, "manual_admin_pending", "New customers should be marked as pending manual admin review.");
+
+  const proRequest = await createPlanRequest(requestCustomer.id, { planId: "pro" });
+  assertEqual(proRequest.request.status, "pending", "Customer plan request should start pending.");
+  assertEqual(proRequest.request.planId, "pro", "Customer should be able to request Pro from Monthly Plans.");
+  const duplicateRequest = await createPlanRequest(requestCustomer.id, { planId: "pro" });
+  assertEqual(duplicateRequest.duplicate, true, "Duplicate pending request for the same plan should be reconciled.");
+  const customerRequestStatus = await getPlanRequestStatus(requestCustomer.id);
+  assertEqual(customerRequestStatus.pendingRequest.planId, "pro", "Customer status should expose the pending plan request.");
+  const ownerPlanRequests = await listPlanRequests(owner.id, { limit: 10 });
+  assert(ownerPlanRequests.some((request) => request.id === proRequest.request.id), "Owner should see customer plan requests.");
+  const approvedRequest = await approvePlanRequest(owner.id, proRequest.request.id, {
+    status: "active",
+    expiresAt: "2099-12-31",
+  });
+  assertEqual(approvedRequest.request.status, "approved", "Owner approval should mark plan request approved.");
+  assertEqual(approvedRequest.user.subscription.planId, "pro", "Plan request approval should activate requested Pro plan.");
+  assertEqual(approvedRequest.user.subscription.provider, "manual_admin", "Plan request approval should use manual admin provider.");
 
   const failedSession = await createPaymentSession(customer.id, "starter");
   const failedWebhook = await processPaymentWebhook(customer.id, {
@@ -157,7 +179,9 @@ try {
   assertEqual(manualSubscription.subscription.provider, "manual_admin", "Manual package update should record manual provider.");
 
   const metrics = await businessMetrics();
-  assertEqual(metrics.paidUsers, 1, "Metrics should count one paid customer.");
+  assertEqual(metrics.paidUsers, 2, "Metrics should count one paid webhook customer and one manually approved plan request customer.");
+  assertEqual(metrics.pendingPlanRequests, 0, "Approved plan requests should not remain pending.");
+  assertEqual(metrics.planRequestsByStatus.approved, 1, "Metrics should count the approved plan request.");
   assertEqual(metrics.failedPaymentSessions, 1, "Metrics should count one failed payment session.");
   assertEqual(metrics.pendingPaymentSessions, 3, "Metrics should count pending sessions after rejected webhook attempts.");
   assertEqual(metrics.verifiedWebhookEvents, 3, "Metrics should count signed webhooks with valid signatures, including already-paid and invalid-session events.");
@@ -171,6 +195,8 @@ try {
   assertEqual(rejectedAuditEvents.length, 4, "Rejected webhook attempts should be audited.");
   assert(auditEvents.some((event) => event.action === "payment.webhook_succeeded"), "Payment success should be audited.");
   assert(auditEvents.some((event) => event.action === "payment.webhook_failed"), "Payment failure should be audited.");
+  assert(auditEvents.some((event) => event.action === "subscription.plan_request_created"), "Plan request creation should be audited.");
+  assert(auditEvents.some((event) => event.action === "subscription.plan_request_approved"), "Plan request approval should be audited.");
   assert(auditEvents.some((event) => event.action === "team.subscription_update"), "Manual subscription update should be audited.");
 
   const integrity = await auditIntegritySummary(owner.id);
@@ -189,6 +215,8 @@ try {
       duplicateReconciled: duplicateSuccess.duplicate,
       billingEvents: (await getBillingHistory(customer.id)).length,
       paidUsers: metrics.paidUsers,
+      planRequests: metrics.planRequests,
+      approvedPlanRequests: metrics.planRequestsByStatus.approved,
       pendingPaymentSessions: metrics.pendingPaymentSessions,
       failedPaymentSessions: metrics.failedPaymentSessions,
       verifiedWebhookEvents: metrics.verifiedWebhookEvents,
