@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T178 - Hotfix Login Failure After Plan Requests
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: 2026-07-08 12:30:31 +07:00
 - เหตุผล:
   - เอกแจ้งว่าระบบ login เข้าไม่ได้หลังเพิ่ม manual plan request flow
@@ -75,7 +75,9 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
     - Done: `2026-07-08 12:41:00 +07:00`
     - Result: Vercel production deploy `dpl_AAkkZymtVCUmKqBmi3B1GRVbLQHQ`, alias `https://thai-stock-investment-web.vercel.app`
     - Note: post-deploy probe จากเครื่อง local เจอ SSL connection issue ระหว่างตรวจซ้ำ จึงต้องให้เอกลอง login ด้วย user จริงบนหน้าเว็บอีกครั้ง
-  - [ ] อัปเดต `plan.md`, commit และ push
+  - [x] อัปเดต `plan.md`, commit และ push
+    - Done: `2026-07-08 12:42:51 +07:00`
+    - Result: commit `aa028df` push ไป `origin/codex/think2-safety-layer-planning`
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T178 ต่อโดยแก้ login failure หลังเพิ่ม `planRequests`
