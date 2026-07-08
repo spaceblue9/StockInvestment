@@ -130,7 +130,7 @@ try {
     "data-frontend-version",
     "leftRailToggle",
     "Hide panel",
-    "/app.js?v=20260708-0719",
+    "/app.js?v=20260708-0733",
   ], "Main HTML should expose the dashboard navigation.");
   assert(!html.includes('data-view="onboarding"'), "Launch navigation should not expose the hidden Guide view.");
   assert(!html.includes('data-view="approvals"'), "Launch navigation should not expose the deferred Approvals view.");
@@ -162,7 +162,10 @@ try {
     "Sign in to analyze",
     "Create an account or sign in before downloading templates",
     "frontendBuildVersion",
-    "20260708-0719",
+    "20260708-0733",
+    "renderAnalysisResultSummary",
+    "Processing details",
+    "Ready ·",
     "stockflix.leftRailCollapsed",
     "left-rail-collapsed",
     "toggleLeftRail",
@@ -338,6 +341,8 @@ try {
     "--red: #e50914",
     ".panel",
     ".analysis-status",
+    ".analysis-links",
+    ".analysis-details",
     ".app-shell.left-rail-collapsed",
     ".workspace-toggle",
     ".analysis-spinner",

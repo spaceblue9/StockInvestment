@@ -27,7 +27,7 @@ const plansList = document.querySelector("#plansList");
 const businessViewButton = document.querySelector("[data-view='business']");
 const leftRailToggle = document.querySelector("#leftRailToggle");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20260708-0719";
+const frontendBuildVersion = "20260708-0733";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 
 const state = {
@@ -1033,13 +1033,15 @@ async function runAnalysis(event) {
       return;
     }
 
-    const messages = [
-      ...renderUploadSummaryMessages(data.uploadSummary),
-      `Fetched ${data.count} stocks from ${data.symbols.length} symbols.`,
-      `Generated ${data.recommendationCount} scored rows.`,
+    const outputLinks = [
       `<a href="/api/analysis/raw">Download raw_CSV.csv</a>`,
       `<a href="/api/analysis/recommended">Download recommendations</a>`,
       `<a href="/api/analysis/coverage">Download live data coverage report</a>`,
+    ];
+    const detailMessages = [
+      ...renderUploadSummaryMessages(data.uploadSummary),
+      `Fetched ${data.count} stocks from ${data.symbols.length} symbols.`,
+      `Generated ${data.recommendationCount} scored rows.`,
     ];
 
     if (data.marketCoverage) {
@@ -1048,22 +1050,21 @@ async function runAnalysis(event) {
       const unknownSector = coverage.unknownSectorCount || 0;
       const missingFundamental = Object.values(coverage.missingFundamentalCounts || {})
         .reduce((total, count) => total + Number(count || 0), 0);
-      messages.push(
+      detailMessages.push(
         `Live data coverage: ${coverage.productionRecommendation?.status || "unknown"} (${completePct}% complete, ${unknownSector} unknown sectors, ${missingFundamental} missing fundamentals).`,
       );
     }
 
     if (data.portfolioReport) {
-      messages.push(`Generated ${data.portfolioReport.count} portfolio rows.`);
-      messages.push(`<a href="${data.portfolioReport.downloadUrl}">Download portfolio report</a>`);
+      detailMessages.push(`Generated ${data.portfolioReport.count} portfolio rows.`);
+      outputLinks.push(`<a href="${data.portfolioReport.downloadUrl}">Download portfolio report</a>`);
     }
 
     if (Array.isArray(data.runtimeWarnings) && data.runtimeWarnings.length) {
-      messages.push(...data.runtimeWarnings.map((warning) => `Trial note: ${escapeHtml(warning)}`));
+      detailMessages.push(...data.runtimeWarnings.map((warning) => `Trial note: ${escapeHtml(warning)}`));
     }
 
-    messages.push(data.message);
-    runMessage.innerHTML = messages.join("<br>");
+    runMessage.innerHTML = renderAnalysisResultSummary(data, outputLinks, detailMessages);
     showAnalysisStatus("success", {
       title: "Analysis complete",
       text: "Your dashboard and download links are ready. Review the recommendations before making any investment decision.",
@@ -1147,6 +1148,26 @@ function renderUploadSummaryMessages(uploadSummary = {}) {
     messages.push(`Combined unique symbols sent to market data: ${formatNumber(uploadSummary.combinedSymbols || 0)}.`);
   }
   return messages;
+}
+
+function renderAnalysisResultSummary(data = {}, outputLinks = [], detailMessages = []) {
+  const holdingCount = data.portfolioRows?.length || data.portfolioReport?.count || data.uploadSummary?.portfolio?.holdings || 0;
+  const symbolCount = data.symbols?.length || data.uploadSummary?.combinedSymbols || data.count || 0;
+  const summaryLines = [
+    `<strong>Analysis complete.</strong> Reviewed ${formatNumber(symbolCount)} stock(s)${holdingCount ? ` and ${formatNumber(holdingCount)} portfolio holding(s)` : ""}.`,
+    "Dashboard results are ready below. Review recommendations before making any investment decision.",
+  ];
+  if (data.runtimeMode === "vercel_fast_analysis") {
+    summaryLines.push("Trial mode: on-screen results are ready. Excel report and background saving may be limited on Vercel.");
+  }
+
+  const linkHtml = outputLinks.length
+    ? `<div class="analysis-links">${outputLinks.join("")}</div>`
+    : "";
+  const detailsHtml = detailMessages.length
+    ? `<details class="analysis-details"><summary>Processing details</summary><div>${detailMessages.join("<br>")}</div></details>`
+    : "";
+  return `${summaryLines.map((line) => `<p>${line}</p>`).join("")}${linkHtml}${detailsHtml}`;
 }
 
 function setAnalysisButtonLoading(isLoading) {
@@ -1242,7 +1263,10 @@ function updateFrontendDiagnostics() {
       ? (analysisSubmitButton?.disabled ? "disabled" : "ready")
       : "package required";
   const signedInState = state.user ? "signed in" : "not signed in";
-  frontendVersion.textContent = `Frontend version ${frontendBuildVersion} loaded · Analyze button ${buttonState} · ${signedInState} · selected files ${selectedCount} · Analyze clicks ${state.analysisClickCount}`;
+  frontendVersion.textContent = state.analysisRunning
+    ? "Analysis is running..."
+    : `Ready · ${signedInState} · ${selectedCount} file(s) selected`;
+  frontendVersion.title = `Frontend version ${frontendBuildVersion} · Analyze button ${buttonState} · Analyze clicks ${state.analysisClickCount}`;
 }
 
 function showAnalysisStatus(status, options = {}) {

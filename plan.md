@@ -44,6 +44,34 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T173 - Clean Production Analysis Debug Messages
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-08 07:33:29 +07:00
+- เหตุผล:
+  - เอกพบว่าหลัง Analyze มีข้อความ debug/diagnostic ยาว เช่น read file counts, fetched rows, trial notes และ frontend diagnostics แสดงบนหน้าจอมากเกินไป
+  - ผู้ใช้จริงควรเห็นผลสรุปที่อ่านง่าย ไม่ใช่ log สำหรับ developer
+  - รายละเอียดเชิงเทคนิคควรถูกซ่อนไว้ในส่วนกดดูเพิ่มเติมเท่านั้น
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และเปิด task ก่อนแก้
+  - [x] ตรวจจุดที่ frontend แสดงข้อความหลัง Analyze และ diagnostics (เสร็จเมื่อ: 2026-07-08 07:34:10 +07:00)
+  - [x] ปรับข้อความหลักหลัง Analyze ให้เป็น summary สำหรับผู้ใช้ (เสร็จเมื่อ: 2026-07-08 07:35:20 +07:00)
+  - [x] ซ่อน technical details/logs ไว้ใน expandable details (เสร็จเมื่อ: 2026-07-08 07:35:20 +07:00)
+  - [x] ซ่อน/ลด frontend diagnostics ไม่ให้รบกวนผู้ใช้จริง (เสร็จเมื่อ: 2026-07-08 07:35:50 +07:00)
+  - [x] รัน regression/frontend smoke ที่เกี่ยวข้อง (เสร็จเมื่อ: 2026-07-08 07:36:25 +07:00)
+  - [x] deploy production ใหม่ (เสร็จเมื่อ: 2026-07-08 07:37:35 +07:00)
+  - [x] อัปเดต `plan.md`, commit และ push (เสร็จเมื่อ: 2026-07-08 07:39:00 +07:00, บันทึกใน commit นี้)
+- บันทึกล่าสุด:
+  - 2026-07-08 07:38:30 +07:00: เปลี่ยนผลลัพธ์หลัง Analyze ให้แสดง summary สั้น เช่นจำนวนหุ้น/holding ที่วิเคราะห์ และลิงก์ดาวน์โหลด
+  - 2026-07-08 07:38:30 +07:00: ย้ายข้อความ debug เช่น read file counts, fetched rows, live coverage และ trial notes ไปอยู่ใน `<details>` ชื่อ `Processing details`
+  - 2026-07-08 07:38:30 +07:00: ลด frontend diagnostics ด้านล่างให้เหลือ `Ready · signed in · N file(s) selected` และย้าย build/debug info ไปไว้ใน title tooltip
+  - 2026-07-08 07:38:30 +07:00: อัปเดต frontend cache-bust/version เป็น `20260708-0733`; production deploy และ live marker check ผ่าน
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T173 ต่อโดยลดข้อความ debug บนหน้า production
+  - ห้ามลบข้อมูลสำคัญที่ช่วย support แต่ให้ซ่อนไว้ใน details/debug section
+  - ห้าม commit `.env`, `.vercel`, workbook, portfolio ส่วนตัว หรือเปิดเผย `DATABASE_URL`
+
 ### T172 - Add Collapsible Left Workspace Panel
 
 - สถานะ: Done

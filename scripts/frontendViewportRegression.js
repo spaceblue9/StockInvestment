@@ -25,7 +25,7 @@ assertIncludes(html, [
   'data-frontend-version',
   'leftRailToggle',
   'Hide panel',
-  '/app.js?v=20260708-0719',
+  '/app.js?v=20260708-0733',
 ], "HTML should expose viewport meta, brand, and primary dashboard navigation.");
 if (html.includes('data-view="approvals"')) {
   throw new Error("Launch navigation should not expose deferred Approvals.");
@@ -43,6 +43,8 @@ assertIncludes(styles, [
   "@media (max-width: 640px)",
   ".view-grid button",
   ".analysis-status",
+  ".analysis-links",
+  ".analysis-details",
   ".app-shell.left-rail-collapsed",
   ".workspace-toggle",
   ".analysis-spinner",
@@ -132,7 +134,10 @@ assertIncludes(appJs, [
   "Sign in to analyze",
   "Create an account or sign in before downloading templates",
   "frontendBuildVersion",
-  "20260708-0719",
+  "20260708-0733",
+  "renderAnalysisResultSummary",
+  "Processing details",
+  "Ready ·",
   "stockflix.leftRailCollapsed",
   "left-rail-collapsed",
   "toggleLeftRail",

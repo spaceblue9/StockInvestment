@@ -359,6 +359,27 @@ button:disabled {
   background: var(--green);
 }
 
+.analysis-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.analysis-details {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+.analysis-details summary {
+  color: #ddd;
+  cursor: pointer;
+  font-weight: 800;
+}
+
 @keyframes analysis-spin {
   to {
     transform: rotate(360deg);
