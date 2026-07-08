@@ -8,6 +8,7 @@ const collectionByName = new Map(collections.map((collection) => [collection.nam
 const patchOperationTypes = new Set(["upsert", "append", "delete"]);
 
 let poolPromise = null;
+let schemaReadyPromise = null;
 
 export async function readPostgresAppState(options = {}) {
   return withPostgresClient((client) => readStateFromPostgresClient(client, options));
@@ -305,10 +306,32 @@ export async function patchStateToPostgresClient(client, patch = {}, options = {
   }
 }
 
-export async function ensurePostgresSchema(client) {
+export async function ensurePostgresSchema(client, options = {}) {
+  if (postgresSchemaCacheEnabled(options)) {
+    if (!schemaReadyPromise) {
+      schemaReadyPromise = runPostgresSchemaBootstrap(client).catch((error) => {
+        schemaReadyPromise = null;
+        throw error;
+      });
+    }
+    await schemaReadyPromise;
+    return;
+  }
+
+  await runPostgresSchemaBootstrap(client);
+}
+
+async function runPostgresSchemaBootstrap(client) {
   for (const statement of buildPostgresBootstrapSql().split(/;\s*/).map((item) => item.trim()).filter(Boolean)) {
     await client.query(statement);
   }
+}
+
+function postgresSchemaCacheEnabled(options = {}) {
+  if (options.force || options.cache === false) {
+    return false;
+  }
+  return Boolean(process.env.DATABASE_URL);
 }
 
 export function primaryKeyValue(record, primaryKey) {

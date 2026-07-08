@@ -1,6 +1,7 @@
 import {
   buildPostgresBootstrapSql,
   deletePostgresSessionRecordFromClient,
+  ensurePostgresSchema,
   postgresPlatformTenantScope,
   postgresRepositoryInfo,
   postgresRestrictedTenantScope,
@@ -391,6 +392,13 @@ assertIncludes(info.bootstrapTables, ["users", "audit_events"], "Repository info
 process.env.DATABASE_URL = "postgres://stockflix@example.test:5432/stockflix";
 try {
   assertEqual(postgresRepositoryInfo().productionReady, true, "DATABASE_URL should mark adapter configuration as production ready.");
+  const cachedSchemaClient = new FakePostgresClient();
+  await ensurePostgresSchema(cachedSchemaClient);
+  await ensurePostgresSchema(cachedSchemaClient);
+  const schemaStatements = cachedSchemaClient.queries.filter((query) => (
+    query.startsWith("CREATE TABLE IF NOT EXISTS") || query.startsWith("CREATE INDEX IF NOT EXISTS")
+  ));
+  assertEqual(schemaStatements.length, 36, "Production schema bootstrap should run once per runtime instance when DATABASE_URL is configured.");
 } finally {
   delete process.env.DATABASE_URL;
 }

@@ -44,6 +44,39 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T182 - Cache Postgres Schema Bootstrap for Faster Auth
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-08 14:07:32 +07:00
+- เหตุผล:
+  - เอกลอง login/logout หลัง T181 แล้วยังช้าเหมือนเดิม
+  - ตรวจโค้ดพบว่า fast path ยังเรียก `ensurePostgresSchema()` ทุก request ซึ่งวน `CREATE TABLE IF NOT EXISTS` และ `CREATE INDEX IF NOT EXISTS` หลายสิบ statement
+  - บน Supabase free tier + Vercel serverless การ bootstrap schema ซ้ำทุก auth request อาจเป็น bottleneck หลัก
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และเปิด task ก่อนแก้
+  - [x] เพิ่ม cache/promise สำหรับ `ensurePostgresSchema()` ให้รันครั้งเดียวต่อ runtime instance
+    - Done: `2026-07-08 14:08:00 +07:00`
+    - Note: เพิ่ม `schemaReadyPromise` เพื่อลดการวน `CREATE TABLE/INDEX IF NOT EXISTS` ซ้ำบน production runtime
+  - [x] เพิ่ม option force/skip cache สำหรับ regression ที่ต้อง bootstrap fake client หลายตัว
+    - Done: `2026-07-08 14:08:00 +07:00`
+    - Note: cache เปิดเฉพาะเมื่อมี `DATABASE_URL`; fake client/local regression ที่ไม่มี `DATABASE_URL` ยัง bootstrap ตามเดิม
+  - [x] ปรับ regression ให้ตรวจว่า schema bootstrap ไม่ถูกรันซ้ำใน auth fast path
+    - Done: `2026-07-08 14:09:00 +07:00`
+    - Note: regression ตรวจว่าเรียก `ensurePostgresSchema()` สองครั้งตอน `DATABASE_URL` ถูกตั้งค่า แต่ bootstrap statements ออกแค่หนึ่งชุด
+  - [x] รัน regression/frontend/auth ที่เกี่ยวข้อง
+    - Done: `2026-07-08 14:09:39 +07:00`
+    - Result: ผ่าน `node --check src/services/postgresStateRepository.js`, `npm run check`, `npm run test:postgres-repository`, `npm run test:frontend-auth`, `npm run test:web-smoke`, `npm run test:subscription-lifecycle`
+  - [x] deploy production ใหม่
+    - Done: `2026-07-08 14:11:06 +07:00`
+    - Result: Vercel production deploy `dpl_7PmdvomUGGXWpTSbbt1JWGeTHvhW`, alias `https://thai-stock-investment-web.vercel.app`
+  - [x] อัปเดต `plan.md`, commit และ push
+    - Done: `2026-07-08 14:11:06 +07:00`
+    - Note: commit/push ทำหลังบรรทัดนี้
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T182 ต่อโดยลดการเรียก `CREATE TABLE/INDEX IF NOT EXISTS` ซ้ำใน Postgres auth path
+  - ห้ามแตะสูตร scoring/analysis และห้าม commit `.env`, `.vercel`, workbook, portfolio ส่วนตัว
+
 ### T181 - Postgres Auth Session Performance Hotfix
 
 - สถานะ: Done
