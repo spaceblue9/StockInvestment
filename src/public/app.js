@@ -10,6 +10,8 @@ const authSubmit = document.querySelector("#authSubmit");
 const authModeButton = document.querySelector("#authModeButton");
 const authMessage = document.querySelector("#authMessage");
 const nameField = document.querySelector("#nameField");
+const signupPlanField = document.querySelector("#signupPlanField");
+const signupPlanChoices = document.querySelector("#signupPlanChoices");
 const logoutButton = document.querySelector("#logoutButton");
 const analysisForm = document.querySelector("#analysisForm");
 const analysisSubmitButton = document.querySelector("#analysisSubmitButton");
@@ -36,6 +38,7 @@ const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const state = {
   user: null,
   authMode: "register",
+  selectedSignupPlanId: "starter",
   recommendations: [],
   portfolioRows: [],
   activeView: "portfolio",
@@ -455,6 +458,9 @@ const screenerFilterTips = {
 
 authForm.addEventListener("submit", submitAuth);
 authModeButton.addEventListener("click", toggleAuthMode);
+document.querySelectorAll("[data-auth-mode-choice]").forEach((button) => {
+  button.addEventListener("click", () => setAuthMode(button.dataset.authModeChoice));
+});
 logoutButton.addEventListener("click", logout);
 analysisForm.addEventListener("submit", runAnalysis);
 analysisSubmitButton.addEventListener("click", handleAnalysisButtonClick);
@@ -756,14 +762,21 @@ async function loadTenantScope() {
 
 async function submitAuth(event) {
   event.preventDefault();
-  authMessage.textContent = state.authMode === "register" ? "Creating account..." : "Signing in...";
   const formData = new FormData(authForm);
   const endpoint = state.authMode === "register" ? "/api/auth/register" : "/api/auth/login";
   const payload = Object.fromEntries(formData.entries());
 
   if (state.authMode === "login") {
     delete payload.name;
+  } else if (!isPublicLaunchPlan(state.selectedSignupPlanId)) {
+    authMessage.textContent = "Please choose Starter or Pro before creating an account.";
+    return;
   }
+
+  authSubmit.disabled = true;
+  authMessage.textContent = state.authMode === "register"
+    ? "Creating account and sending package request..."
+    : "Signing in...";
 
   const response = await fetch(endpoint, {
     method: "POST",
@@ -774,15 +787,27 @@ async function submitAuth(event) {
 
   if (!data.ok) {
     authMessage.textContent = data.message || "Authentication failed.";
+    authSubmit.disabled = false;
     return;
   }
 
   state.user = data.user;
+  if (state.authMode === "register") {
+    const requestResult = await requestSignupPlan(state.selectedSignupPlanId);
+    if (!requestResult.ok) {
+      authMessage.textContent = requestResult.message || "Account created, but package request could not be sent. Please choose a plan from Monthly Plans.";
+    }
+  }
+
   authForm.reset();
-  authMessage.textContent = "";
+  state.selectedSignupPlanId = "starter";
+  if (!authMessage.textContent) {
+    authMessage.textContent = "";
+  }
   renderAuthState();
   renderPlans();
   await Promise.all([loadSavedPortfolio(), loadBillingHistory(), loadPaymentSessions(), loadPlanRequests(), loadBusinessMetrics(), loadTeamUsers(), loadOrganizations(), loadAuditEvents(), loadTenantScope()]);
+  authSubmit.disabled = false;
   renderAuthState();
   renderActiveView();
 }
@@ -815,7 +840,12 @@ async function logout() {
 }
 
 function toggleAuthMode() {
-  state.authMode = state.authMode === "register" ? "login" : "register";
+  setAuthMode(state.authMode === "register" ? "login" : "register");
+}
+
+function setAuthMode(mode) {
+  state.authMode = mode === "login" ? "login" : "register";
+  authMessage.textContent = "";
   renderAuthState();
 }
 
@@ -826,10 +856,17 @@ function renderAuthState() {
   logoutButton.hidden = !signedIn;
   businessViewButton.hidden = !canSeeWorkspaceNav();
   nameField.hidden = state.authMode === "login";
-  authSubmit.textContent = state.authMode === "register" ? "Create account" : "Sign in";
+  signupPlanField.hidden = state.authMode === "login";
+  authSubmit.textContent = state.authMode === "register" ? "Create account and request package" : "Sign in";
   authModeButton.textContent = state.authMode === "register"
     ? "I already have an account"
     : "Create a new account";
+  document.querySelectorAll("[data-auth-mode-choice]").forEach((button) => {
+    const active = button.dataset.authModeChoice === state.authMode;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  renderSignupPlanChoices();
   syncAnalysisAccess();
 
   if (!signedIn) {
@@ -912,7 +949,78 @@ function renderPlans() {
       </div>
     `);
   }
-  plansList.insertAdjacentHTML("afterbegin", `<p id="billingMessage" class="muted" data-launch-plan-note data-manual-package-flow>Launch phase: สมัครหรือเข้าสู่ระบบ แล้วเลือก Request Starter/Pro ได้เลย ระบบจะส่งคำขอให้ admin ตรวจการชำระเงินนอกระบบและกด approve จาก Business > User Management.</p>`);
+  plansList.insertAdjacentHTML("afterbegin", `<p id="billingMessage" class="muted" data-launch-plan-note data-manual-package-flow>Launch phase: สมัครใหม่จะเลือก Starter/Pro ตั้งแต่หน้า Create account ส่วนสมาชิกที่ login แล้วสามารถส่งคำขอเปลี่ยนแพ็กเกจจากหน้านี้ได้</p>`);
+}
+
+function renderSignupPlanChoices() {
+  if (!signupPlanChoices) {
+    return;
+  }
+
+  const launchPlans = state.plans.filter((plan) => isPublicLaunchPlan(plan.id));
+  if (!launchPlans.length) {
+    signupPlanChoices.innerHTML = `<p class="muted">Loading package options...</p>`;
+    authSubmit.disabled = state.authMode === "register";
+    return;
+  }
+
+  if (!launchPlans.some((plan) => plan.id === state.selectedSignupPlanId)) {
+    state.selectedSignupPlanId = launchPlans[0].id;
+  }
+
+  signupPlanChoices.innerHTML = launchPlans.map((plan) => {
+    const checked = state.selectedSignupPlanId === plan.id;
+    return `
+      <label class="signup-plan-option ${checked ? "selected" : ""}">
+        <input type="radio" name="signupPlan" value="${escapeHtml(plan.id)}" ${checked ? "checked" : ""}>
+        <span>
+          <strong>${escapeHtml(plan.name)} · ${money(plan.priceThb)} / month</strong>
+          <small>${escapeHtml(plan.bestFor || "")}</small>
+        </span>
+      </label>
+    `;
+  }).join("");
+
+  signupPlanChoices.querySelectorAll("input[name='signupPlan']").forEach((input) => {
+    input.addEventListener("change", () => {
+      state.selectedSignupPlanId = input.value;
+      renderSignupPlanChoices();
+    });
+  });
+
+  authSubmit.disabled = false;
+}
+
+async function requestSignupPlan(planId) {
+  if (!isPublicLaunchPlan(planId)) {
+    return {
+      ok: false,
+      message: "Please choose Starter or Pro before creating an account.",
+    };
+  }
+
+  const response = await fetch("/api/subscription/request", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      planId,
+      note: "Requested during account creation.",
+    }),
+  });
+  const data = await response.json();
+  if (!data.ok) {
+    return {
+      ok: false,
+      message: data.message || "Package request failed.",
+    };
+  }
+
+  state.currentPlanRequest = data.request || null;
+  state.planRequests = [data.request, ...state.planRequests].filter(Boolean);
+  return {
+    ok: true,
+    request: data.request,
+  };
 }
 
 async function requestPlan(planId) {

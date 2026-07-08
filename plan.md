@@ -44,6 +44,48 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T180 - Simplify Signup and Package Request UX
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-08 13:25:58 +07:00
+- เหตุผล:
+  - เอกแจ้งว่า UX หน้า Create Account/Login และ Monthly Plans ยังสับสน ผู้ใช้ต้องกดสลับ mode เองและสมัครได้โดยไม่เลือก package
+  - Flow ปัจจุบันทำให้เกิด user record ก่อน แล้วถ้าเลือก package ภายหลังจะเกิด plan_request เพิ่ม ทำให้ทั้ง user และ admin เข้าใจยาก
+  - ต้องปรับให้สมัครใหม่เป็น flow เดียว: เลือก Create/Login ชัดเจน และถ้า Create ต้องเลือก Starter/Pro ก่อน submit เพื่อสร้าง account + package request พร้อมกัน
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และเปิด task ก่อนแก้
+  - [x] ตรวจ frontend auth form, monthly plans, และ backend register/request API
+    - Done: `2026-07-08 13:27:00 +07:00`
+    - Note: ใช้ frontend เป็นตัวรวม flow โดย register สำเร็จแล้วเรียก `/api/subscription/request` ต่อทันทีด้วย session เดียวกัน ลดการแก้ backend ลึก
+  - [x] ปรับ UI ให้มีตัวเลือก `Create new account` / `I already have an account` ชัดเจน
+    - Done: `2026-07-08 13:28:00 +07:00`
+    - Note: เพิ่ม segmented auth mode tabs แทนการพึ่งปุ่มสลับ mode เพียงปุ่มเดียว
+  - [x] ในโหมดสมัครใหม่ ให้เลือก Starter/Pro ก่อนกด `Create account and request package`
+    - Done: `2026-07-08 13:28:00 +07:00`
+    - Note: เพิ่ม `Choose package to request` ใน auth panel และเลือก default เป็น Starter เมื่อโหลด plans แล้ว
+  - [x] ปรับ submit register ให้สร้าง user แล้วสร้าง plan_request ทันทีถ้าเลือก package สำเร็จ
+    - Done: `2026-07-08 13:29:00 +07:00`
+    - Note: เพิ่ม `requestSignupPlan()` เรียก `/api/subscription/request` ด้วย note `Requested during account creation.`
+  - [x] ปรับ copy หน้า Monthly Plans หลัง login ให้เป็นสถานะ/เปลี่ยน package ไม่ใช่ขั้นสมัครหลัก
+    - Done: `2026-07-08 13:29:00 +07:00`
+    - Note: copy ใหม่บอกว่าสมัครใหม่เลือก package ตั้งแต่หน้า Create account ส่วนสมาชิก login แล้วจึงใช้ Monthly Plans เพื่อส่งคำขอเปลี่ยนแพ็กเกจ
+  - [x] เพิ่ม regression/frontend marker สำหรับ signup package request flow
+    - Done: `2026-07-08 13:30:00 +07:00`
+    - Note: เพิ่ม marker ใน `scripts/webAppSmokeRegression.js` สำหรับ signup package chooser และ request during account creation
+  - [x] รัน regression/frontend check ที่เกี่ยวข้อง
+    - Done: `2026-07-08 13:30:38 +07:00`
+    - Result: ผ่าน `node --check src/public/app.js`, `npm run check`, `npm run test:web-smoke`, `npm run test:frontend-auth`, `npm run test:subscription-lifecycle`
+  - [x] deploy production ใหม่
+    - Done: `2026-07-08 13:32:10 +07:00`
+    - Result: Vercel production deploy `dpl_H61rqoK4K17tMEiEeKAehFKMkApw`, alias `https://thai-stock-investment-web.vercel.app`
+  - [x] อัปเดต `plan.md`, commit และ push
+    - Done: `2026-07-08 13:32:10 +07:00`
+    - Note: commit/push ทำหลังบรรทัดนี้
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T180 ต่อโดยปรับ signup UX ให้ create account + package request เป็น flow เดียว
+  - ห้ามแตะสูตร scoring/analysis และห้าม commit `.env`, `.vercel`, workbook, portfolio ส่วนตัว
+
 ### T179 - Clarify Admin Package Approval Flow
 
 - สถานะ: Done

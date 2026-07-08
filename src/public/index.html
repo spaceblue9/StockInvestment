@@ -26,13 +26,22 @@
       <aside id="leftRail" class="left-rail">
         <section id="authPanel" class="panel auth-panel">
           <p class="eyebrow">Member Access</p>
-          <h2>เข้าสู่ระบบเพื่อเริ่มดูแลพอร์ต</h2>
-          <p class="muted">สมัครบัญชีไว้ก่อน แล้ว admin จะเปิด Package ให้ใช้งานตามแผน Starter หรือ Pro ที่ตกลงกัน</p>
+          <h2>เริ่มใช้งาน StockFlix</h2>
+          <p class="muted">สมัครใหม่ให้เลือกแพ็กเกจที่ต้องการก่อน ระบบจะส่งคำขอให้ admin ตรวจและเปิดสิทธิ์ให้</p>
+          <div class="auth-mode-tabs" role="tablist" aria-label="Account access mode">
+            <button id="authRegisterMode" type="button" data-auth-mode-choice="register" aria-pressed="true">Create new account</button>
+            <button id="authLoginMode" type="button" data-auth-mode-choice="login" aria-pressed="false">I already have an account</button>
+          </div>
           <form id="authForm">
             <label id="nameField">
               Name
               <input name="name" autocomplete="name" placeholder="Your name">
             </label>
+            <fieldset id="signupPlanField" class="signup-plan-field">
+              <legend>Choose package to request</legend>
+              <p class="muted">ต้องเลือก Starter หรือ Pro ก่อนสมัคร เพื่อให้ admin เห็นคำขอแพ็กเกจทันที</p>
+              <div id="signupPlanChoices" class="signup-plan-choices"></div>
+            </fieldset>
             <label>
               Email
               <input name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
@@ -41,9 +50,9 @@
               Password
               <input name="password" type="password" autocomplete="current-password" minlength="8" placeholder="Minimum 8 characters" required>
             </label>
-            <button id="authSubmit" type="submit">Create account</button>
+            <button id="authSubmit" type="submit">Create account and request package</button>
           </form>
-          <button id="authModeButton" class="link-button" type="button">I already have an account</button>
+          <button id="authModeButton" class="link-button" type="button" hidden>I already have an account</button>
           <p id="authMessage" class="muted"></p>
         </section>
 
