@@ -3,6 +3,7 @@ import {
   assignAdvisor,
   approvePlanRequest,
   auditIntegritySummary,
+  cancelPlanRequest,
   auditTrailSummary,
   businessMetrics,
   clearSessionCookie,
@@ -31,6 +32,7 @@ import {
   processProviderPaymentWebhook,
   processSignedPaymentWebhook,
   recordAuditEvent,
+  rejectPlanRequest,
   deferredSubscriptionPlans,
   publicSubscriptionPlans,
   requirePlanEntitlement,
@@ -230,6 +232,28 @@ router.post("/subscription/request", async (req, res) => {
     });
   } catch (error) {
     sendAuthError(res, error, 400);
+  }
+});
+
+router.post("/subscription/request/:requestId/cancel", async (req, res) => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    res.status(401).json({
+      ok: false,
+      message: "Please sign in before canceling a package request.",
+    });
+    return;
+  }
+
+  try {
+    const result = await cancelPlanRequest(user.id, req.params.requestId, req.body || {});
+    res.json({
+      ok: true,
+      request: result.request,
+      message: "Package request canceled.",
+    });
+  } catch (error) {
+    sendAuthError(res, error, 403);
   }
 });
 
@@ -928,6 +952,28 @@ router.post("/admin/plan-requests/:requestId/approve", async (req, res) => {
       ok: true,
       request: result.request,
       user: result.user,
+    });
+  } catch (error) {
+    sendAuthError(res, error, 403);
+  }
+});
+
+router.post("/admin/plan-requests/:requestId/reject", async (req, res) => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    res.status(401).json({
+      ok: false,
+      message: "Please sign in to reject package requests.",
+    });
+    return;
+  }
+
+  try {
+    const result = await rejectPlanRequest(user.id, req.params.requestId, req.body || {});
+    res.json({
+      ok: true,
+      request: result.request,
+      message: "Package request rejected.",
     });
   } catch (error) {
     sendAuthError(res, error, 403);

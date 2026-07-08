@@ -1630,6 +1630,82 @@ export async function approvePlanRequest(actorUserId, requestId, input = {}) {
   };
 }
 
+export async function rejectPlanRequest(actorUserId, requestId, input = {}) {
+  return decidePlanRequest(actorUserId, requestId, "rejected", {
+    note: input.note || "Rejected by admin after offline payment review.",
+    adminOnly: true,
+  });
+}
+
+export async function cancelPlanRequest(actorUserId, requestId, input = {}) {
+  return decidePlanRequest(actorUserId, requestId, "canceled", {
+    note: input.note || "Canceled by customer.",
+    customerCanOwn: true,
+  });
+}
+
+async function decidePlanRequest(actorUserId, requestId, nextStatus, options = {}) {
+  const state = await readState();
+  const actor = state.users.find((user) => user.id === actorUserId);
+  const request = state.planRequests.find((candidate) => candidate.id === requestId);
+  if (!actor || isDeletedUser(actor)) {
+    throw new Error("User not found.");
+  }
+  if (!request) {
+    throw new Error("Plan request not found.");
+  }
+  if (request.status !== "pending") {
+    throw new Error("This plan request has already been decided.");
+  }
+
+  const actorRole = normalizeRole(actor.role);
+  const isAdmin = ["owner", "admin"].includes(actorRole);
+  const isOwnRequest = request.userId === actor.id;
+  if (options.adminOnly && !isAdmin) {
+    throw new Error("Only owner or admin can reject plan requests.");
+  }
+  if (!options.adminOnly && !isAdmin && !(options.customerCanOwn && isOwnRequest)) {
+    throw new Error("You can cancel only your own pending package request.");
+  }
+  if (isAdmin) {
+    requirePlanEntitlement(actor, "business.metrics");
+  }
+
+  const now = new Date().toISOString();
+  request.status = normalizePlanRequestStatus(nextStatus);
+  request.updatedAt = now;
+  request.decidedAt = now;
+  request.decidedByUserId = actor.id;
+  request.decisionNote = cleanApprovalSummary(options.note);
+
+  await patchStateWithAudit(state, [
+    {
+      type: "upsert",
+      collection: "planRequests",
+      record: request,
+    },
+  ], {
+    actorUserId: actor.id,
+    action: request.status === "rejected"
+      ? "subscription.plan_request_rejected"
+      : "subscription.plan_request_canceled",
+    targetUserId: request.userId,
+    organizationId: request.organizationId,
+    details: {
+      requestId: request.id,
+      planId: request.planId,
+      planName: request.planName,
+      amountThb: request.amountThb,
+      status: request.status,
+      note: request.decisionNote,
+    },
+  });
+
+  return {
+    request: publicPlanRequest(request, state),
+  };
+}
+
 export async function deleteUserAccount(actorUserId, targetUserId, input = {}) {
   const state = await readState();
   const actor = state.users.find((user) => user.id === actorUserId);

@@ -474,6 +474,11 @@ document.addEventListener("click", (event) => {
     requestPlan(upgradeButton.dataset.upgradePlan);
   }
 
+  const cancelPlanRequestButton = event.target.closest("[data-cancel-plan-request]");
+  if (cancelPlanRequestButton) {
+    cancelPlanRequest(cancelPlanRequestButton.dataset.cancelPlanRequest);
+  }
+
   const launchEvidenceCopyButton = event.target.closest("[data-launch-evidence-copy]");
   if (launchEvidenceCopyButton) {
     copyLaunchEvidencePack(launchEvidenceCopyButton);
@@ -890,7 +895,10 @@ function renderPlans() {
         <button class="plan-action" type="button" data-upgrade-plan="${escapeHtml(plan.id)}" ${disabled ? "disabled" : ""}>
           ${escapeHtml(buttonText)}
         </button>
-        ${pendingRequest ? `<p class="muted">ส่งคำขอเมื่อ ${escapeHtml(formatDate(pendingRequest.createdAt))}. Admin จะตรวจการชำระเงินนอกระบบแล้วกด approve ให้</p>` : ""}
+        ${pendingRequest ? `
+          <p class="muted">ส่งคำขอเมื่อ ${escapeHtml(formatDate(pendingRequest.createdAt))}. Admin จะตรวจการชำระเงินนอกระบบแล้วกด approve ให้</p>
+          <button class="plan-action secondary-action" type="button" data-cancel-plan-request="${escapeHtml(pendingRequest.id)}">Cancel request</button>
+        ` : ""}
       </div>
     `;
   }).join("");
@@ -949,6 +957,28 @@ async function requestPlan(planId) {
   } else {
     renderActiveView();
   }
+}
+
+async function cancelPlanRequest(requestId) {
+  const billingMessage = document.querySelector("#billingMessage");
+  if (!requestId || !billingMessage) return;
+
+  billingMessage.textContent = "Canceling package request...";
+  const response = await fetch(`/api/subscription/request/${encodeURIComponent(requestId)}/cancel`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ note: "Canceled from Monthly Plans." }),
+  });
+  const data = await response.json();
+  if (!data.ok) {
+    billingMessage.textContent = data.message || "Cancel request failed.";
+    return;
+  }
+
+  await Promise.all([loadPlanRequests(), loadAuditEvents(), loadTenantScope()]);
+  renderPlans();
+  billingMessage.textContent = data.message || "Package request canceled.";
+  renderAuthState();
 }
 
 function toggleLeftRail() {
@@ -4003,6 +4033,8 @@ function auditActionLabel(action) {
     "billing.checkout": "Subscription checkout",
     "subscription.plan_request_created": "Package requested",
     "subscription.plan_request_approved": "Package request approved",
+    "subscription.plan_request_rejected": "Package request rejected",
+    "subscription.plan_request_canceled": "Package request canceled",
     "team.role_update": "Role updated",
     "team.subscription_update": "Package updated",
     "team.user_deleted": "User deleted",
@@ -4038,6 +4070,10 @@ function summarizeAuditDetails(event) {
 
   if (event.action === "subscription.plan_request_approved") {
     return `${details.previousPlanId || "-"} → ${details.nextPlanId || "-"} · ${details.nextStatus || "active"} · expires ${formatDate(details.expiresAt)}`;
+  }
+
+  if (event.action === "subscription.plan_request_rejected" || event.action === "subscription.plan_request_canceled") {
+    return `${details.planName || details.planId || "Plan"} · ${details.status || "-"} · ${details.note || ""}`;
   }
 
   if (event.action === "team.role_update") {
@@ -4134,6 +4170,9 @@ function attachTeamActions() {
   });
   document.querySelectorAll("[data-approve-plan-request]").forEach((button) => {
     button.addEventListener("click", () => approvePlanRequest(button.dataset.approvePlanRequest));
+  });
+  document.querySelectorAll("[data-reject-plan-request]").forEach((button) => {
+    button.addEventListener("click", () => rejectPlanRequest(button.dataset.rejectPlanRequest));
   });
 }
 
@@ -4394,6 +4433,28 @@ async function approvePlanRequest(requestId) {
   }
 
   await refreshWorkspaceData({ includeCurrentUser: state.user?.id === data.user?.id });
+  renderAuthState();
+  renderBusinessView();
+}
+
+async function rejectPlanRequest(requestId) {
+  const teamMessage = document.querySelector("#teamMessage");
+  if (!requestId || !teamMessage) return;
+
+  teamMessage.textContent = "Rejecting package request...";
+  const response = await fetch(`/api/admin/plan-requests/${encodeURIComponent(requestId)}/reject`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ note: "Rejected after offline payment review." }),
+  });
+  const data = await response.json();
+
+  if (!data.ok) {
+    teamMessage.textContent = data.message || "Package request rejection failed.";
+    return;
+  }
+
+  await refreshWorkspaceData();
   renderAuthState();
   renderBusinessView();
 }
@@ -4723,7 +4784,10 @@ function renderPlanRequestAdminPanel(requests = []) {
                 <td><strong>${escapeHtml(request.planName)}</strong><br><span class="muted">${money(request.amountThb)} / ${escapeHtml(request.billing || "monthly")}</span></td>
                 <td>${escapeHtml(formatDate(request.createdAt))}</td>
                 <td><input type="date" data-plan-request-expiry="${escapeHtml(request.id)}" value="${escapeHtml(defaultPlanRequestExpiryDate())}" aria-label="Package expiry date for ${escapeHtml(request.userEmail || request.userName || "member")}"></td>
-                <td><button class="table-action" type="button" data-approve-plan-request="${escapeHtml(request.id)}">Approve package</button></td>
+                <td>
+                  <button class="table-action" type="button" data-approve-plan-request="${escapeHtml(request.id)}">Approve package</button>
+                  <button class="table-action ghost-button" type="button" data-reject-plan-request="${escapeHtml(request.id)}">Reject</button>
+                </td>
               </tr>
             `).join("")}
           </tbody>

@@ -44,6 +44,42 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T177 - Complete Manual Plan Request Reject and Cancel Flow
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-08 12:20:58 +07:00
+- เหตุผล:
+  - หลัง T176 ระบบมี flow `user request -> admin approve` แล้ว แต่ยังไม่มีทางปฏิเสธคำขอหรือยกเลิกคำขอที่เลือกผิด
+  - ช่วงใช้งานจริงแบบยังไม่รับชำระผ่านเว็บ admin ต้องจัดการเคสชำระเงินไม่ผ่าน/ลูกค้าขอผิด package ได้
+  - ต้องต่อยอด `planRequests` เดิมโดยไม่เปลี่ยนสูตร scoring หรือระบบวิเคราะห์
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และเปิด task ก่อนแก้
+  - [x] เพิ่ม backend service/API สำหรับ reject โดย admin และ cancel โดย user
+    - Done: `2026-07-08 12:25:00 +07:00`
+    - Note: เพิ่ม `rejectPlanRequest()`, `cancelPlanRequest()`, `/api/subscription/request/:requestId/cancel`, `/api/admin/plan-requests/:requestId/reject`
+  - [x] ปรับ Monthly Plans ให้ user ยกเลิก pending request ได้
+    - Done: `2026-07-08 12:27:00 +07:00`
+    - Note: เพิ่มปุ่ม `Cancel request` สำหรับคำขอที่ยัง pending
+  - [x] ปรับ Business/User Management ให้ admin reject request ได้
+    - Done: `2026-07-08 12:28:00 +07:00`
+    - Note: เพิ่มปุ่ม `Reject` ใน pending package requests คู่กับ `Approve package`
+  - [x] เพิ่ม audit timeline และ regression lifecycle สำหรับ reject/cancel
+    - Done: `2026-07-08 12:30:00 +07:00`
+    - Note: เพิ่ม audit actions `subscription.plan_request_rejected` และ `subscription.plan_request_canceled`; lifecycle regression ครอบคลุม approve/cancel/reject
+  - [x] รัน regression/frontend smoke ที่เกี่ยวข้อง
+    - Done: `2026-07-08 12:31:00 +07:00`
+    - Result: ผ่าน `npm run check`, `npm run test:subscription-lifecycle`, `npm run test:frontend-viewport`, `npm run test:web-smoke`
+  - [x] deploy production ใหม่
+    - Done: `2026-07-08 12:34:00 +07:00`
+    - Result: Vercel production alias `https://thai-stock-investment-web.vercel.app` deploy สำเร็จ และตรวจพบ cancel/reject endpoint, UI marker และ audit marker ครบ
+  - [x] อัปเดต `plan.md`, commit และ push
+    - Done: `2026-07-08 12:35:00 +07:00`
+    - Note: `plan.md` บันทึกสถานะเสร็จก่อน commit; commit/push ทำหลังบรรทัดนี้
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T177 ต่อโดยเพิ่ม reject/cancel ให้ manual `planRequests`
+  - ห้ามเปลี่ยนสูตร scoring เดิม และห้าม commit `.env`, `.vercel`, workbook, portfolio ส่วนตัว
+
 ### T176 - Manual Plan Request Flow and Product Build Metadata
 
 - สถานะ: Done

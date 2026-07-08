@@ -15,6 +15,7 @@ try {
     auditIntegritySummary,
     approvePlanRequest,
     businessMetrics,
+    cancelPlanRequest,
     createPaymentSession,
     createPlanRequest,
     createPaymentWebhookSignature,
@@ -26,6 +27,7 @@ try {
     listPlanRequests,
     processPaymentWebhook,
     processSignedPaymentWebhook,
+    rejectPlanRequest,
     subscriptionPlans,
     updateUserSubscription,
   } = auth;
@@ -33,6 +35,8 @@ try {
   const owner = await createAccount(createUser, "Owner", "owner@example.test");
   const customer = await createAccount(createUser, "Customer", "customer@example.test");
   const requestCustomer = await createAccount(createUser, "Request Customer", "request-customer@example.test");
+  const cancelCustomer = await createAccount(createUser, "Cancel Customer", "cancel-customer@example.test");
+  const rejectCustomer = await createAccount(createUser, "Reject Customer", "reject-customer@example.test");
   const plans = subscriptionPlans();
   const starterPlan = plans.find((plan) => plan.id === "starter");
   const proPlan = plans.find((plan) => plan.id === "pro");
@@ -57,6 +61,15 @@ try {
   assertEqual(approvedRequest.request.status, "approved", "Owner approval should mark plan request approved.");
   assertEqual(approvedRequest.user.subscription.planId, "pro", "Plan request approval should activate requested Pro plan.");
   assertEqual(approvedRequest.user.subscription.provider, "manual_admin", "Plan request approval should use manual admin provider.");
+
+  const cancelRequest = await createPlanRequest(cancelCustomer.id, { planId: "starter" });
+  const canceledRequest = await cancelPlanRequest(cancelCustomer.id, cancelRequest.request.id);
+  assertEqual(canceledRequest.request.status, "canceled", "Customer should cancel their own pending plan request.");
+  assertEqual((await getPlanRequestStatus(cancelCustomer.id)).pendingRequest, null, "Canceled request should no longer be pending.");
+
+  const rejectRequest = await createPlanRequest(rejectCustomer.id, { planId: "starter" });
+  const rejectedRequest = await rejectPlanRequest(owner.id, rejectRequest.request.id);
+  assertEqual(rejectedRequest.request.status, "rejected", "Owner should reject a pending plan request.");
 
   const failedSession = await createPaymentSession(customer.id, "starter");
   const failedWebhook = await processPaymentWebhook(customer.id, {
@@ -182,6 +195,8 @@ try {
   assertEqual(metrics.paidUsers, 2, "Metrics should count one paid webhook customer and one manually approved plan request customer.");
   assertEqual(metrics.pendingPlanRequests, 0, "Approved plan requests should not remain pending.");
   assertEqual(metrics.planRequestsByStatus.approved, 1, "Metrics should count the approved plan request.");
+  assertEqual(metrics.planRequestsByStatus.canceled, 1, "Metrics should count the canceled plan request.");
+  assertEqual(metrics.planRequestsByStatus.rejected, 1, "Metrics should count the rejected plan request.");
   assertEqual(metrics.failedPaymentSessions, 1, "Metrics should count one failed payment session.");
   assertEqual(metrics.pendingPaymentSessions, 3, "Metrics should count pending sessions after rejected webhook attempts.");
   assertEqual(metrics.verifiedWebhookEvents, 3, "Metrics should count signed webhooks with valid signatures, including already-paid and invalid-session events.");
@@ -197,6 +212,8 @@ try {
   assert(auditEvents.some((event) => event.action === "payment.webhook_failed"), "Payment failure should be audited.");
   assert(auditEvents.some((event) => event.action === "subscription.plan_request_created"), "Plan request creation should be audited.");
   assert(auditEvents.some((event) => event.action === "subscription.plan_request_approved"), "Plan request approval should be audited.");
+  assert(auditEvents.some((event) => event.action === "subscription.plan_request_canceled"), "Plan request cancellation should be audited.");
+  assert(auditEvents.some((event) => event.action === "subscription.plan_request_rejected"), "Plan request rejection should be audited.");
   assert(auditEvents.some((event) => event.action === "team.subscription_update"), "Manual subscription update should be audited.");
 
   const integrity = await auditIntegritySummary(owner.id);
@@ -217,6 +234,8 @@ try {
       paidUsers: metrics.paidUsers,
       planRequests: metrics.planRequests,
       approvedPlanRequests: metrics.planRequestsByStatus.approved,
+      canceledPlanRequests: metrics.planRequestsByStatus.canceled,
+      rejectedPlanRequests: metrics.planRequestsByStatus.rejected,
       pendingPaymentSessions: metrics.pendingPaymentSessions,
       failedPaymentSessions: metrics.failedPaymentSessions,
       verifiedWebhookEvents: metrics.verifiedWebhookEvents,
