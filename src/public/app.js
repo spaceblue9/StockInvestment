@@ -2135,14 +2135,14 @@ function renderBusinessSectionContent(section, context) {
         <div>
           <span class="eyebrow">Start here</span>
           <h3>Member Management</h3>
-          <p class="muted">งานหลักช่วงเปิดตัวคือเปิดแพ็กเกจให้สมาชิกใหม่ เลือก Starter/Pro, ตั้งสถานะ, กำหนดวันหมดอายุ และลบ user ที่ไม่ต้องการ</p>
+          <p class="muted">งานหลักช่วงเปิดตัวคือดูคำขอแพ็กเกจจากสมาชิก ตรวจการชำระเงินนอกระบบ แล้ว approve จาก Pending package requests ด้านล่าง</p>
         </div>
-        <span class="status-pill warning">${formatNumber(state.teamUsers.filter((user) => user.subscription?.status === "inactive").length)} waiting</span>
+        <span class="status-pill warning">${formatNumber(state.planRequests.filter((request) => request.status === "pending").length)} request(s)</span>
       </div>
       <div class="guidance-grid">
-        <div class="guidance-card"><span>1. ตรวจสมาชิกใหม่</span><strong>ดูแถวที่มีสถานะ Waiting admin</strong></div>
-        <div class="guidance-card"><span>2. เลือกแพ็กเกจ</span><strong>Starter สำหรับเริ่มต้น, Pro สำหรับ Sector และ Simulation</strong></div>
-        <div class="guidance-card"><span>3. เปิดสิทธิ์</span><strong>ตั้ง status เป็น Active หรือ Trialing แล้วกด Save package</strong></div>
+        <div class="guidance-card"><span>1. ตรวจคำขอ</span><strong>ให้เริ่มที่ Pending package requests</strong></div>
+        <div class="guidance-card"><span>2. ตรวจเงิน</span><strong>เช็คการโอน/ชำระเงินนอกระบบก่อน approve</strong></div>
+        <div class="guidance-card"><span>3. เปิดสิทธิ์</span><strong>กด Approve package จากคำขอ ไม่ต้อง Save ซ้ำในแถว user</strong></div>
       </div>
     </section>
     ${renderTeamWorkspace({ compactAdmin: true })}
@@ -3699,6 +3699,7 @@ function renderTeamWorkspace(options = {}) {
   const canManagePackages = canManageSubscriptions();
   const canDeleteUserAccounts = canDeleteUsers();
   const pendingPlanRequests = state.planRequests.filter((request) => request.status === "pending");
+  const pendingRequestByUserId = new Map(pendingPlanRequests.map((request) => [request.userId, request]));
   const pendingManualPackages = state.teamUsers.filter((user) => user.subscription?.status === "inactive").length;
   const activeMembers = state.teamUsers.filter((user) => user.subscription?.status === "active").length;
   const expiredMembers = state.teamUsers.filter((user) => {
@@ -3712,7 +3713,7 @@ function renderTeamWorkspace(options = {}) {
         <div>
           <span class="eyebrow">${canViewBusinessMetrics() ? "Access control" : "Client scope"}</span>
           <h3>${canViewBusinessMetrics() ? "User Management" : "Assigned Client Management"}</h3>
-          <p class="muted">${canViewBusinessMetrics() ? "หน้าหลักของ admin สำหรับเปิด Package ให้สมาชิก: เลือก Starter/Pro, เลือกสถานะ, ตั้งวันหมดอายุ แล้วกด Save package" : "ดูรายชื่อลูกค้าที่ถูก assign ให้ดูแลเท่านั้น"}</p>
+          <p class="muted">${canViewBusinessMetrics() ? "ดูสถานะสมาชิกและแก้ไขแบบ admin override เท่านั้น ถ้ามีคำขอ pending ให้ approve จาก Pending package requests" : "ดูรายชื่อลูกค้าที่ถูก assign ให้ดูแลเท่านั้น"}</p>
         </div>
         <span class="status-pill ready">${formatNumber(state.teamUsers.length)} accounts</span>
       </div>
@@ -3762,9 +3763,14 @@ function renderTeamWorkspace(options = {}) {
                 ? `<select data-organization-user="${escapeHtml(user.id)}">${organizations.map((organization) => option(organization.id, organization.name, user.organizationId)).join("")}</select>`
                 : `${escapeHtml(user.organizationName || "-")}<br><span class="muted">${escapeHtml(user.organizationType || "-")}</span>`;
               const subscription = user.subscription || {};
+              const pendingRequest = pendingRequestByUserId.get(user.id);
+              const pendingRequestPlan = pendingRequest
+                ? `${escapeHtml(pendingRequest.planName || pendingRequest.planId || "Requested package")} · ${money(pendingRequest.amountThb || 0)} / ${escapeHtml(pendingRequest.billing || "monthly")}`
+                : "";
               const packageControl = canManagePackages
                 ? `<div class="subscription-admin-control" data-subscription-user="${escapeHtml(user.id)}">
                     ${subscription.status === "inactive" ? `<span class="status-pill warning">Waiting admin</span>` : ""}
+                    ${pendingRequest ? `<span class="status-pill warning">Pending request</span><p class="inline-admin-note">Approve ${pendingRequestPlan} from Pending package requests. Do not save this row again.</p>` : ""}
                     <select data-subscription-plan-user="${escapeHtml(user.id)}">
                       ${launchPlans.map((plan) => option(plan.id, `${plan.name} (${money(plan.priceThb || 0)})`, subscription.planId)).join("")}
                     </select>
@@ -3778,6 +3784,11 @@ function renderTeamWorkspace(options = {}) {
               const revenue = money(user.billingSummary?.revenueCollected || 0);
               const subscriptionStatus = subscriptionStatusLabel(subscription.status || "inactive");
               const expiryLabel = formatDate(subscription.expiresAt || subscription.renewsAt);
+              const subscriptionAction = canManagePackages
+                ? pendingRequest
+                  ? `<button class="table-action ghost-button" type="button" disabled title="Approve this member from Pending package requests">Approve pending request above</button>`
+                  : `<button class="table-action" type="button" data-save-subscription="${escapeHtml(user.id)}">Admin override package</button>`
+                : "";
 
               if (compactAdmin) {
                 return `
@@ -3787,7 +3798,7 @@ function renderTeamWorkspace(options = {}) {
                     <td><strong>${escapeHtml(subscriptionStatus)}</strong><br><span class="muted">Expiry: ${escapeHtml(expiryLabel)}</span></td>
                     <td>${escapeHtml(portfolioValue)}</td>
                     <td>
-                      ${canManagePackages ? `<button class="table-action" type="button" data-save-subscription="${escapeHtml(user.id)}">Save package</button>` : ""}
+                      ${subscriptionAction}
                       ${canDeleteUserAccounts && user.id !== state.user?.id ? `<button class="table-action danger-action" type="button" data-delete-user="${escapeHtml(user.id)}" data-delete-user-label="${escapeHtml(user.email)}">Delete user</button>` : ""}
                     </td>
                   </tr>
@@ -3805,7 +3816,7 @@ function renderTeamWorkspace(options = {}) {
                   <td>${escapeHtml(revenue)}</td>
                   <td>
                     ${canManageRoles() ? `<button class="table-action" type="button" data-save-role="${escapeHtml(user.id)}">Save role</button>` : ""}
-                    ${canManagePackages ? `<button class="table-action" type="button" data-save-subscription="${escapeHtml(user.id)}">Save package</button>` : ""}
+                    ${subscriptionAction}
                     ${canManageOrganizations() ? `<button class="table-action" type="button" data-save-organization-user="${escapeHtml(user.id)}">Move workspace</button>` : ""}
                     ${canAssignAdvisors() && user.role === "customer" ? `<button class="table-action" type="button" data-save-advisor="${escapeHtml(user.id)}">Assign advisor</button>` : ""}
                     ${canDeleteUserAccounts && user.id !== state.user?.id ? `<button class="table-action danger-action" type="button" data-delete-user="${escapeHtml(user.id)}" data-delete-user-label="${escapeHtml(user.email)}">Delete user</button>` : ""}

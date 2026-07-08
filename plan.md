@@ -44,6 +44,43 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T179 - Clarify Admin Package Approval Flow
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-08 13:03:01 +07:00
+- เหตุผล:
+  - เอกพบว่า user สมัครใหม่แล้วมี record ใน User Management เป็น `Waiting admin` และเมื่อ user เลือก Monthly Plan จะมี `Pending package requests` เพิ่มอีก record ทำให้ admin เข้าใจว่าเป็นงานซ้ำ
+  - แนวทางที่ต้องการคือให้ `Pending package requests` เป็น flow หลักสำหรับเปิดสิทธิ์หลังตรวจชำระเงินนอกระบบ
+  - User Management ควรแสดงสถานะสมาชิกและใช้แก้ package แบบ admin override เท่านั้น ไม่ควรทำให้ admin เข้าใจว่าต้อง approve สองรอบ
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และเปิด task ก่อนแก้
+  - [x] ตรวจ UI/handler หน้า Business > User Management และ Pending package requests
+    - Done: `2026-07-08 13:04:00 +07:00`
+    - Note: พบว่า User Management ยังสื่อว่า Save package เป็นทางหลัก แม้มี Pending package requests อยู่แล้ว
+  - [x] ปรับ copy/guidance ให้บอก flow เดียว: user request -> admin approve จาก Pending package requests
+    - Done: `2026-07-08 13:05:00 +07:00`
+    - Note: เปลี่ยนคำแนะนำหน้า Member Management ให้เริ่มจาก Pending package requests และระบุว่าไม่ต้อง Save ซ้ำในแถว user
+  - [x] ถ้า user มี pending request ให้แสดง badge/ข้อความใน User Management และปิดปุ่ม Save package ปกติ
+    - Done: `2026-07-08 13:05:00 +07:00`
+    - Note: แสดง `Pending request`, รายละเอียดแพ็กเกจที่ขอ และปุ่ม disabled `Approve pending request above`
+  - [x] เก็บ manual Save package เป็น admin override ที่สื่อชัดเจน และต้องไม่ชนกับ pending request
+    - Done: `2026-07-08 13:06:00 +07:00`
+    - Note: เปลี่ยนปุ่มเป็น `Admin override package` เฉพาะ user ที่ไม่มี pending request
+  - [x] รัน regression/frontend check ที่เกี่ยวข้อง
+    - Done: `2026-07-08 13:06:55 +07:00`
+    - Result: ผ่าน `node --check src/public/app.js`, `npm run check`, `npm run test:frontend-auth`, `npm run test:web-smoke`, `npm run test:subscription-lifecycle`
+  - [x] deploy production ใหม่
+    - Done: `2026-07-08 13:08:26 +07:00`
+    - Result: Vercel production deploy `dpl_51TphgFnQzqh5FE89bi5Yvs348v4`, alias `https://thai-stock-investment-web.vercel.app`
+  - [x] อัปเดต `plan.md`, commit และ push
+    - Done: `2026-07-08 13:08:26 +07:00`
+    - Note: commit/push ทำหลังบรรทัดนี้
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T179 ต่อโดยลดความสับสนของ admin package approval flow
+  - ให้ Pending package requests เป็นทางหลัก ส่วน User Management เป็นสถานะและ admin override
+  - ห้ามแตะสูตร scoring/analysis และห้าม commit `.env`, `.vercel`, workbook, portfolio ส่วนตัว
+
 ### T178 - Hotfix Login Failure After Plan Requests
 
 - สถานะ: Done
