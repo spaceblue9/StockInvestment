@@ -44,6 +44,43 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T181 - Postgres Auth Session Performance Hotfix
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-08 13:52:56 +07:00
+- เหตุผล:
+  - เอกแจ้งว่าเมื่อใช้ Supabase free tier การกด login/logout/delete ใช้เวลาประมาณ 1 นาทีต่อครั้ง
+  - ตรวจโค้ดพบว่า `getUserFromRequest()` และ `logoutSession()` ยังอ่าน state ทั้งระบบผ่าน `readState()` แม้อยู่บน Postgres
+  - จุดนี้ถูกเรียกบ่อยมากทุก API หลัง login จึงควรทำ fast path เฉพาะ Postgres ก่อน เพื่อแยกปัญหาโค้ดจาก latency ของ Supabase
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และเปิด task ก่อนแก้
+  - [x] เพิ่ม Postgres helper อ่าน session + user เฉพาะแถวที่จำเป็น
+    - Done: `2026-07-08 13:54:00 +07:00`
+    - Note: เพิ่ม `readPostgresSessionUser()` และ client-level helper ให้ query เฉพาะ `user_sessions` กับ `users`
+  - [x] เพิ่ม Postgres helper ลบ session/logout แบบไม่อ่าน whole state
+    - Done: `2026-07-08 13:54:00 +07:00`
+    - Note: เพิ่ม `deletePostgresSessionRecord()` เพื่อ delete session และ append audit ใน transaction เดียว
+  - [x] ปรับ `getUserFromRequest()` และ `logoutSession()` ให้ใช้ fast path เมื่อ `APP_STATE_REPOSITORY=postgres`
+    - Done: `2026-07-08 13:55:00 +07:00`
+    - Note: ลด auth guard ทุก API จาก whole-state read เหลือ session+user lookup; logout ไม่โหลดทุก collection แล้ว
+  - [x] เพิ่ม regression สำหรับ helper/auth path ใหม่
+    - Done: `2026-07-08 13:55:00 +07:00`
+    - Note: `postgresStateRepositoryRegression` ตรวจว่า session lookup ใช้ SELECT แค่ 2 query และ logout ลบเฉพาะ session ที่ต้องการ
+  - [x] รัน regression/frontend/auth ที่เกี่ยวข้อง
+    - Done: `2026-07-08 13:56:32 +07:00`
+    - Result: ผ่าน `node --check src/services/authService.js`, `node --check src/services/postgresStateRepository.js`, `npm run check`, `npm run test:postgres-repository`, `npm run test:frontend-auth`, `npm run test:web-smoke`, `npm run test:subscription-lifecycle`
+  - [x] deploy production ใหม่
+    - Done: `2026-07-08 13:58:06 +07:00`
+    - Result: Vercel production deploy `dpl_G1t8eUonLtUSi6mcF8pN1Bwc3ark`, alias `https://thai-stock-investment-web.vercel.app`
+  - [x] อัปเดต `plan.md`, commit และ push
+    - Done: `2026-07-08 13:58:06 +07:00`
+    - Note: commit/push ทำหลังบรรทัดนี้
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T181 ต่อโดยลด whole-state read ใน auth/session path บน Postgres
+  - โฟกัส `getUserFromRequest()` และ `logoutSession()` ก่อน `deleteUserAccount()`
+  - ห้ามแตะสูตร scoring/analysis และห้าม commit `.env`, `.vercel`, workbook, portfolio ส่วนตัว
+
 ### T180 - Simplify Signup and Package Request UX
 
 - สถานะ: Done

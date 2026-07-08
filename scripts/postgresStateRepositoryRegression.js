@@ -1,9 +1,11 @@
 import {
   buildPostgresBootstrapSql,
+  deletePostgresSessionRecordFromClient,
   postgresPlatformTenantScope,
   postgresRepositoryInfo,
   postgresRestrictedTenantScope,
   patchStateToPostgresClient,
+  readPostgresSessionUserFromClient,
   readScopedStateFromPostgresClient,
   readStateFromPostgresClient,
   writeStateToPostgresClient,
@@ -345,6 +347,34 @@ const platformRead = await readScopedStateFromPostgresClient(scopedClient, postg
 assertEqual(platformRead.users.length, 3, "Platform scoped read should preserve full-state visibility.");
 assertEqual(platformRead.portfolioSnapshots.length, 2, "Platform scoped read should include all tenant-scoped records.");
 
+const authFastPathQueryStart = scopedClient.queries.length;
+const sessionLookup = await readPostgresSessionUserFromClient(scopedClient, "session_a");
+const authFastPathQueries = scopedClient.queries.slice(authFastPathQueryStart).filter((query) => query.startsWith("SELECT record FROM"));
+assertEqual(sessionLookup.session.id, "session_a", "Postgres auth fast path should read the requested session.");
+assertEqual(sessionLookup.user.id, customerA.id, "Postgres auth fast path should read only the session owner.");
+assertEqual(authFastPathQueries.length, 2, "Postgres auth fast path should select only session and user records.");
+assert(authFastPathQueries.some((query) => query === 'SELECT record FROM "user_sessions" WHERE record_id = $1 LIMIT 1'), "Session lookup should query user_sessions by primary key.");
+assert(authFastPathQueries.some((query) => query === 'SELECT record FROM "users" WHERE record_id = $1 LIMIT 1'), "Session lookup should query users by primary key.");
+
+await deletePostgresSessionRecordFromClient(scopedClient, {
+  sessionId: "session_a",
+  auditEvent: {
+    id: "audit_logout_a",
+    action: "auth.logout",
+    actorUserId: customerA.id,
+    targetUserId: customerA.id,
+    organizationId: customerA.organizationId,
+    integrityVersion: "hash-chain-v1",
+    previousHash: "audit_hash_a",
+    eventHash: "audit_hash_logout_a",
+    createdAt: "2026-06-04T06:35:00.000Z",
+  },
+});
+const afterFastLogout = await readStateFromPostgresClient(scopedClient);
+assert(!afterFastLogout.sessions.some((session) => session.id === "session_a"), "Postgres logout fast path should delete only the requested session.");
+assert(afterFastLogout.sessions.some((session) => session.id === "session_b"), "Postgres logout fast path should leave other sessions in place.");
+assert(afterFastLogout.auditEvents.some((event) => event.id === "audit_logout_a"), "Postgres logout fast path should append an audit event.");
+
 await expectReject(
   () => writeStateToPostgresClient(new FakePostgresClient(), {
     users: [{ email: "missing-primary@example.test" }],
@@ -396,6 +426,15 @@ function matchesScopedSelect(statement, row, params) {
 
   if (statement.includes("WHERE FALSE")) {
     return false;
+  }
+
+  if (statement.includes("WHERE record_id = $1")) {
+    return String(row.record_id) === String(params[0]);
+  }
+
+  const jsonbFieldEqualsMatch = statement.match(/record->>'([^']+)' = \$(\d+)/u);
+  if (jsonbFieldEqualsMatch) {
+    return String(row.record?.[jsonbFieldEqualsMatch[1]] || "") === String(params[Number(jsonbFieldEqualsMatch[2]) - 1]);
   }
 
   return anySqlParamIncludes(statement, "record_id", row.record_id, params)

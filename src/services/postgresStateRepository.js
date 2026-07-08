@@ -36,6 +36,35 @@ export async function readPostgresUserByEmail(email) {
   });
 }
 
+export async function readPostgresUserById(userId) {
+  return withPostgresClient(async (client) => {
+    await ensurePostgresSchema(client);
+    return readPostgresRecordById(client, "users", userId);
+  });
+}
+
+export async function readPostgresSessionUser(sessionId) {
+  return withPostgresClient(async (client) => {
+    return readPostgresSessionUserFromClient(client, sessionId);
+  });
+}
+
+export async function readPostgresSessionUserFromClient(client, sessionId) {
+  await ensurePostgresSchema(client);
+  const session = await readPostgresRecordById(client, "sessions", sessionId);
+  if (!session?.userId) {
+    return {
+      session,
+      user: null,
+    };
+  }
+
+  return {
+    session,
+    user: await readPostgresRecordById(client, "users", session.userId),
+  };
+}
+
 export async function readLatestPostgresAuditEvent() {
   return withPostgresClient(async (client) => {
     await ensurePostgresSchema(client);
@@ -44,6 +73,27 @@ export async function readLatestPostgresAuditEvent() {
     );
     return result.rows?.[0]?.record || null;
   });
+}
+
+export async function deletePostgresSessionRecord({ sessionId, auditEvent }) {
+  return withPostgresClient(async (client) => {
+    return deletePostgresSessionRecordFromClient(client, { sessionId, auditEvent });
+  });
+}
+
+export async function deletePostgresSessionRecordFromClient(client, { sessionId, auditEvent } = {}) {
+  await client.query("BEGIN");
+  try {
+    await ensurePostgresSchema(client);
+    await deleteRecordFromPostgresClient(client, collectionDefinition("sessions"), sessionId);
+    if (auditEvent?.id) {
+      await insertRecordToPostgresClient(client, collectionDefinition("auditEvents"), auditEvent);
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  }
 }
 
 export async function patchPostgresLoginRecords({ user, session, auditEvent }) {
@@ -62,6 +112,16 @@ export async function patchPostgresLoginRecords({ user, session, auditEvent }) {
       throw error;
     }
   });
+}
+
+async function readPostgresRecordById(client, collectionName, recordId) {
+  const collection = collectionDefinition(collectionName);
+  const table = quoteIdentifier(collection.productionTable);
+  const result = await client.query(
+    `SELECT record FROM ${table} WHERE record_id = $1 LIMIT 1`,
+    [String(recordId || "")],
+  );
+  return result.rows?.[0]?.record || null;
 }
 
 export function postgresRepositoryInfo() {

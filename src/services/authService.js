@@ -10,8 +10,10 @@ import {
 } from "./paymentGatewayService.js";
 import { portfolioSnapshotHealthSummary } from "./portfolioSnapshotRecoveryService.js";
 import {
+  deletePostgresSessionRecord,
   patchPostgresLoginRecords,
   readLatestPostgresAuditEvent,
+  readPostgresSessionUser,
   readPostgresUserByEmail,
 } from "./postgresStateRepository.js";
 import { patchAppState, readAppState, readScopedAppState, stateRepositoryInfo, writeAppState } from "./stateRepository.js";
@@ -276,6 +278,11 @@ export async function logoutSession(sessionId) {
     return;
   }
 
+  if (postgresLoginFastPathEnabled()) {
+    await logoutSessionWithPostgresFastPath(sessionId);
+    return;
+  }
+
   const state = await readState();
   const session = state.sessions.find((candidate) => candidate.id === sessionId);
   if (!session) {
@@ -296,10 +303,41 @@ export async function logoutSession(sessionId) {
   });
 }
 
+async function logoutSessionWithPostgresFastPath(sessionId) {
+  const { session, user } = await readPostgresSessionUser(sessionId);
+  if (!session) {
+    return;
+  }
+
+  const latestAuditEvent = await readLatestPostgresAuditEvent();
+  const auditState = {
+    users: user ? [user] : [],
+    auditEvents: latestAuditEvent ? [latestAuditEvent] : [],
+  };
+  const auditEvent = appendAuditEvent(auditState, {
+    actorUserId: session.userId,
+    action: "auth.logout",
+    targetUserId: session.userId,
+    organizationId: user?.organizationId || "",
+    details: {
+      repository: "postgres_fast_path",
+    },
+  });
+
+  await deletePostgresSessionRecord({
+    sessionId,
+    auditEvent,
+  });
+}
+
 export async function getUserFromRequest(req) {
   const sessionId = getSessionIdFromRequest(req);
   if (!sessionId) {
     return demoUserForStatelessVercel();
+  }
+
+  if (postgresLoginFastPathEnabled()) {
+    return getUserFromRequestWithPostgresFastPath(sessionId);
   }
 
   const state = await readState();
@@ -324,6 +362,20 @@ export async function getUserFromRequest(req) {
 
   const user = state.users.find((candidate) => candidate.id === session.userId);
   return user ? publicUser(user) : demoUserForStatelessVercel();
+}
+
+async function getUserFromRequestWithPostgresFastPath(sessionId) {
+  const { session, user } = await readPostgresSessionUser(sessionId);
+  if (!session) {
+    return demoUserForStatelessVercel();
+  }
+
+  if (new Date(session.expiresAt) <= new Date()) {
+    await deletePostgresSessionRecord({ sessionId });
+    return demoUserForStatelessVercel();
+  }
+
+  return user && !isDeletedUser(user) ? publicUser(user) : demoUserForStatelessVercel();
 }
 
 export async function saveCustomerPortfolioSnapshot(userId, snapshot) {
