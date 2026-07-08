@@ -44,6 +44,33 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T172 - Add Collapsible Left Workspace Panel
+
+- สถานะ: Done
+- เริ่มเมื่อ: 2026-07-08 07:19:21 +07:00
+- เหตุผล:
+  - เอกต้องการให้ panel ซ้ายที่มี Your Plan และ Upload portfolio สามารถซ่อน/เลิกซ่อนได้
+  - Panel นี้ใช้เป็นบางช่วง แต่กินพื้นที่ทำงานตลอดเวลา โดยเฉพาะหน้า Portfolio, Screener, Sector และ Simulation
+  - การยุบ panel จะช่วยให้ตารางและกราฟมีพื้นที่มากขึ้นโดยไม่ลบ functionality เดิม
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และเปิด task ก่อนแก้
+  - [x] ตรวจ layout ปัจจุบันของ sidebar/panel ซ้าย (เสร็จเมื่อ: 2026-07-08 07:20:35 +07:00)
+  - [x] เพิ่มปุ่ม Hide/Show panel ที่ใช้งานง่าย (เสร็จเมื่อ: 2026-07-08 07:21:20 +07:00)
+  - [x] ทำให้ layout ขยายพื้นที่ทำงานเมื่อ panel ถูกซ่อน (เสร็จเมื่อ: 2026-07-08 07:21:45 +07:00)
+  - [x] จำสถานะซ่อน/แสดงใน browser เพื่อไม่ให้ต้องกดซ้ำทุกครั้ง (เสร็จเมื่อ: 2026-07-08 07:22:15 +07:00)
+  - [x] รัน regression/frontend smoke ที่เกี่ยวข้อง (เสร็จเมื่อ: 2026-07-08 07:22:55 +07:00)
+  - [x] อัปเดต `plan.md`, commit และ push (เสร็จเมื่อ: 2026-07-08 07:25:00 +07:00, บันทึกใน commit นี้)
+- บันทึกล่าสุด:
+  - 2026-07-08 07:24:24 +07:00: เพิ่มปุ่ม `Hide panel` / `Show panel` ใน header เพื่อซ่อน/แสดง panel ซ้ายได้ตลอดเวลา
+  - 2026-07-08 07:24:24 +07:00: เมื่อซ่อน panel ซ้าย `app-shell` จะใช้ class `left-rail-collapsed` และ workspace จะขยายเต็มพื้นที่
+  - 2026-07-08 07:24:24 +07:00: สถานะซ่อน/แสดงถูกบันทึกใน `localStorage` key `stockflix.leftRailCollapsed`
+  - 2026-07-08 07:24:24 +07:00: อัปเดต frontend cache-bust/version เป็น `20260708-0719`; deploy production สำเร็จและตรวจ live markers ผ่าน
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T172 ต่อโดยเพิ่ม collapsible left workspace panel
+  - ต้องไม่ลบ upload/auth functionality เดิม และต้องยังใช้ได้ทั้ง desktop/mobile
+  - ห้าม commit `.env`, `.vercel`, workbook, portfolio ส่วนตัว หรือเปิดเผย `DATABASE_URL`
+
 ### T171 - Fix Live Yahoo Price Not Applied In Production
 
 - สถานะ: Done
@@ -60,7 +87,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] เพิ่ม regression ป้องกันราคาสดถูก reference ทับ (เสร็จเมื่อ: 2026-07-07 15:07:45 +07:00)
   - [x] รัน regression ที่เกี่ยวข้อง (เสร็จเมื่อ: 2026-07-07 15:08:10 +07:00)
   - [x] deploy production ใหม่และทดสอบ live (เสร็จเมื่อ: 2026-07-07 15:08:45 +07:00)
-  - [ ] อัปเดต `plan.md`, commit และ push
+  - [x] อัปเดต `plan.md`, commit และ push (เสร็จเมื่อ: 2026-07-07 15:10:00 +07:00, commit `2dd1506`)
 - บันทึกล่าสุด:
   - 2026-07-07 15:09:00 +07:00: ตรวจพบว่า Yahoo `/v7/finance/quote?symbols=PTT.BK` คืน `401 Unauthorized` จึงเป็นสาเหตุที่ T170 ไม่ได้ราคาสดจริง
   - 2026-07-07 15:09:00 +07:00: Yahoo `/v8/finance/chart/PTT.BK?range=1d&interval=1d` ยังใช้ได้และคืน `regularMarketPrice` ได้จริง จึงเพิ่ม chart fallback แบบขนาน จำกัด concurrency และ timeout ต่อหุ้น

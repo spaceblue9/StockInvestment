@@ -128,7 +128,9 @@ try {
     "Sign in before downloading templates, browsing files, or running analysis.",
     "Simulation",
     "data-frontend-version",
-    "/app.js?v=20260707-1435",
+    "leftRailToggle",
+    "Hide panel",
+    "/app.js?v=20260708-0719",
   ], "Main HTML should expose the dashboard navigation.");
   assert(!html.includes('data-view="onboarding"'), "Launch navigation should not expose the hidden Guide view.");
   assert(!html.includes('data-view="approvals"'), "Launch navigation should not expose the deferred Approvals view.");
@@ -160,7 +162,12 @@ try {
     "Sign in to analyze",
     "Create an account or sign in before downloading templates",
     "frontendBuildVersion",
-    "20260707-1435",
+    "20260708-0719",
+    "stockflix.leftRailCollapsed",
+    "left-rail-collapsed",
+    "toggleLeftRail",
+    "Show panel",
+    "Hide panel",
     "canRunPortfolioAnalysis",
     "analysisPackageRequiredMessage",
     "Portfolio analysis requires Starter or Pro",
@@ -331,6 +338,8 @@ try {
     "--red: #e50914",
     ".panel",
     ".analysis-status",
+    ".app-shell.left-rail-collapsed",
+    ".workspace-toggle",
     ".analysis-spinner",
     ".template-downloads",
     ".portfolio-data-warning",

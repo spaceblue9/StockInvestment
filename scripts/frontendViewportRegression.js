@@ -23,7 +23,9 @@ assertIncludes(html, [
   'Sign in before downloading templates, browsing files, or running analysis.',
   'aria-live="polite"',
   'data-frontend-version',
-  '/app.js?v=20260707-1435',
+  'leftRailToggle',
+  'Hide panel',
+  '/app.js?v=20260708-0719',
 ], "HTML should expose viewport meta, brand, and primary dashboard navigation.");
 if (html.includes('data-view="approvals"')) {
   throw new Error("Launch navigation should not expose deferred Approvals.");
@@ -41,6 +43,8 @@ assertIncludes(styles, [
   "@media (max-width: 640px)",
   ".view-grid button",
   ".analysis-status",
+  ".app-shell.left-rail-collapsed",
+  ".workspace-toggle",
   ".analysis-spinner",
   ".template-downloads",
   ".template-downloads.locked",
@@ -128,7 +132,10 @@ assertIncludes(appJs, [
   "Sign in to analyze",
   "Create an account or sign in before downloading templates",
   "frontendBuildVersion",
-  "20260707-1435",
+  "20260708-0719",
+  "stockflix.leftRailCollapsed",
+  "left-rail-collapsed",
+  "toggleLeftRail",
   "canRunPortfolioAnalysis",
   "analysisPackageRequiredMessage",
   "Portfolio analysis requires Starter or Pro",

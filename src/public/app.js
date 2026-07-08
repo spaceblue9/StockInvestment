@@ -1,4 +1,5 @@
 const healthStatus = document.querySelector("#healthStatus");
+const appShell = document.querySelector(".app-shell");
 const authPanel = document.querySelector("#authPanel");
 const accountPanel = document.querySelector("#accountPanel");
 const accountName = document.querySelector("#accountName");
@@ -24,8 +25,10 @@ const viewOutput = document.querySelector("#viewOutput");
 const customerSnapshot = document.querySelector("#customerSnapshot");
 const plansList = document.querySelector("#plansList");
 const businessViewButton = document.querySelector("[data-view='business']");
+const leftRailToggle = document.querySelector("#leftRailToggle");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20260707-1435";
+const frontendBuildVersion = "20260708-0719";
+const leftRailStorageKey = "stockflix.leftRailCollapsed";
 
 const state = {
   user: null,
@@ -451,6 +454,7 @@ logoutButton.addEventListener("click", logout);
 analysisForm.addEventListener("submit", runAnalysis);
 analysisSubmitButton.addEventListener("click", handleAnalysisButtonClick);
 analysisFileInputs.forEach((input) => input.addEventListener("change", updateFrontendDiagnostics));
+leftRailToggle?.addEventListener("click", toggleLeftRail);
 document.addEventListener("click", handleDelegatedAnalysisClick, true);
 document.addEventListener("pointerup", handleDelegatedAnalysisClick, true);
 document.querySelectorAll("[data-view]").forEach((button) => {
@@ -480,6 +484,7 @@ document.addEventListener("click", (event) => {
 await initialize();
 
 async function initialize() {
+  applyLeftRailState(readLeftRailCollapsed());
   updateFrontendDiagnostics();
   await Promise.all([checkHealth(), loadPlans(), loadCurrentUser()]);
   renderAuthState();
@@ -894,6 +899,33 @@ async function checkoutPlan(planId) {
     renderBusinessView();
   } else {
     renderActiveView();
+  }
+}
+
+function toggleLeftRail() {
+  applyLeftRailState(!appShell?.classList.contains("left-rail-collapsed"));
+}
+
+function applyLeftRailState(collapsed) {
+  if (!appShell || !leftRailToggle) {
+    return;
+  }
+
+  appShell.classList.toggle("left-rail-collapsed", collapsed);
+  leftRailToggle.textContent = collapsed ? "Show panel" : "Hide panel";
+  leftRailToggle.setAttribute("aria-expanded", String(!collapsed));
+  try {
+    localStorage.setItem(leftRailStorageKey, collapsed ? "1" : "0");
+  } catch {
+    // Ignore private browsing or storage-disabled environments.
+  }
+}
+
+function readLeftRailCollapsed() {
+  try {
+    return localStorage.getItem(leftRailStorageKey) === "1";
+  } catch {
+    return false;
   }
 }
 

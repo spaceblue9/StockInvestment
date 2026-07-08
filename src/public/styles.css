@@ -100,6 +100,14 @@ h3 {
   min-width: 0;
 }
 
+.app-shell.left-rail-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.app-shell.left-rail-collapsed .left-rail {
+  display: none;
+}
+
 .left-rail,
 .workspace {
   align-content: start;
@@ -233,6 +241,11 @@ button:disabled {
   background: #3a3a3a;
   color: #888;
   cursor: not-allowed;
+}
+
+.workspace-toggle {
+  min-width: 104px;
+  white-space: nowrap;
 }
 
 .analysis-status {
