@@ -25,6 +25,45 @@ export async function patchPostgresAppState(patch = {}, options = {}) {
   return withPostgresClient((client) => patchStateToPostgresClient(client, patch, options));
 }
 
+export async function readPostgresUserByEmail(email) {
+  return withPostgresClient(async (client) => {
+    await ensurePostgresSchema(client);
+    const result = await client.query(
+      `SELECT record FROM "users" WHERE record->>'email' = $1 LIMIT 1`,
+      [String(email || "").trim().toLowerCase()],
+    );
+    return result.rows?.[0]?.record || null;
+  });
+}
+
+export async function readLatestPostgresAuditEvent() {
+  return withPostgresClient(async (client) => {
+    await ensurePostgresSchema(client);
+    const result = await client.query(
+      `SELECT record FROM "audit_events" ORDER BY created_at DESC, record_id DESC LIMIT 1`,
+    );
+    return result.rows?.[0]?.record || null;
+  });
+}
+
+export async function patchPostgresLoginRecords({ user, session, auditEvent }) {
+  return withPostgresClient(async (client) => {
+    await client.query("BEGIN");
+    try {
+      await ensurePostgresSchema(client);
+      await upsertRecordToPostgresClient(client, collectionDefinition("users"), user);
+      await insertRecordToPostgresClient(client, collectionDefinition("sessions"), session);
+      if (auditEvent?.id) {
+        await insertRecordToPostgresClient(client, collectionDefinition("auditEvents"), auditEvent);
+      }
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    }
+  });
+}
+
 export function postgresRepositoryInfo() {
   return {
     adapter: "postgres",

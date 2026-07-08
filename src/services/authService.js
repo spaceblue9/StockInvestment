@@ -9,6 +9,11 @@ import {
   paymentGatewayInfo,
 } from "./paymentGatewayService.js";
 import { portfolioSnapshotHealthSummary } from "./portfolioSnapshotRecoveryService.js";
+import {
+  patchPostgresLoginRecords,
+  readLatestPostgresAuditEvent,
+  readPostgresUserByEmail,
+} from "./postgresStateRepository.js";
 import { patchAppState, readAppState, readScopedAppState, stateRepositoryInfo, writeAppState } from "./stateRepository.js";
 import { buildStorageReadinessReport, stateSchemaManifest } from "./stateSchemaService.js";
 import { buildTenantScopeForUser, filterStateByTenantScope, tenantScopeSummary } from "./tenantScopeService.js";
@@ -162,6 +167,7 @@ export async function createUser({ name, email, password }) {
   };
 
   state.users.push(user);
+  const sessionPatch = buildSessionPatch(state, user.id, now);
   await patchStateWithAudit(state, [
     {
       type: "upsert",
@@ -173,6 +179,7 @@ export async function createUser({ name, email, password }) {
       collection: "users",
       record: user,
     },
+    ...sessionPatch.operations,
   ], {
     actorUserId: user.id,
     action: "auth.register",
@@ -184,16 +191,19 @@ export async function createUser({ name, email, password }) {
       status: user.subscription.status,
     },
   });
-  const session = await createSession(user.id);
 
   return {
     user: publicUser(user),
-    session,
+    session: sessionPatch.session,
   };
 }
 
 export async function loginUser({ email, password }) {
   const normalizedEmail = normalizeEmail(email);
+  if (postgresLoginFastPathEnabled()) {
+    return loginUserWithPostgresFastPath(normalizedEmail, password);
+  }
+
   const state = await readState();
   const user = state.users.find((candidate) => candidate.email === normalizedEmail);
 
@@ -202,12 +212,14 @@ export async function loginUser({ email, password }) {
   }
 
   user.lastLoginAt = new Date().toISOString();
+  const sessionPatch = buildSessionPatch(state, user.id, new Date(user.lastLoginAt));
   await patchStateWithAudit(state, [
     {
       type: "upsert",
       collection: "users",
       record: user,
     },
+    ...sessionPatch.operations,
   ], {
     actorUserId: user.id,
     action: "auth.login",
@@ -216,11 +228,46 @@ export async function loginUser({ email, password }) {
       role: normalizeRole(user.role),
     },
   });
-  const session = await createSession(user.id);
 
   return {
     user: publicUser(user),
-    session,
+    session: sessionPatch.session,
+  };
+}
+
+async function loginUserWithPostgresFastPath(normalizedEmail, password) {
+  const user = await readPostgresUserByEmail(normalizedEmail);
+
+  if (!user || isDeletedUser(user) || !verifyPassword(password, user.passwordHash)) {
+    throw new Error("Invalid email or password.");
+  }
+
+  user.lastLoginAt = new Date().toISOString();
+  const sessionPatch = buildSessionPatch({ sessions: [] }, user.id, new Date(user.lastLoginAt));
+  const latestAuditEvent = await readLatestPostgresAuditEvent();
+  const auditState = {
+    users: [user],
+    auditEvents: latestAuditEvent ? [latestAuditEvent] : [],
+  };
+  const auditEvent = appendAuditEvent(auditState, {
+    actorUserId: user.id,
+    action: "auth.login",
+    targetUserId: user.id,
+    details: {
+      role: normalizeRole(user.role),
+      repository: "postgres_fast_path",
+    },
+  });
+
+  await patchPostgresLoginRecords({
+    user,
+    session: sessionPatch.session,
+    auditEvent,
+  });
+
+  return {
+    user: publicUser(user),
+    session: sessionPatch.session,
   };
 }
 
@@ -2382,7 +2429,19 @@ function effectiveSubscriptionStatus(status, subscription = {}, now = new Date()
 
 async function createSession(userId) {
   const state = await readState();
-  const now = new Date();
+  const sessionPatch = buildSessionPatch(state, userId);
+  await patchState({
+    operations: sessionPatch.operations,
+  });
+  return sessionPatch.session;
+}
+
+function postgresLoginFastPathEnabled() {
+  return String(process.env.APP_STATE_REPOSITORY || "").trim().toLowerCase() === "postgres"
+    && Boolean(process.env.DATABASE_URL);
+}
+
+function buildSessionPatch(state, userId, now = new Date()) {
   const expiresAt = new Date(now);
   expiresAt.setDate(expiresAt.getDate() + SESSION_DAYS);
   const session = {
@@ -2391,11 +2450,9 @@ async function createSession(userId) {
     createdAt: now.toISOString(),
     expiresAt: expiresAt.toISOString(),
   };
-  const expiredSessions = state.sessions.filter((candidate) => new Date(candidate.expiresAt) <= now);
-
-  state.sessions = state.sessions.filter((candidate) => new Date(candidate.expiresAt) > now);
-  state.sessions.push(session);
-  await patchState({
+  const expiredSessions = (state.sessions || []).filter((candidate) => new Date(candidate.expiresAt) <= now);
+  return {
+    session,
     operations: [
       ...expiredSessions.map((expiredSession) => ({
         type: "delete",
@@ -2408,8 +2465,7 @@ async function createSession(userId) {
         record: session,
       },
     ],
-  });
-  return session;
+  };
 }
 
 async function readState() {

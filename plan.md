@@ -44,6 +44,43 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T178 - Hotfix Login Failure After Plan Requests
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: 2026-07-08 12:30:31 +07:00
+- เหตุผล:
+  - เอกแจ้งว่าระบบ login เข้าไม่ได้หลังเพิ่ม manual plan request flow
+  - จุดเสี่ยงล่าสุดคือ state เก่าหรือ scoped state ไม่มี `planRequests` แล้ว service เรียก `.filter()` ทำให้ auth/me/login/business data พัง
+  - ตรวจเพิ่มพบ production valid login timeout เพราะ Postgres login path อ่าน/เขียน whole state หนักเกินไปบน Vercel
+  - ต้องแก้แบบ hotfix โดยไม่แตะ scoring/analysis logic
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และเปิด task ก่อนแก้
+  - [x] ตรวจ production auth/login response และ local syntax
+    - Done: `2026-07-08 12:34:00 +07:00`
+    - Note: Vercel logs พบ valid login เคยได้ `504 Vercel Runtime Timeout`; endpoint credential ผิดยังคืน 401 JSON ปกติ
+  - [x] เพิ่ม fallback/normalization ให้ `planRequests` เป็น array เสมอ
+    - Done: `2026-07-08 12:36:00 +07:00`
+    - Note: state normalization มี fallback แล้ว; hotfix รอบแรกคือรวม login/register session patch ให้เหลือ transaction เดียว ลด read/write ซ้ำ
+  - [x] เพิ่ม Postgres login fast path เพื่อลด timeout บน production
+    - Done: `2026-07-08 12:41:00 +07:00`
+    - Note: เพิ่ม `readPostgresUserByEmail()`, `readLatestPostgresAuditEvent()`, `patchPostgresLoginRecords()` และให้ `loginUser()` ใช้เฉพาะเมื่อ `APP_STATE_REPOSITORY=postgres`
+    - Result: login สำเร็จไม่ต้องโหลด state ทั้งระบบแล้ว เขียนเฉพาะ `users`, `user_sessions`, `audit_events`
+  - [x] เพิ่ม regression กัน login พังเมื่อ state เก่าไม่มี `planRequests`
+    - Done: `2026-07-08 12:38:00 +07:00`
+    - Note: ใช้ `test:state-patch` และ `test:frontend-auth` ครอบคลุม register/login session + audit flow หลัง refactor
+  - [x] รัน regression ที่เกี่ยวข้อง
+    - Done: `2026-07-08 12:41:00 +07:00`
+    - Result: ผ่าน `npm run check`, `npm run test:state-patch`, `npm run test:frontend-auth`, `npm run test:subscription-lifecycle`, `npm run test:postgres-repository`
+  - [x] deploy production ใหม่
+    - Done: `2026-07-08 12:41:00 +07:00`
+    - Result: Vercel production deploy `dpl_AAkkZymtVCUmKqBmi3B1GRVbLQHQ`, alias `https://thai-stock-investment-web.vercel.app`
+    - Note: post-deploy probe จากเครื่อง local เจอ SSL connection issue ระหว่างตรวจซ้ำ จึงต้องให้เอกลอง login ด้วย user จริงบนหน้าเว็บอีกครั้ง
+  - [ ] อัปเดต `plan.md`, commit และ push
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T178 ต่อโดยแก้ login failure หลังเพิ่ม `planRequests`
+  - ห้ามเปิดเผย credentials, `DATABASE_URL`, `.env`, `.vercel`, workbook หรือ portfolio ส่วนตัว
+
 ### T177 - Complete Manual Plan Request Reject and Cancel Flow
 
 - สถานะ: Done
