@@ -44,6 +44,30 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T199 - Portfolio Multi-Symbol Search
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-03 20:41:36 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ปัญหา: Recommended actions Search ใช้ข้อความทั้งหมดเป็น substring เดียว จึงค้นหลาย Symbol พร้อมกันไม่ได้ แม้ placeholder แสดง `AOT, PTT...`
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และตรวจ Portfolio recommended filter pipeline
+    - Done: `2026-11-03 20:41:36 +07:00`
+  - [x] รองรับหลาย Symbol แบบ OR ด้วย comma/semicolon/space/newline และ `.BK`
+    - Done: `2026-11-03 20:43:32 +07:00`
+    - Note: parse token แบบ unique และใช้ OR ระหว่าง Symbol ก่อนใช้ filters อื่นแบบ AND
+  - [x] ปรับ status/placeholder และตรวจ action filter pipeline
+    - Done: `2026-11-03 20:43:32 +07:00`
+    - Note: placeholder แสดงตัวอย่างหลาย Symbol และ status แสดง `symbols AOT, PTT`; pipeline มี action filter เพียงรอบเดียว
+  - [x] เพิ่ม regression, ทดสอบ, อัปเดต Version/`plan.md`
+    - Done: `2026-11-03 20:43:32 +07:00`
+    - Result: ผ่าน syntax, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`; version `Think2 Portfolio Multi Search v0.5.7`, build `20261103-2045`
+  - [ ] commit, push, deploy และตรวจ production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T199 บน branch `codex/beginner-ai-companion-ui`
+  - Multi-symbol search ต้องใช้ OR ระหว่าง Symbol และ AND กับ Action/Sector/Trend/Min Score filters
+
 ### T198 - Fix Sector Light Cards and Compact AI Launcher
 
 - สถานะ: Done

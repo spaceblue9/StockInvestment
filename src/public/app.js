@@ -32,9 +32,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261103-2040";
-const programVersion = "Think2 Sector Theme Fix v0.5.6";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-2040";
+const frontendBuildVersion = "20261103-2045";
+const programVersion = "Think2 Portfolio Multi Search v0.5.7";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-2045";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -2213,7 +2213,7 @@ function renderRecommendedActionsControls(rows) {
     <section class="table-control-panel" data-recommended-actions-controls>
       <div class="filter-bar compact-filter-bar">
         <label>Search Symbol
-          <input id="actionSearch" type="search" placeholder="AOT, PTT..." autocomplete="off" data-recommended-action-input>
+          <input id="actionSearch" type="search" placeholder="AOT, PTT, CPALL หรือเว้นวรรค" autocomplete="off" data-recommended-action-input>
         </label>
         <label>Action
           <select id="actionGroupFilter" data-recommended-action-input>
@@ -2312,7 +2312,7 @@ function normalizeManualVisualFilters(control, panel) {
 }
 
 function getFilteredRecommendedActions(rows, panel) {
-  const search = panel.querySelector("#actionSearch")?.value.trim().toLowerCase() || "";
+  const searchTokens = recommendedActionSearchTokens(panel);
   const actionFilter = panel.querySelector("#actionGroupFilter")?.value || "";
   const sectorFilter = panel.querySelector("#actionSectorFilter")?.value || "";
   const trendFilter = panel.querySelector("#actionTrendFilter")?.value || "";
@@ -2322,7 +2322,7 @@ function getFilteredRecommendedActions(rows, panel) {
   const direction = panel.querySelector("#actionSortDirection")?.value || "desc";
 
   return rows
-    .filter((row) => !search || String(row.Symbol || "").toLowerCase().includes(search))
+    .filter((row) => !searchTokens.length || searchTokens.some((token) => String(row.Symbol || "").toUpperCase().replace(/\.BK$/u, "").includes(token)))
     .filter((row) => !actionFilter || matchesRecommendedActionFilter(row, actionFilter))
     .filter((row) => !sectorFilter || (row.Sector || "Unknown") === sectorFilter)
     .filter((row) => !trendFilter || (row.Trend_Status || "Unknown") === trendFilter)
@@ -2330,6 +2330,11 @@ function getFilteredRecommendedActions(rows, panel) {
     .filter((row) => !scoreBandFilter || matchesScoreBandFilter(row, scoreBandFilter))
     .slice()
     .sort((left, right) => compareRecommendedActionRows(left, right, sortBy, direction));
+}
+
+function recommendedActionSearchTokens(panel) {
+  const searchText = String(panel.querySelector("#actionSearch")?.value || "").trim().toUpperCase();
+  return [...new Set(searchText.split(/[\s,;]+/u).map((token) => token.replace(/\.BK$/u, "").trim()).filter(Boolean))];
 }
 
 function matchesRecommendedActionFilter(row, filterValue) {
@@ -2368,7 +2373,7 @@ function renderRecommendedActionsOutput(rows, totalRows, selectedColumns, panel)
   const sortLabel = recommendedActionSortFields.find((field) => field.key === (panel.querySelector("#actionSortBy")?.value || "Total_Score"))?.label || "Score";
   const directionLabel = panel.querySelector("#actionSortDirection")?.value === "asc" ? "low to high" : "high to low";
   const filters = [
-    panel.querySelector("#actionSearch")?.value ? `symbol contains "${panel.querySelector("#actionSearch").value.trim()}"` : "",
+    recommendedActionSearchTokens(panel).length ? `symbols ${recommendedActionSearchTokens(panel).join(", ")}` : "",
     panel.querySelector("#actionGroupFilter")?.value ? `action ${panel.querySelector("#actionGroupFilter").value}` : "",
     panel.querySelector("#actionSectorFilter")?.value ? `sector ${panel.querySelector("#actionSectorFilter").value}` : "",
     panel.querySelector("#actionTrendFilter")?.value ? `trend ${panel.querySelector("#actionTrendFilter").value}` : "",
