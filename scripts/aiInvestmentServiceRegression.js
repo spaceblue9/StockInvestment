@@ -43,6 +43,8 @@ const response = await generateAiInvestmentExplanation(snapshot, { mode: "stock"
         usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150, cost: 0.001 },
         choices: [{ message: { content: JSON.stringify({
           title: "คำอธิบาย AAA", summary: "สรุปจากข้อมูล Think2", keyPoints: ["คะแนน 72"],
+          decisionHeadline: "AAA น่าศึกษาต่อก่อน", decisionAction: "ตรวจงบและ RRR ของ AAA เพิ่มก่อนตัดสินใจ",
+          decisionReasons: ["คะแนนรวมสูงกว่าเพื่อน"], decisionChecks: ["ตรวจงบล่าสุด"], decisionConfidence: "ปานกลาง",
           risks: ["ควรตรวจข้อมูลเพิ่ม"], nextQuestions: ["งบล่าสุดเป็นอย่างไร"],
           dataLimitations: ["ไม่มีข้อมูลประเภทธุรกิจที่ยืนยันแล้ว"], disclaimer: "ใช้เพื่อการศึกษา",
         }) } }],
@@ -52,8 +54,12 @@ const response = await generateAiInvestmentExplanation(snapshot, { mode: "stock"
 });
 
 assert.equal(response.result.title, "คำอธิบาย AAA");
+assert.equal(response.result.decisionHeadline, "AAA น่าศึกษาต่อก่อน");
+assert.equal(response.result.decisionConfidence, "ปานกลาง");
 assert.equal(response.usage.totalTokens, 150);
 assert.equal(sentRequest.provider.zdr, true);
+assert.match(sentRequest.messages[0].content, /Always provide decision support/u);
+assert(sentRequest.response_format.json_schema.schema.required.includes("decisionAction"));
 
 const staleSnapshotContext = buildAiInvestmentContext({
   generatedAt: snapshot.generatedAt,

@@ -144,8 +144,8 @@ try {
     "สว่างสบายตา",
     "มืดสบายตา",
     "Hide panel",
-    "/styles.css?v=20261103-2125",
-    "/app.js?v=20261103-2125",
+    "/styles.css?v=20261103-2135",
+    "/app.js?v=20261103-2135",
   ], "Main HTML should expose the dashboard navigation.");
   assert(!html.includes('data-view="onboarding"'), "Launch navigation should not expose the hidden Guide view.");
   assert(!html.includes('data-view="approvals"'), "Launch navigation should not expose the deferred Approvals view.");
@@ -181,9 +181,11 @@ try {
     "Sign in to analyze",
     "Create an account or sign in before downloading templates",
     "frontendBuildVersion",
-    "20261103-2125",
-    "Think2 Sector AI Scope v0.6.0",
-    "codex/beginner-ai-companion-ui@20261103-2125",
+    "20261103-2135",
+    "Think2 AI Decision Support v0.6.1",
+    "codex/beginner-ai-companion-ui@20261103-2135",
+    "data-ai-decision-support",
+    "มุมมองช่วยตัดสินใจ",
     "screenerFilteredRows",
     "screenerFilterSummary",
     "sectorFilteredRows",
@@ -443,6 +445,7 @@ try {
     ".score-matrix-guide",
     ".ai-assistant-panel",
     ".ai-result-grid",
+    ".ai-decision-card",
     ".ai-companion-button",
     ".ai-companion-drawer",
     ".score-matrix-cards",

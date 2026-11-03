@@ -107,7 +107,7 @@ export function buildOpenRouterRequest(context) {
   return {
     model: process.env.OPENROUTER_MODEL || DEFAULT_MODEL,
     temperature: 0.2,
-    max_tokens: 1100,
+    max_tokens: 1400,
     provider: {
       zdr: true,
       data_collection: "deny",
@@ -130,6 +130,9 @@ export function buildOpenRouterRequest(context) {
           "Reply in Thai using plain language.",
           "Use only the supplied JSON facts. Never calculate or replace Think2 scores or actions.",
           "Never issue a direct buy/sell order, guaranteed return, target price, or suitability claim.",
+          "Always provide decision support: choose the most useful next study or review action, explain why using supplied facts, list checks required before acting, and state confidence as ต่ำ, ปานกลาง, or สูง.",
+          "For stock or compare mode, identify which supplied stock is most worth studying next when evidence permits. For portfolio mode, prioritize what the investor should review first. For simulation, state whether the result merits further study or should be treated cautiously.",
+          "Use decision language such as น่าศึกษาต่อ, ควรตรวจ, or ควรชะลอ. Do not say the user should buy or sell.",
           "If company business information is absent, explicitly say that a verified company profile is unavailable; never infer it from the ticker.",
           "Treat Target_Action as an existing system output and explain it with uncertainty, not as personal financial advice.",
         ].join(" "),
@@ -208,10 +211,15 @@ function aiResponseSchema() {
   return {
     type: "object",
     additionalProperties: false,
-    required: ["title", "summary", "keyPoints", "risks", "nextQuestions", "dataLimitations", "disclaimer"],
+    required: ["title", "summary", "decisionHeadline", "decisionAction", "decisionReasons", "decisionChecks", "decisionConfidence", "keyPoints", "risks", "nextQuestions", "dataLimitations", "disclaimer"],
     properties: {
       title: { type: "string" },
       summary: { type: "string" },
+      decisionHeadline: { type: "string" },
+      decisionAction: { type: "string" },
+      decisionReasons: { type: "array", items: { type: "string" }, maxItems: 4 },
+      decisionChecks: { type: "array", items: { type: "string" }, maxItems: 4 },
+      decisionConfidence: { type: "string", enum: ["ต่ำ", "ปานกลาง", "สูง"] },
       keyPoints: { type: "array", items: { type: "string" }, maxItems: 6 },
       risks: { type: "array", items: { type: "string" }, maxItems: 6 },
       nextQuestions: { type: "array", items: { type: "string" }, maxItems: 5 },
@@ -295,6 +303,11 @@ function validateAiResponse(result) {
   return {
     title: String(result.title).slice(0, 180),
     summary: String(result.summary).slice(0, 1800),
+    decisionHeadline: String(result.decisionHeadline || "ควรตรวจข้อมูลเพิ่มก่อนตัดสินใจ").slice(0, 240),
+    decisionAction: String(result.decisionAction || "ทบทวนข้อมูลและความเสี่ยงที่ระบบแสดงก่อนดำเนินการ").slice(0, 800),
+    decisionReasons: cleanStringList(result.decisionReasons, 4),
+    decisionChecks: cleanStringList(result.decisionChecks, 4),
+    decisionConfidence: ["ต่ำ", "ปานกลาง", "สูง"].includes(result.decisionConfidence) ? result.decisionConfidence : "ต่ำ",
     keyPoints: cleanStringList(result.keyPoints, 6),
     risks: cleanStringList(result.risks, 6),
     nextQuestions: cleanStringList(result.nextQuestions, 5),

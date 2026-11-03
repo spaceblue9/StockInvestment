@@ -32,9 +32,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261103-2125";
-const programVersion = "Think2 Sector AI Scope v0.6.0";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-2125";
+const frontendBuildVersion = "20261103-2135";
+const programVersion = "Think2 AI Decision Support v0.6.1";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-2135";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -1918,6 +1918,20 @@ function renderAiAssistantResult(result) {
     <article class="ai-result" aria-live="polite">
       <h4>${escapeHtml(result.title || "ผลคำอธิบาย")}</h4>
       <p>${escapeHtml(result.summary || "")}</p>
+      <section class="ai-decision-card" data-ai-decision-support>
+        <div class="ai-decision-heading">
+          <div>
+            <span>มุมมองช่วยตัดสินใจ</span>
+            <strong>${escapeHtml(result.decisionHeadline || "ควรตรวจข้อมูลเพิ่มก่อนตัดสินใจ")}</strong>
+          </div>
+          <span class="ai-confidence">ความมั่นใจ: ${escapeHtml(result.decisionConfidence || "ต่ำ")}</span>
+        </div>
+        <p>${escapeHtml(result.decisionAction || "ทบทวนข้อมูลและความเสี่ยงที่ระบบแสดงก่อนดำเนินการ")}</p>
+        <div class="ai-decision-grid">
+          ${list("เหตุผลประกอบ", result.decisionReasons)}
+          ${list("ต้องตรวจยืนยันก่อนทำจริง", result.decisionChecks)}
+        </div>
+      </section>
       <div class="ai-result-grid">
         ${list("ประเด็นสำคัญ", result.keyPoints)}
         ${list("ความเสี่ยงที่ควรอ่านต่อ", result.risks)}

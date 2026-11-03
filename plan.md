@@ -44,6 +44,34 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T203 - Add AI Decision Support to Every View
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-03 21:33:41 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- เป้าหมาย: ทุกคำตอบ AI ใน Portfolio, Screener, Sector และ Simulation ต้องมีมุมช่วยตัดสินใจที่ชัดเจน พร้อมเหตุผล สิ่งที่ควรตรวจต่อ และระดับความมั่นใจ
+- หลักความปลอดภัย:
+  - AI เลือก `สิ่งที่ควรศึกษา/ตรวจ/ทำต่อ` จากข้อมูล Think2 ที่ส่งให้เท่านั้น
+  - ไม่ออกคำสั่งซื้อขาย ไม่สร้างราคาเป้าหมาย และไม่แทน Target Action ของระบบ
+  - ถ้าข้อมูลไม่พอ ต้องตอบว่าชะลอการตัดสินใจและบอกข้อมูลที่ขาด
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และตรวจ AI response schema/validator/renderer
+    - Done: `2026-11-03 21:33:41 +07:00`
+  - [x] เพิ่ม structured decision fields และ prompt rules สำหรับทุก mode/view
+    - Done: `2026-11-03 21:36:06 +07:00`
+    - Note: บังคับ schema ให้ตอบ headline, next action, reasons, checks และ confidence; เพิ่ม token budget เป็น 1,400 เพื่อรองรับข้อมูลใหม่
+  - [x] เพิ่ม Decision Support card ในผลลัพธ์ พร้อมเหตุผล/checklist/confidence
+    - Done: `2026-11-03 21:36:06 +07:00`
+    - Note: แสดงการ์ดเขียวก่อนรายละเอียดทั่วไป อ่านได้ทั้ง light/dark และปรับเป็นหนึ่งคอลัมน์บนจอเล็ก
+  - [x] เพิ่ม regression ทดสอบ อัปเดต Version และ `plan.md`
+    - Done: `2026-11-03 21:36:06 +07:00`
+    - Result: ผ่าน syntax, `test:ai-investment`, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`; version `Think2 AI Decision Support v0.6.1`, build `20261103-2135`
+  - [ ] commit, push, deploy และตรวจ production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T203 บน branch `codex/beginner-ai-companion-ui`
+  - AI ต้องให้ความเห็นที่ actionable แต่ใช้คำว่า `น่าศึกษาต่อ`, `ควรตรวจ`, `ควรชะลอ` ไม่ใช้คำสั่งซื้อ/ขายหรือรับประกันผลตอบแทน
+
 ### T202 - Scope Sector AI to Current Filters
 
 - สถานะ: Done
