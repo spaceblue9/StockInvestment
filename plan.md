@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T200 - Fix Business Light Theme Action Cards
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-03 20:52:48 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ปัญหาจากภาพจริง: การ์ด User roles, Advisor assignment, Workspace control, Billing monitor, Database readiness และ Production guard ยังใช้พื้นหลังดำจากธีมมืด แต่ข้อความในธีมสว่างเปลี่ยนเป็นสีเข้ม ทำให้อ่านแทบไม่ได้
@@ -60,7 +60,10 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] เพิ่ม regression, ทดสอบ และอัปเดต Version
     - Done: `2026-11-03 20:54:32 +07:00`
     - Result: ผ่าน syntax, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`; version `Think2 Business Theme Fix v0.5.8`, build `20261103-2055`
-  - [ ] commit, push, deploy และตรวจ production
+  - [x] commit, push, deploy และตรวจ production
+    - Done: `2026-11-03 20:55:58 +07:00`
+    - Result: commit `bc2b0cb` push สำเร็จ; deployment `dpl_9GfCNh5Y3VRqMMmHe2rF4m1YfgXZ` READY
+    - Verification: production HTML ใช้ cache build `20261103-2055` และ production CSS มี light-theme overrides ของ `.admin-action-card`; ผลหน้าจอหลัง login ให้เอกตรวจหลัง `Ctrl+F5`
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T200 บน branch `codex/beginner-ai-companion-ui`
