@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T197 - Circular Hint Icons and Multi-Symbol Search
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-03 20:19:36 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ปัญหา:
@@ -67,7 +67,10 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] เพิ่ม regression, ทดสอบ, อัปเดต Version/`plan.md`
     - Done: `2026-11-03 20:20:56 +07:00`
     - Result: ผ่าน syntax, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`; version `Think2 Multi Search v0.5.5`, build `20261103-2025`
-  - [ ] commit, push, deploy และตรวจ production
+  - [x] commit, push, deploy และตรวจ production
+    - Done: `2026-11-03 20:22:14 +07:00`
+    - Result: commit `485c131` push สำเร็จ; deployment `dpl_CvDWZL1q7C4iF2Fzb4xh915AoKAm` READY
+    - Verification: production HTML ใช้ cache build `20261103-2025`; authenticated multi-search visual result ให้เอกตรวจหลัง `Ctrl+F5`
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T197 บน branch `codex/beginner-ai-companion-ui`
