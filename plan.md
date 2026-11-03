@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T195 - Align Screener Hint Icons
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-03 19:57:44 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ปัญหา: `.filter-label-row` ใช้ `justify-content: space-between` ทำให้ไอคอน `?` ถูกผลักไปชิดขวาสุดของแต่ละช่องและดูไม่สัมพันธ์กับชื่อ Filter
@@ -62,7 +62,10 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] เพิ่ม regression, ทดสอบ responsive, อัปเดต Version/`plan.md`
     - Done: `2026-11-03 19:59:08 +07:00`
     - Result: ผ่าน syntax, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`; version `Think2 Aligned Hints v0.5.3`, build `20261103-2005`
-  - [ ] commit, push, deploy และตรวจ production
+  - [x] commit, push, deploy และตรวจ production
+    - Done: `2026-11-03 20:00:22 +07:00`
+    - Result: commit `b82e312` push สำเร็จ; deployment `dpl_FhUWoU47CeKu4anzhYCbky8FZKAN` READY
+    - Verification: production HTML ใช้ cache build `20261103-2005`; authenticated visual result ให้เอกตรวจหลัง `Ctrl+F5`
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T195 บน branch `codex/beginner-ai-companion-ui`
