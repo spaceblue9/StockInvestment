@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T193 - Open AI Companion from Reason Guide
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-03 15:32:00 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ปัญหา: ปุ่ม `ให้ AI อธิบายต่อ` เรียก AI แบบ drawer แต่ไม่ได้ตั้ง `drawerOpen=true` จึงส่งคำขอโดย Drawer ยังซ่อนอยู่และผู้ใช้ไม่เห็น loading/result/error
@@ -59,8 +59,11 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] เพิ่ม regression และรันทดสอบ AI/frontend
     - Done: `2026-11-03 15:33:04 +07:00`
     - Result: ผ่าน syntax, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth`, `test:ai-investment` และ `git diff --check`
-  - [ ] อัปเดต Version/`plan.md`, commit, push, deploy และตรวจ production
-    - Version prepared: `Think2 AI Reason Hotfix v0.5.1`, build `20261103-1535`
+  - [x] อัปเดต Version/`plan.md`, commit, push, deploy และตรวจ production
+    - Done: `2026-11-03 15:34:29 +07:00`
+    - Result: version `Think2 AI Reason Hotfix v0.5.1`, build `20261103-1535`, commit `3b04612` push สำเร็จ
+    - Production: deployment `dpl_4HznDxFFJ1zqmHwdFwiqVcGHWfY9` READY; HTML production ใช้ cache build ใหม่แล้ว
+    - Limit: automated tests ใช้ mocked OpenRouter; การตอบจริงจาก OpenRouter ให้เอกกดทดสอบหลัง `Ctrl+F5`
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T193 บน branch `codex/beginner-ai-companion-ui`
