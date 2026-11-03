@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T202 - Scope Sector AI to Current Filters
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-03 21:21:41 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ปัญหาจากภาพจริง: หน้า Sector เลือก Sector/Min Score/Price position แล้ว แต่ AI Companion ยังมีโอกาสใช้ recommendations ทุกกลุ่มแทนรายการที่ผู้ใช้กำลังสนใจ
@@ -63,7 +63,10 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] ปรับคำถาม AI ให้ตรงกับ Sector ที่เลือก ทดสอบ และอัปเดต Version
     - Done: `2026-11-03 21:23:33 +07:00`
     - Result: เปลี่ยนคำถามเป็น `Sector ที่เลือกกระจุกตัวในหุ้นใด`; ผ่าน syntax, `test:ai-investment`, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`; version `Think2 Sector AI Scope v0.6.0`, build `20261103-2125`
-  - [ ] commit, push, deploy และตรวจ production
+  - [x] commit, push, deploy และตรวจ production
+    - Done: `2026-11-03 21:25:09 +07:00`
+    - Result: commit `f8b972e` push สำเร็จ; deployment `dpl_7uKt4aUVSk6ZiKEYHPJu94fGQZ16` READY
+    - Verification: production HTML ใช้ cache build `20261103-2125`; production app.js มี Sector filtered rows/summary และคำถาม AI ใหม่ครบ
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T202 บน branch `codex/beginner-ai-companion-ui`
