@@ -21,6 +21,7 @@
     "test:audit-trail": "node scripts/auditTrailRepositoryRegression.js",
     "test:approval-workflow": "node scripts/approvalWorkflowRegression.js",
     "test:entitlements": "node scripts/entitlementPolicyRegression.js",
+    "test:ai-investment": "node scripts/aiInvestmentServiceRegression.js",
     "test:payment-provider": "node scripts/paymentProviderRegression.js",
     "test:audit-external": "node scripts/auditTrailExternalProviderRegression.js",
     "test:dependency-risk": "node scripts/dependencyRiskRegression.js",

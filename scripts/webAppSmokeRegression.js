@@ -46,6 +46,13 @@ try {
   const unauthOps = await fetch(`${baseUrl}/api/ops/readiness`);
   assertEqual(unauthOps.status, 401, "Operational readiness should require login.");
 
+  const unauthAi = await fetch(`${baseUrl}/api/ai/explain`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode: "portfolio" }),
+  });
+  assertEqual(unauthAi.status, 401, "AI Assistant should require login.");
+
   const unauthPortfolioTemplate = await fetch(`${baseUrl}/api/analysis/template/portfolio`);
   assertEqual(unauthPortfolioTemplate.status, 401, "Anonymous users should not download portfolio templates.");
 
@@ -261,6 +268,10 @@ try {
     "Decision Engine Mode",
     "Effective Target Action",
     "data-score-matrix-guide",
+    "data-ai-assistant",
+    "ai.investment_explainer",
+    "/api/ai/explain",
+    "AI อธิบายจากข้อมูลวิเคราะห์ล่าสุดเท่านั้น",
     "Score matrix แบบอ่านง่าย",
     "scoreStatusForValue",
     "score-status-dot",
@@ -392,6 +403,8 @@ try {
     ".status-badge",
     ".table-warning-text",
     ".score-matrix-guide",
+    ".ai-assistant-panel",
+    ".ai-result-grid",
     ".score-matrix-cards",
     ".score-matrix-card",
     ".score-card-header",
@@ -454,6 +467,7 @@ try {
       "subscription-plans",
       "admin-auth-guard",
       "ops-auth-guard",
+      "ai-auth-guard",
       "anonymous-analysis-download-guard",
       "authenticated-analysis-downloads",
       "raw-csv-public-filename",

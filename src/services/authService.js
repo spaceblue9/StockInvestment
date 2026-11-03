@@ -93,6 +93,11 @@ const FEATURE_POLICIES = {
     requiredPlanId: "pro",
     description: "Read action-level guidance for each holding and sector leader.",
   },
+  "ai.investment_explainer": {
+    label: "AI investment explainer",
+    requiredPlanId: "pro",
+    description: "Use AI to explain Think2 results, compare sector peers, and summarize portfolio risks in beginner-friendly language.",
+  },
   "client.workspace": {
     label: "Client workspace",
     requiredPlanId: "advisor",
@@ -1343,6 +1348,20 @@ export async function recordAuditEvent(event) {
   return publicAuditEvent(auditEvent);
 }
 
+export async function countUserAuditEventsSince(userId, action, since) {
+  if (!userId || !action) {
+    return 0;
+  }
+
+  const state = await readState();
+  const sinceTime = new Date(since).getTime();
+  return (state.auditEvents || []).filter((event) => (
+    event.actorUserId === userId
+    && normalizeAuditAction(event.action) === normalizeAuditAction(action)
+    && new Date(event.createdAt).getTime() >= sinceTime
+  )).length;
+}
+
 export async function listOrganizations(viewerUserId) {
   const { state, viewer } = await readScopedStateForViewer(viewerUserId, "organizations_read");
 
@@ -2199,7 +2218,7 @@ export function subscriptionPlans() {
       billing: "monthly",
       highlighted: true,
       bestFor: "Active investors who want simulation and sector intelligence.",
-      features: ["Everything in Starter", "Strategy simulation", "Sector leaders", "Action plan per holding"],
+      features: ["Everything in Starter", "AI investment explainer", "Strategy simulation", "Sector leaders", "Action plan per holding"],
       entitlements: planFeatureIds("pro"),
       launchStatus: "available",
       publicLaunch: true,

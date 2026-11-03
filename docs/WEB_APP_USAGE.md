@@ -1,5 +1,23 @@
 # คู่มือใช้งาน Node.js Web App
 
+## Pro AI Assistant ผ่าน OpenRouter
+
+แพ็กเกจ Pro มี AI ช่วยอธิบายผล Portfolio ล่าสุดจาก Think2 เป็นภาษาง่าย โดย Think2 ยังเป็นระบบตัดสินใจหลัก ส่วน AI มีหน้าที่อธิบาย เปรียบเทียบข้อมูลหุ้นในกลุ่มเดียวกัน และเสนอคำถามที่ควรศึกษาต่อเท่านั้น
+
+กำหนด Environment Variables ต่อไปนี้บน Server หรือ Vercel ก่อนเปิดใช้งาน:
+
+```text
+OPENROUTER_API_KEY=<secret key from OpenRouter>
+OPENROUTER_MODEL=openai/gpt-4o-mini
+OPENROUTER_MONTHLY_REQUEST_LIMIT=40
+OPENROUTER_TIMEOUT_MS=25000
+APP_PUBLIC_URL=https://your-production-domain.example
+```
+
+ห้ามใส่ `OPENROUTER_API_KEY` ใน Frontend หรือ Commit ลง Git ระบบส่งเฉพาะข้อมูลตลาดและผล Think2 ที่อยู่ในรายการอนุญาต ไม่ส่งชื่อสมาชิก อีเมล ชื่อไฟล์ที่ Upload หรือ Password พร้อมกำหนดให้เลือก Provider แบบ Zero Data Retention และไม่อนุญาตการเก็บข้อมูล
+
+ใช้คำสั่ง `npm run test:ai-investment` เพื่อตรวจ Privacy allowlist, Structured Output และการอ่านคำตอบจำลอง โดยไม่เสียเครดิต OpenRouter
+
 เอกสารนี้อธิบายวิธีใช้งาน Web App รุ่น Node.js สำหรับโปรแกรมวิเคราะห์หุ้นไทย โดยยังคงสูตรวิเคราะห์หลักจากระบบ Python เดิม
 
 ## สถานะปัจจุบัน

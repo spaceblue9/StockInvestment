@@ -44,6 +44,59 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T183 - Pro AI Investment Explainer via OpenRouter
+
+- สถานะ: Done (implementation ready; production activation waits for secret)
+- เริ่มเมื่อ: `2026-11-03 09:08:54 +07:00`
+- Branch: `codex/pro-ai-openrouter-mvp`
+- เป้าหมาย:
+  - ทำให้ Pro แตกต่างจาก Starter อย่างชัดเจนด้วย AI ที่ช่วยอธิบายข้อมูล Think2 เป็นภาษาง่าย
+  - AI ต้องไม่คำนวณคะแนน ราคา หรือ Target Action ใหม่ และต้องไม่ออกคำสั่งซื้อขายแทนผู้ใช้
+  - ใช้ OpenRouter ผ่าน backend เท่านั้น ไม่เปิดเผย API key และไม่ส่งชื่อ/email/ไฟล์พอร์ตต้นฉบับไปยัง AI
+- ขอบเขต MVP:
+  - AI Portfolio Summary: สรุปความเสี่ยง การกระจุกตัว จุดแข็ง และคำถามที่ควรศึกษาต่อ
+  - AI Stock Explainer: อธิบายธุรกิจและผลคะแนนของหุ้นที่ผู้ใช้เลือก
+  - AI Peer Comparison: เปรียบเทียบกับหุ้นใน sector เดียวกันจากข้อมูลที่โปรแกรมมี
+  - Structured output, disclaimer, source/data timestamp, quota และ audit event
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md`, ตรวจ entitlement/portfolio flow และสร้าง branch ใหม่
+  - [x] เพิ่ม feature entitlement `ai.investment_explainer` สำหรับ Pro
+    - Done: `2026-11-03 09:11:00 +07:00`
+    - Note: เพิ่ม AI Investment Explainer ในสิทธิ์ Pro โดย Starter เห็นหน้าเสนออัปเกรดแทน
+  - [x] เพิ่ม OpenRouter service ที่มี timeout, structured output validation, privacy-safe payload และ graceful error
+    - Done: `2026-11-03 09:12:00 +07:00`
+    - Note: ส่งเฉพาะ allowlisted Think2 fields, เปิด ZDR, ปฏิเสธ provider data collection และไม่ส่ง PII/ชื่อไฟล์
+  - [x] เพิ่ม API สำหรับ portfolio summary, stock explanation และ peer comparison พร้อม auth/Pro guard
+    - Done: `2026-11-03 09:13:00 +07:00`
+    - Note: เพิ่ม `/api/ai/status` และ `/api/ai/explain`; ต้อง login, มี Pro และมีผลวิเคราะห์ล่าสุด
+  - [x] เพิ่ม quota ต่อผู้ใช้และ usage metadata เพื่อควบคุมต้นทุน
+    - Done: `2026-11-03 09:13:00 +07:00`
+    - Note: ค่าเริ่มต้น 40 ครั้ง/เดือน/ผู้ใช้ เก็บ model/token/cost metadata ใน audit โดยไม่เก็บ prompt หรือคำตอบ AI
+  - [x] เพิ่มหน้า Pro AI Assistant ใน Portfolio พร้อม loading/error/result/disclaimer
+    - Done: `2026-11-03 09:15:00 +07:00`
+    - Note: รองรับสรุปพอร์ต อธิบายหุ้นรายตัว และเทียบหุ้น sector เดียวกัน พร้อม responsive layout
+  - [x] เพิ่ม environment documentation โดยไม่ commit API key
+    - Done: `2026-11-03 09:16:00 +07:00`
+    - Note: เพิ่มวิธีตั้งค่าใน `docs/WEB_APP_USAGE.md`; ไม่มี secret ถูกเขียนลง repository
+  - [x] เพิ่ม regression สำหรับ entitlement, prompt privacy, API guard และ frontend markers
+    - Done: `2026-11-03 09:17:00 +07:00`
+    - Note: เพิ่ม `test:ai-investment` และขยาย web smoke ให้ตรวจ auth guard กับ frontend/style markers
+  - [x] รัน regression ที่เกี่ยวข้องและตรวจ diff
+    - Done: `2026-11-03 09:18:02 +07:00`
+    - Result: ผ่าน syntax checks, `test:ai-investment`, `test:entitlements`, `test:web-smoke`, `test:frontend-auth`, `test:subscription-lifecycle` และ `git diff --check`
+  - [x] deploy เฉพาะเมื่อมี `OPENROUTER_API_KEY` ใน Vercel Production
+    - Done: `2026-11-03 09:18:02 +07:00`
+    - Result: ยังไม่ Deploy เพราะ environment ปัจจุบันไม่มี `OPENROUTER_API_KEY`; ต้องเพิ่ม secret บน Vercel ก่อนแล้วจึง Deploy
+  - [ ] อัปเดต `plan.md`, commit และ push branch
+    - Updated: `2026-11-03 09:19:00 +07:00`
+    - Result: commit สำเร็จบน branch แต่ push ถูก GitHub ปฏิเสธด้วย `Invalid username or token`; รอเอก login GitHub ใหม่แล้วใช้ `git push -u origin codex/pro-ai-openrouter-mvp`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T183 บน branch `codex/pro-ai-openrouter-mvp`
+  - Think2 เป็นแหล่งคะแนนและ action หลัก; AI มีหน้าที่อธิบาย/เปรียบเทียบเท่านั้น
+  - ห้ามส่ง PII, email, userId, filename, raw workbook หรือ API key ไป OpenRouter
+  - ห้าม commit `.env`, `.vercel`, workbook, portfolio ส่วนตัว หรือ secret ทุกชนิด
+
 ### T182 - Cache Postgres Schema Bootstrap for Faster Auth
 
 - สถานะ: Done

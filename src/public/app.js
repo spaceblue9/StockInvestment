@@ -73,6 +73,14 @@ const state = {
   analysisClickCount: 0,
   lastAnalysisTriggerAt: 0,
   entitlementErrors: {},
+  aiAssistant: {
+    mode: "portfolio",
+    symbol: "",
+    loading: false,
+    result: null,
+    error: "",
+    quota: null,
+  },
 };
 
 const recommendedActionFields = [
@@ -475,6 +483,11 @@ document.querySelectorAll("[data-view]").forEach((button) => {
   });
 });
 document.addEventListener("click", (event) => {
+  const aiRunButton = event.target.closest("[data-ai-run]");
+  if (aiRunButton) {
+    runAiInvestmentExplanation();
+  }
+
   const upgradeButton = event.target.closest("[data-upgrade-plan]");
   if (upgradeButton) {
     requestPlan(upgradeButton.dataset.upgradePlan);
@@ -1634,11 +1647,127 @@ function renderPortfolioView() {
     ${renderScoreMatrixGuide(rows)}
     ${renderPortfolioQuickGuidance({ gainLossPct, urgentRows, avgScore: average(rows, "Total_Score") })}
     ${renderPortfolioVisuals(rows)}
+    ${renderAiAssistantPanel(rows)}
     <h3>Recommended actions</h3>
     ${renderRecommendedActionsControls(rows)}
     <div id="recommendedActionsOutput" data-recommended-actions-output></div>
   `;
   attachRecommendedActionsControls(rows);
+  attachAiAssistantControls(rows);
+}
+
+function renderAiAssistantPanel(rows) {
+  if (!hasEntitlement("ai.investment_explainer")) {
+    const feature = featurePolicy("ai.investment_explainer");
+    return `
+      <section class="ai-assistant-panel ai-assistant-locked">
+        <div>
+          <p class="eyebrow">PRO</p>
+          <h3>AI ช่วยอ่านผล Think2</h3>
+          <p class="muted">อธิบายพอร์ต หุ้นรายตัว และเปรียบเทียบหุ้นในกลุ่มเดียวกันด้วยภาษาง่าย โดยไม่เปลี่ยนคะแนนหรือคำแนะนำเดิม</p>
+        </div>
+        <button type="button" data-upgrade-plan="${escapeHtml(feature.requiredPlanId || "pro")}">เลือกแพ็กเกจ Pro</button>
+      </section>
+    `;
+  }
+
+  const symbols = uniqueValues(rows.map((row) => row.Symbol).filter(Boolean));
+  const selectedSymbol = symbols.includes(state.aiAssistant.symbol) ? state.aiAssistant.symbol : symbols[0] || "";
+  state.aiAssistant.symbol = selectedSymbol;
+  const needsSymbol = state.aiAssistant.mode !== "portfolio";
+  const result = state.aiAssistant.result;
+
+  return `
+    <section class="ai-assistant-panel" data-ai-assistant>
+      <div class="ai-assistant-heading">
+        <div>
+          <p class="eyebrow">PRO AI ASSISTANT</p>
+          <h3>ช่วยอ่านผล Think2 แบบเข้าใจง่าย</h3>
+          <p class="muted">AI อธิบายจากข้อมูลวิเคราะห์ล่าสุดเท่านั้น ไม่คำนวณคะแนนใหม่และไม่ใช่คำแนะนำซื้อขายเฉพาะบุคคล</p>
+        </div>
+        ${state.aiAssistant.quota ? `<span class="ai-quota">เหลือ ${formatNumber(state.aiAssistant.quota.remaining)} ครั้งเดือนนี้</span>` : ""}
+      </div>
+      <div class="ai-controls">
+        <label>ต้องการให้ช่วยเรื่อง
+          <select data-ai-mode>
+            ${option("portfolio", "สรุปภาพรวมพอร์ต", state.aiAssistant.mode)}
+            ${option("stock", "อธิบายหุ้นรายตัว", state.aiAssistant.mode)}
+            ${option("compare", "เปรียบเทียบหุ้นกลุ่มเดียวกัน", state.aiAssistant.mode)}
+          </select>
+        </label>
+        <label class="${needsSymbol ? "" : "ai-control-hidden"}">หุ้นที่ต้องการดู
+          <select data-ai-symbol ${needsSymbol ? "" : "disabled"}>
+            ${symbols.map((symbol) => option(symbol, symbol, selectedSymbol)).join("")}
+          </select>
+        </label>
+        <button type="button" data-ai-run ${state.aiAssistant.loading ? "disabled" : ""}>
+          ${state.aiAssistant.loading ? "กำลังวิเคราะห์..." : "ให้ AI ช่วยอธิบาย"}
+        </button>
+      </div>
+      ${state.aiAssistant.error ? `<p class="ai-error">${escapeHtml(state.aiAssistant.error)}</p>` : ""}
+      ${result ? renderAiAssistantResult(result) : ""}
+    </section>
+  `;
+}
+
+function renderAiAssistantResult(result) {
+  const list = (title, values) => Array.isArray(values) && values.length
+    ? `<div><strong>${escapeHtml(title)}</strong><ul>${values.map((value) => `<li>${escapeHtml(value)}</li>`).join("")}</ul></div>`
+    : "";
+  return `
+    <article class="ai-result" aria-live="polite">
+      <h4>${escapeHtml(result.title || "ผลคำอธิบาย")}</h4>
+      <p>${escapeHtml(result.summary || "")}</p>
+      <div class="ai-result-grid">
+        ${list("ประเด็นสำคัญ", result.keyPoints)}
+        ${list("ความเสี่ยงที่ควรอ่านต่อ", result.risks)}
+        ${list("คำถามที่ควรศึกษาต่อ", result.nextQuestions)}
+        ${list("ข้อจำกัดของข้อมูล", result.dataLimitations)}
+      </div>
+      <p class="ai-disclaimer">${escapeHtml(result.disclaimer || "ข้อมูลนี้ใช้เพื่อการศึกษา ไม่ใช่คำแนะนำเฉพาะบุคคล")}</p>
+    </article>
+  `;
+}
+
+function attachAiAssistantControls(rows) {
+  const modeInput = viewOutput.querySelector("[data-ai-mode]");
+  const symbolInput = viewOutput.querySelector("[data-ai-symbol]");
+  modeInput?.addEventListener("change", () => {
+    state.aiAssistant.mode = modeInput.value;
+    state.aiAssistant.result = null;
+    state.aiAssistant.error = "";
+    renderPortfolioView();
+  });
+  symbolInput?.addEventListener("change", () => {
+    state.aiAssistant.symbol = symbolInput.value;
+    state.aiAssistant.result = null;
+    state.aiAssistant.error = "";
+  });
+}
+
+async function runAiInvestmentExplanation() {
+  if (state.aiAssistant.loading) return;
+  state.aiAssistant.loading = true;
+  state.aiAssistant.error = "";
+  state.aiAssistant.result = null;
+  renderPortfolioView();
+
+  try {
+    const response = await fetch("/api/ai/explain", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: state.aiAssistant.mode, symbol: state.aiAssistant.symbol }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.message || "AI Assistant could not finish.");
+    state.aiAssistant.result = payload.result;
+    state.aiAssistant.quota = payload.quota;
+  } catch (error) {
+    state.aiAssistant.error = error.message || "AI Assistant could not finish.";
+  } finally {
+    state.aiAssistant.loading = false;
+    renderPortfolioView();
+  }
 }
 
 function renderPortfolioDataWarning(rows) {

@@ -3,6 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import analysisRoutes from "./routes/analysisRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import aiRoutes from "./routes/aiRoutes.js";
 import { getDecisionEngineConfig } from "./services/decisionEngineConfigService.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -42,6 +43,7 @@ export function createApp() {
 
   app.use("/api", authRoutes);
   app.use("/api", analysisRoutes);
+  app.use("/api", aiRoutes);
   app.use("/api", (_req, res) => {
     res.status(404).json({
       ok: false,
