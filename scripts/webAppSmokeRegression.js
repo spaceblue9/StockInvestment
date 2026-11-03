@@ -144,8 +144,8 @@ try {
     "สว่างสบายตา",
     "มืดสบายตา",
     "Hide panel",
-    "/styles.css?v=20261103-1145",
-    "/app.js?v=20261103-1145",
+    "/styles.css?v=20261103-1205",
+    "/app.js?v=20261103-1205",
   ], "Main HTML should expose the dashboard navigation.");
   assert(!html.includes('data-view="onboarding"'), "Launch navigation should not expose the hidden Guide view.");
   assert(!html.includes('data-view="approvals"'), "Launch navigation should not expose the deferred Approvals view.");
@@ -181,9 +181,9 @@ try {
     "Sign in to analyze",
     "Create an account or sign in before downloading templates",
     "frontendBuildVersion",
-    "20261103-1145",
-    "Think2 AI Context Hotfix v0.3.3",
-    "codex/beginner-ai-companion-ui@20261103-1145",
+    "20261103-1205",
+    "Think2 Companion Layout Hotfix v0.3.4",
+    "codex/beginner-ai-companion-ui@20261103-1205",
     "penthammachat",
     "/api/subscription/request",
     "/api/admin/plan-requests",
@@ -279,6 +279,7 @@ try {
     "/api/ai/explain",
     "AI อธิบายจากข้อมูลวิเคราะห์ล่าสุดเท่านั้น",
     "aiCompanionPrompts",
+    "!visible || state.aiAssistant.drawerOpen",
     "เพื่อนช่วยอ่าน",
     "portfolio_review",
     "simulation_interpretation",

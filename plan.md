@@ -44,6 +44,27 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T188 - Prevent AI Floating Button from Covering Drawer Content
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-03 12:03:10 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ปัญหา: ปุ่มลอย `เพื่อนช่วยอ่าน` ยังแสดงเมื่อ Drawer เปิด จึงทับข้อความโควตาด้านล่าง
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และระบุสาเหตุจาก `aiCompanionButton.hidden = !visible`
+    - Done: `2026-11-03 12:03:10 +07:00`
+  - [x] ซ่อน floating button เมื่อ Drawer เปิด และแสดงกลับเมื่อปิด
+    - Done: `2026-11-03 12:04:00 +07:00`
+    - Note: render logic ซ่อนปุ่มเมื่อ `drawerOpen=true`; ปุ่ม `×` ยังปิด Drawer และเรียก render เพื่อแสดงปุ่มกลับ
+  - [x] เพิ่มพื้นที่ท้าย Drawer และ regression marker ป้องกันข้อความถูกบัง
+    - Done: `2026-11-03 12:04:00 +07:00`
+    - Note: เพิ่ม bottom padding ให้ quota และ smoke marker ตรวจเงื่อนไขซ่อนปุ่ม
+  - [ ] รัน regression, อัปเดต Version/`plan.md`, commit, push และ deploy production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T188 บน branch `codex/beginner-ai-companion-ui`
+  - ปุ่มปิด Drawer ต้องยังเข้าถึงได้ด้วย keyboard และ floating button ต้องกลับมาเมื่อปิด
+
 ### T187 - AI Companion Uses Current On-Screen Analysis Rows
 
 - สถานะ: Done

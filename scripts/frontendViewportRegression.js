@@ -25,8 +25,8 @@ assertIncludes(html, [
   'data-frontend-version',
   'leftRailToggle',
   'Hide panel',
-  '/styles.css?v=20261103-1145',
-  '/app.js?v=20261103-1145',
+  '/styles.css?v=20261103-1205',
+  '/app.js?v=20261103-1205',
 ], "HTML should expose viewport meta, brand, and primary dashboard navigation.");
 if (html.includes('data-view="approvals"')) {
   throw new Error("Launch navigation should not expose deferred Approvals.");
@@ -150,9 +150,9 @@ assertIncludes(appJs, [
   "Sign in to analyze",
   "Create an account or sign in before downloading templates",
   "frontendBuildVersion",
-  "20261103-1145",
-  "Think2 AI Context Hotfix v0.3.3",
-  "codex/beginner-ai-companion-ui@20261103-1145",
+  "20261103-1205",
+  "Think2 Companion Layout Hotfix v0.3.4",
+  "codex/beginner-ai-companion-ui@20261103-1205",
   "penthammachat",
   "/api/subscription/request",
   "/api/admin/plan-requests",

@@ -32,9 +32,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261103-1145";
-const programVersion = "Think2 AI Context Hotfix v0.3.3";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-1145";
+const frontendBuildVersion = "20261103-1205";
+const programVersion = "Think2 Companion Layout Hotfix v0.3.4";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-1205";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -1855,7 +1855,7 @@ function closeAiCompanionDrawer() {
 function renderAiCompanion() {
   const visible = Boolean(state.user && hasEntitlement("ai.investment_explainer") && state.activeView !== "business");
   if (!aiCompanionButton || !aiCompanionDrawer) return;
-  aiCompanionButton.hidden = !visible;
+  aiCompanionButton.hidden = !visible || state.aiAssistant.drawerOpen;
   if (!visible) {
     aiCompanionDrawer.hidden = true;
     return;

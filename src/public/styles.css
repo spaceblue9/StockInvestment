@@ -1167,7 +1167,13 @@ td select {
   padding: 12px;
 }
 
-.ai-companion-quota { color: var(--green-soft); font-size: 13px; margin: 0; text-align: right; }
+.ai-companion-quota {
+  color: var(--green-soft);
+  font-size: 13px;
+  margin: 0;
+  padding: 4px 0 18px;
+  text-align: right;
+}
 
 .score-matrix-intro {
   display: grid;
