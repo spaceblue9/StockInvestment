@@ -144,8 +144,8 @@ try {
     "สว่างสบายตา",
     "มืดสบายตา",
     "Hide panel",
-    "/styles.css?v=20261103-1434",
-    "/app.js?v=20261103-1434",
+    "/styles.css?v=20261103-1500",
+    "/app.js?v=20261103-1500",
   ], "Main HTML should expose the dashboard navigation.");
   assert(!html.includes('data-view="onboarding"'), "Launch navigation should not expose the hidden Guide view.");
   assert(!html.includes('data-view="approvals"'), "Launch navigation should not expose the deferred Approvals view.");
@@ -181,12 +181,14 @@ try {
     "Sign in to analyze",
     "Create an account or sign in before downloading templates",
     "frontendBuildVersion",
-    "20261103-1434",
-    "Think2 Today Review v0.4.0",
-    "codex/beginner-ai-companion-ui@20261103-1434",
+    "20261103-1500",
+    "Think2 Today Review Hotfix v0.4.1",
+    "codex/beginner-ai-companion-ui@20261103-1500",
     "data-today-review",
     "buildTodayReviewItems",
     "data-guided-action",
+    "focusRecommendedActionSymbol",
+    "renderTable(rows, selectedColumns, { stockHighlight: true })",
     "penthammachat",
     "/api/subscription/request",
     "/api/admin/plan-requests",

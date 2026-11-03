@@ -44,6 +44,30 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T191 - Fix Today Review Stock Buttons
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-03 14:56:12 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ปัญหา: ปุ่ม `เปิดหุ้นนี้` และ `ดูเหตุผล` เปลี่ยนหน้าแล้ว แต่ Recommended actions table ไม่ได้สร้าง `data-stock-row` จึงหาแถวหุ้นเพื่อ highlight/scroll ไม่พบและไม่มี feedback
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และตรวจ event/navigation/filter/table rendering
+    - Done: `2026-11-03 14:56:12 +07:00`
+  - [x] ทำให้ Recommended actions rows รองรับ stock highlight
+    - Done: `2026-11-03 14:57:19 +07:00`
+    - Note: ส่ง `{ stockHighlight: true }` ให้ตารางสร้าง `data-stock-row` สำหรับทุกแถว
+  - [x] ให้ปุ่ม Today Review เคลียร์ตัวกรองที่ซ่อนหุ้นและแสดงสถานะการโฟกัส
+    - Done: `2026-11-03 14:57:19 +07:00`
+    - Note: รีเซ็ต filter, ใส่ Symbol ในช่อง Search, render ตารางใหม่ แล้ว highlight/scroll ไปยังแถวเป้าหมาย
+  - [x] เพิ่ม regression, รันทดสอบ, อัปเดต Version และ `plan.md`
+    - Done: `2026-11-03 14:57:19 +07:00`
+    - Result: ผ่าน syntax, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`; version `Think2 Today Review Hotfix v0.4.1`, build `20261103-1500`
+  - [ ] commit, push, deploy และตรวจ production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T191 บน branch `codex/beginner-ai-companion-ui`
+  - ปุ่มต้องเลื่อนไปยังแถวหุ้นจริงและมีข้อความ feedback หากหาแถวไม่พบ
+
 ### T190 - Today Review and Guided Empty States
 
 - สถานะ: Done

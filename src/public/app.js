@@ -32,9 +32,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261103-1434";
-const programVersion = "Think2 Today Review v0.4.0";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-1434";
+const frontendBuildVersion = "20261103-1500";
+const programVersion = "Think2 Today Review Hotfix v0.4.1";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-1500";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -1797,7 +1797,18 @@ function handleGuidedAction(button) {
   state.activeView = button.dataset.guidedView || "portfolio";
   const symbol = button.dataset.guidedSymbol || "";
   renderActiveView();
-  if (symbol) requestAnimationFrame(() => highlightStockTableRow(symbol, viewOutput));
+  if (symbol) requestAnimationFrame(() => focusRecommendedActionSymbol(symbol));
+}
+
+function focusRecommendedActionSymbol(symbol) {
+  const panel = viewOutput.querySelector("[data-recommended-actions-controls]");
+  const search = panel?.querySelector("#actionSearch");
+  if (panel && search) {
+    resetRecommendedActionsControls(panel);
+    search.value = symbol;
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  requestAnimationFrame(() => highlightStockTableRow(symbol, viewOutput));
 }
 
 function renderAiAssistantPanel(rows) {
@@ -2329,7 +2340,7 @@ function renderRecommendedActionsOutput(rows, totalRows, selectedColumns, panel)
       <strong>${formatNumber(rows.length)} of ${formatNumber(totalRows)} actions shown</strong>
       <span>Order by ${escapeHtml(sortLabel)} ${escapeHtml(directionLabel)}${filters.length ? ` · ${escapeHtml(filters.join(" · "))}` : ""}</span>
     </div>
-    ${renderTable(rows, selectedColumns)}
+    ${renderTable(rows, selectedColumns, { stockHighlight: true })}
   `;
 }
 
