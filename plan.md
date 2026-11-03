@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T191 - Fix Today Review Stock Buttons
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-03 14:56:12 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ปัญหา: ปุ่ม `เปิดหุ้นนี้` และ `ดูเหตุผล` เปลี่ยนหน้าแล้ว แต่ Recommended actions table ไม่ได้สร้าง `data-stock-row` จึงหาแถวหุ้นเพื่อ highlight/scroll ไม่พบและไม่มี feedback
@@ -62,7 +62,10 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] เพิ่ม regression, รันทดสอบ, อัปเดต Version และ `plan.md`
     - Done: `2026-11-03 14:57:19 +07:00`
     - Result: ผ่าน syntax, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`; version `Think2 Today Review Hotfix v0.4.1`, build `20261103-1500`
-  - [ ] commit, push, deploy และตรวจ production
+  - [x] commit, push, deploy และตรวจ production
+    - Done: `2026-11-03 14:59:11 +07:00`
+    - Result: commit `4f10336` push สำเร็จ; deployment `dpl_e2FkbtwL1JfKSThQuEwkXUWML1hY` READY และ alias production สำเร็จ
+    - Verification: production HTML ใช้ build `20261103-1500`; automated regression ยืนยัน highlight rows และ focus helper แล้ว การคลิกด้วย session/portfolio จริงให้เอกตรวจหลัง `Ctrl+F5`
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T191 บน branch `codex/beginner-ai-companion-ui`
