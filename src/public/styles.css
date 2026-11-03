@@ -2555,19 +2555,23 @@ th {
 }
 
 .table-tooltip-card {
-  left: 0;
+  left: 50%;
   max-width: min(340px, calc(100vw - 48px));
   right: auto;
+  top: 50%;
+  margin: 0;
+  position: fixed;
   white-space: normal;
-  z-index: 60;
+  z-index: 100;
 }
 
-.table-header-help:hover .table-tooltip-card,
-.table-header-help:focus-within .table-tooltip-card {
+.table-tooltip-card:popover-open {
   opacity: 1;
-  transform: translateY(0);
+  transform: translate(-50%, -50%);
   visibility: visible;
 }
+
+.table-tooltip-card::backdrop { background: rgba(8, 14, 11, 0.3); }
 
 td:last-child {
   white-space: normal;

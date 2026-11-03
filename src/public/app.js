@@ -32,12 +32,13 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261103-1535";
-const programVersion = "Think2 AI Reason Hotfix v0.5.1";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-1535";
+const frontendBuildVersion = "20261103-1950";
+const programVersion = "Think2 Readable Hints v0.5.2";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-1950";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
+let tableTooltipCounter = 0;
 
 const state = {
   user: null,
@@ -1845,7 +1846,7 @@ function focusRecommendedActionSymbol(symbol) {
   const search = panel?.querySelector("#actionSearch");
   if (panel && search) {
     resetRecommendedActionsControls(panel);
-    search.value = symbol;
+    search.value = "";
     search.dispatchEvent(new Event("input", { bubbles: true }));
   }
   requestAnimationFrame(() => highlightStockTableRow(symbol, viewOutput));
@@ -5429,13 +5430,13 @@ function renderTableHeader(column) {
     return `<th>${escapeHtml(column)}</th>`;
   }
 
-  const tooltipId = `table-tip-${column.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+  const tooltipId = `table-tip-${column.replace(/[^a-zA-Z0-9_-]/g, "-")}-${++tableTooltipCounter}`;
   return `
     <th>
       <span class="table-header-help" data-table-header-hint="${escapeHtml(column)}">
         <span>${escapeHtml(column)}</span>
-        <button class="tooltip-trigger table-tooltip-trigger" type="button" aria-label="Explain ${escapeHtml(tip.title)}" aria-describedby="${tooltipId}">?</button>
-        <span id="${tooltipId}" class="tooltip-card table-tooltip-card" role="tooltip">
+        <button class="tooltip-trigger table-tooltip-trigger" type="button" aria-label="Explain ${escapeHtml(tip.title)}" popovertarget="${tooltipId}" popovertargetaction="toggle">?</button>
+        <span id="${tooltipId}" class="tooltip-card table-tooltip-card" role="tooltip" popover="auto">
           <strong>${escapeHtml(tip.title)}</strong>
           <span>คืออะไร: ${escapeHtml(tip.meaning)}</span>
           <span>ค่าที่น่าเริ่มดู: ${escapeHtml(tip.goodValue)}</span>

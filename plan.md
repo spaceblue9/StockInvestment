@@ -44,6 +44,33 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T194 - Show All Actions and Make Table Hints Readable
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-03 19:43:39 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ปัญหา:
+  - Today Review ใส่ Symbol ใน Search ค้างไว้ ทำให้ตารางเหลือ `1 of 29 actions shown`
+  - Tooltip อยู่ภายใน `.table-wrap` ที่ `overflow:auto` จึงถูกตัดเมื่อมีแถวข้อมูลน้อย และปุ่ม AI ลอยทับพื้นที่ด้านล่าง
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และตรวจ focus/filter/table tooltip CSS
+    - Done: `2026-11-03 19:43:39 +07:00`
+  - [x] รีเซ็ตตัวกรองและแสดงทุก action ก่อนเลื่อน/highlight หุ้น
+    - Done: `2026-11-03 19:45:50 +07:00`
+    - Note: ไม่ใส่ Symbol ใน Search อีกต่อไป; reset controls, render ทุก row แล้ว highlight/scroll เป้าหมาย
+  - [x] เปลี่ยน Table hint เป็น top-layer popover ที่ไม่ถูก table overflow หรือ AI button บัง
+    - Done: `2026-11-03 19:45:50 +07:00`
+    - Note: ใช้ native Popover API, ID ไม่ซ้ำ, เปิดด้วย click/keyboard และปิดด้วย light dismiss หรือ Esc
+  - [x] เพิ่ม regression และทดสอบ responsive/keyboard
+    - Done: `2026-11-03 19:45:50 +07:00`
+    - Result: ผ่าน syntax, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`
+  - [ ] อัปเดต Version/`plan.md`, commit, push, deploy และตรวจ production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T194 บน branch `codex/beginner-ai-companion-ui`
+  - การเปิดหุ้นต้องยังแสดงรายการทั้งหมดและใช้ highlight แทนการกรองเหลือหุ้นเดียว
+  - Table hint ต้องกดอ่านได้ด้วย keyboard และแสดงเหนือ overflow container
+
 ### T193 - Open AI Companion from Reason Guide
 
 - สถานะ: Done
