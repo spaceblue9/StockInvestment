@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T185 - Beginner-Friendly UI and Contextual AI Companion
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-03 10:07:57 +07:00`
 - Branch เป้าหมาย: `codex/beginner-ai-companion-ui`
 - เป้าหมาย:
@@ -81,7 +81,10 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] รัน regression, ตรวจภาพ desktop/mobile และตรวจ diff
     - Done: `2026-11-03 10:22:00 +07:00`
     - Result: ผ่าน `test:ai-investment`, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth`, syntax และ `git diff --check`; mobile viewport 553px ไม่มี horizontal overflow/console error
-  - [ ] อัปเดต `plan.md`, commit, push branch และ deploy production
+  - [x] อัปเดต `plan.md`, commit, push branch และ deploy production
+    - Done: `2026-11-03 10:27:00 +07:00`
+    - Result: commit `3fb52de` push ไป `origin/codex/beginner-ai-companion-ui`; Vercel deployment `dpl_8n5cqmttBV44WEg7FJ7TZhY2T4s6` สถานะ READY และ alias URL หลักสำเร็จ
+    - Production verification: health ok, พบ `Think2 AI Companion v0.3.1`, build `20261103-1020`, pink/green palette, snapshot fallback และ `.ai-companion-drawer` ครบ
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T185 บน branch `codex/beginner-ai-companion-ui`
