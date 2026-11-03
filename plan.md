@@ -44,6 +44,30 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T195 - Align Screener Hint Icons
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-03 19:57:44 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ปัญหา: `.filter-label-row` ใช้ `justify-content: space-between` ทำให้ไอคอน `?` ถูกผลักไปชิดขวาสุดของแต่ละช่องและดูไม่สัมพันธ์กับชื่อ Filter
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และตรวจ Screener filter markup/CSS
+    - Done: `2026-11-03 19:57:44 +07:00`
+  - [x] จัด label และ hint icon ให้อยู่ติดกันด้วยขนาด/ระยะห่างคงที่
+    - Done: `2026-11-03 19:59:08 +07:00`
+    - Note: เปลี่ยน `.filter-label-row` จาก `space-between` เป็น `flex-start` โดยคง gap 8px
+  - [x] ใช้ readable popover แบบเดียวกับ Table hint เพื่อไม่ให้คำอธิบายถูกตัด
+    - Done: `2026-11-03 19:59:08 +07:00`
+    - Note: Screener hint ใช้ native popover เปิดกลางจอและปิดด้วย light dismiss/Esc
+  - [x] เพิ่ม regression, ทดสอบ responsive, อัปเดต Version/`plan.md`
+    - Done: `2026-11-03 19:59:08 +07:00`
+    - Result: ผ่าน syntax, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`; version `Think2 Aligned Hints v0.5.3`, build `20261103-2005`
+  - [ ] commit, push, deploy และตรวจ production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T195 บน branch `codex/beginner-ai-companion-ui`
+  - ไอคอนต้องอยู่ต่อจาก label ไม่ลอยชิดขวา และ Hint ต้องเปิดได้ด้วย click/keyboard
+
 ### T194 - Show All Actions and Make Table Hints Readable
 
 - สถานะ: Done

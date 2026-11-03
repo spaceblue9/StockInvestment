@@ -32,9 +32,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261103-1950";
-const programVersion = "Think2 Readable Hints v0.5.2";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-1950";
+const frontendBuildVersion = "20261103-2005";
+const programVersion = "Think2 Aligned Hints v0.5.3";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-2005";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -3430,8 +3430,8 @@ function renderScreenerTooltip(tipKey) {
 
   return `
     <span class="screener-help-wrap" data-screener-tooltip="${escapeHtml(tipKey)}">
-      <button class="tooltip-trigger" type="button" aria-label="Explain ${escapeHtml(tip.title)}" aria-describedby="${tooltipId}">?</button>
-      <span id="${tooltipId}" class="tooltip-card" role="tooltip">
+      <button class="tooltip-trigger" type="button" aria-label="Explain ${escapeHtml(tip.title)}" popovertarget="${tooltipId}" popovertargetaction="toggle">?</button>
+      <span id="${tooltipId}" class="tooltip-card screener-tooltip-card" role="tooltip" popover="auto">
         <strong>${escapeHtml(tip.title)}</strong>
         <span>คืออะไร: ${escapeHtml(tip.meaning)}</span>
         <span>ค่าที่น่าเริ่มใช้: ${escapeHtml(tip.goodValue)}</span>
