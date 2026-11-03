@@ -144,8 +144,8 @@ try {
     "สว่างสบายตา",
     "มืดสบายตา",
     "Hide panel",
-    "/styles.css?v=20261103-1530",
-    "/app.js?v=20261103-1530",
+    "/styles.css?v=20261103-1535",
+    "/app.js?v=20261103-1535",
   ], "Main HTML should expose the dashboard navigation.");
   assert(!html.includes('data-view="onboarding"'), "Launch navigation should not expose the hidden Guide view.");
   assert(!html.includes('data-view="approvals"'), "Launch navigation should not expose the deferred Approvals view.");
@@ -181,9 +181,9 @@ try {
     "Sign in to analyze",
     "Create an account or sign in before downloading templates",
     "frontendBuildVersion",
-    "20261103-1530",
-    "Think2 Reason Guide v0.5.0",
-    "codex/beginner-ai-companion-ui@20261103-1530",
+    "20261103-1535",
+    "Think2 AI Reason Hotfix v0.5.1",
+    "codex/beginner-ai-companion-ui@20261103-1535",
     "data-today-review",
     "buildTodayReviewItems",
     "data-guided-action",
@@ -191,6 +191,7 @@ try {
     "renderTable(rows, selectedColumns, { stockHighlight: true })",
     "renderTodayReviewDetail",
     "ให้ AI อธิบายต่อ",
+    "state.aiAssistant.drawerOpen = true",
     "penthammachat",
     "/api/subscription/request",
     "/api/admin/plan-requests",

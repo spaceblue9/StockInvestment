@@ -32,9 +32,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261103-1530";
-const programVersion = "Think2 Reason Guide v0.5.0";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-1530";
+const frontendBuildVersion = "20261103-1535";
+const programVersion = "Think2 AI Reason Hotfix v0.5.1";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-1535";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -509,6 +509,7 @@ document.addEventListener("click", (event) => {
     state.aiAssistant.focus = aiPromptButton.dataset.aiCompanionPrompt || "";
     state.aiAssistant.mode = aiPromptButton.dataset.aiMode || "portfolio";
     state.aiAssistant.symbol = aiPromptButton.dataset.aiSymbol || bestContextSymbol();
+    state.aiAssistant.drawerOpen = true;
     runAiInvestmentExplanation({ drawer: true });
     return;
   }
