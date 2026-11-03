@@ -2907,9 +2907,19 @@ html[data-theme="light"] a {
 .today-review-info { border-left: 3px solid var(--green); }
 .guided-empty-state { display: grid; justify-items: start; gap: 10px; padding: 24px; border: 1px solid var(--line); background: var(--panel-2); }
 .guided-empty-state p { margin: 0; }
+.today-review-detail { margin-top: 14px; padding: 18px; border: 1px solid var(--green); background: var(--panel); }
+.today-review-detail-heading,
+.today-review-detail-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.today-review-detail h4 { margin: 0; font-size: 20px; }
+.today-review-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 14px 0; }
+.today-review-facts span { display: grid; gap: 2px; padding: 10px; border: 1px solid var(--line); background: var(--panel-2); }
+.today-review-facts small { color: var(--muted); }
+.today-review-detail-actions { justify-content: flex-start; flex-wrap: wrap; }
 
 @media (max-width: 720px) {
   .today-review-heading,
   .today-review-item { align-items: flex-start; flex-wrap: wrap; }
   .today-review-item button { width: 100%; }
+  .today-review-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .today-review-detail-actions button { width: 100%; }
 }

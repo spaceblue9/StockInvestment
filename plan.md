@@ -44,6 +44,36 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T192 - Explain Today Review Reasons Inline
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-03 15:24:32 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- เป้าหมาย:
+  - แยกหน้าที่ `เปิดหุ้นนี้` ให้เลื่อน/โฟกัสตาราง และ `ดูเหตุผล` ให้เปิดคำอธิบายทันที
+  - คำอธิบายต้องใช้ค่าจาก Think2 เดิม อ้างตัวเลขที่เกี่ยวข้อง และไม่สร้างคำสั่งซื้อขายใหม่
+  - ผู้ใช้ Pro สามารถส่งหุ้นที่กำลังอ่านให้ AI Companion อธิบายต่อได้
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และตรวจ state/fields/event ของ Today Review
+    - Done: `2026-11-03 15:24:32 +07:00`
+  - [x] เพิ่ม inline reason panel พร้อม Action, Score, RRR, Gain/Loss และคำเตือน
+    - Done: `2026-11-03 15:27:28 +07:00`
+    - Note: `ดูเหตุผล` เปิดแผงใน Today Review โดยอ่าน Effective/Target Action และค่าจาก row เดิม
+  - [x] เพิ่มปุ่มปิด/เปิดหุ้นในตาราง/ให้ AI อธิบายต่อ โดยรองรับ keyboard
+    - Done: `2026-11-03 15:27:28 +07:00`
+    - Note: ปุ่มเป็น native button; Pro เห็น AI continuation ส่วน Starter ยังอ่านเหตุผล deterministic ได้
+  - [x] เพิ่ม responsive styles และ regression
+    - Done: `2026-11-03 15:27:28 +07:00`
+    - Note: desktop แสดง 4 facts ต่อแถว; mobile ลดเหลือ 2 และปุ่มเต็มความกว้าง
+  - [x] รันทดสอบ อัปเดต Version และ `plan.md`
+    - Done: `2026-11-03 15:27:28 +07:00`
+    - Result: ผ่าน syntax, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth`, `test:ai-investment` และ `git diff --check`; version `Think2 Reason Guide v0.5.0`, build `20261103-1530`
+  - [ ] commit, push, deploy และตรวจ production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T192 บน branch `codex/beginner-ai-companion-ui`
+  - Inline reason ต้องอ้างข้อมูล row เดิมและต้องไม่ตีความเป็นคำสั่งซื้อขายเฉพาะบุคคล
+
 ### T191 - Fix Today Review Stock Buttons
 
 - สถานะ: Done

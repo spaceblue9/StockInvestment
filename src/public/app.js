@@ -32,9 +32,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261103-1500";
-const programVersion = "Think2 Today Review Hotfix v0.4.1";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-1500";
+const frontendBuildVersion = "20261103-1530";
+const programVersion = "Think2 Reason Guide v0.5.0";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-1530";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -77,6 +77,7 @@ const state = {
   analysisClickCount: 0,
   lastAnalysisTriggerAt: 0,
   entitlementErrors: {},
+  todayReviewDetailSymbol: "",
   aiAssistant: {
     mode: "portfolio",
     symbol: "",
@@ -1732,6 +1733,7 @@ function renderPortfolioView() {
 function renderTodayReview(rows) {
   const reviewItems = buildTodayReviewItems(rows).slice(0, 3);
   if (!reviewItems.length) return "";
+  const detailRow = rows.find((row) => row.Symbol === state.todayReviewDetailSymbol);
   return `
     <section class="today-review" data-today-review>
       <div class="today-review-heading">
@@ -1750,10 +1752,11 @@ function renderTodayReview(rows) {
               <strong>${escapeHtml(item.title)}</strong>
               <p>${escapeHtml(item.reason)}</p>
             </div>
-            <button type="button" data-guided-action="view" data-guided-view="${escapeHtml(item.view)}" data-guided-symbol="${escapeHtml(item.symbol || "")}">${escapeHtml(item.actionLabel)}</button>
+            <button type="button" data-guided-action="${item.showReason ? "reason" : "view"}" data-guided-view="${escapeHtml(item.view)}" data-guided-symbol="${escapeHtml(item.symbol || "")}" aria-expanded="${item.showReason ? String(item.symbol === state.todayReviewDetailSymbol) : "false"}">${escapeHtml(item.actionLabel)}</button>
           </article>
         `).join("")}
       </div>
+      ${detailRow ? renderTodayReviewDetail(detailRow) : ""}
     </section>
   `;
 }
@@ -1772,7 +1775,7 @@ function buildTodayReviewItems(rows) {
   }
   const action = ranked.find((row) => /Exit|Reduce|Sell/i.test(String(row.Target_Action || row.Effective_Target_Action || row.Advice || "")) && row.Symbol !== warning?.Symbol);
   if (action) {
-    items.push({ tone: "warning", title: `ทบทวนแผนของ ${action.Symbol}`, reason: `Think2 แสดง ${action.Target_Action || action.Effective_Target_Action || action.Advice} ควรอ่านคะแนน RRR และเหตุผลประกอบก่อนทำรายการ`, view: "portfolio", symbol: action.Symbol, actionLabel: "ดูเหตุผล" });
+    items.push({ tone: "warning", title: `ทบทวนแผนของ ${action.Symbol}`, reason: `Think2 แสดง ${action.Target_Action || action.Effective_Target_Action || action.Advice} ควรอ่านคะแนน RRR และเหตุผลประกอบก่อนทำรายการ`, view: "portfolio", symbol: action.Symbol, actionLabel: "ดูเหตุผล", showReason: true });
   }
   const sectorTotals = Object.entries(groupBy(rows, "Sector")).map(([sector, sectorRows]) => ({ sector, value: sum(sectorRows, "Market_Value") }));
   const totalValue = sum(rows, "Market_Value");
@@ -1788,7 +1791,43 @@ function buildTodayReviewItems(rows) {
   return items;
 }
 
+function renderTodayReviewDetail(row) {
+  const action = row.Effective_Target_Action || row.Target_Action || row.Advice || "ยังไม่มี Action";
+  const warningText = [row.Conflict_Alerts, row.Data_Warnings, row.Rationale].filter(Boolean).join(" · ") || "ไม่พบคำเตือนเพิ่มเติมในข้อมูลล่าสุด";
+  return `
+    <article class="today-review-detail" data-today-review-detail aria-live="polite">
+      <div class="today-review-detail-heading">
+        <div><p class="eyebrow">เหตุผลจาก THINK2</p><h4>${escapeHtml(row.Symbol)} · ${escapeHtml(action)}</h4></div>
+        <button class="icon-button" type="button" data-guided-action="close-reason" aria-label="ปิดเหตุผลของ ${escapeHtml(row.Symbol)}">×</button>
+      </div>
+      <div class="today-review-facts">
+        <span><small>คะแนนรวม</small><strong>${formatNumber(row.Total_Score)}</strong></span>
+        <span><small>RRR</small><strong>${formatNumber(row.RRR)}</strong></span>
+        <span><small>กำไร/ขาดทุน</small><strong>${formatNumber(row.Gain_Loss_Pct)}%</strong></span>
+        <span><small>ระดับคำเตือน</small><strong>${escapeHtml(row.Conflict_Severity || row.Data_Status || "ปกติ")}</strong></span>
+      </div>
+      <p><strong>ควรอ่านตรงไหน:</strong> ${escapeHtml(warningText)}</p>
+      <p class="muted">ใช้ข้อมูลนี้เพื่อตรวจสอบเหตุผลและวางแผนศึกษาต่อ ไม่ใช่คำสั่งให้ซื้อหรือขายทันที</p>
+      <div class="today-review-detail-actions">
+        <button type="button" data-guided-action="view" data-guided-view="portfolio" data-guided-symbol="${escapeHtml(row.Symbol)}">เปิดหุ้นในตาราง</button>
+        ${hasEntitlement("ai.investment_explainer") ? `<button type="button" class="ghost-button" data-ai-companion-prompt="screener_risks" data-ai-mode="stock" data-ai-symbol="${escapeHtml(row.Symbol)}">ให้ AI อธิบายต่อ</button>` : ""}
+      </div>
+    </article>
+  `;
+}
+
 function handleGuidedAction(button) {
+  if (button.dataset.guidedAction === "reason") {
+    state.todayReviewDetailSymbol = button.dataset.guidedSymbol || "";
+    renderPortfolioView();
+    requestAnimationFrame(() => viewOutput.querySelector("[data-today-review-detail]")?.scrollIntoView({ behavior: "smooth", block: "center" }));
+    return;
+  }
+  if (button.dataset.guidedAction === "close-reason") {
+    state.todayReviewDetailSymbol = "";
+    renderPortfolioView();
+    return;
+  }
   if (button.dataset.guidedAction === "upload") {
     if (state.leftRailCollapsed) toggleLeftRail();
     analysisForm?.scrollIntoView({ behavior: "smooth", block: "start" });
