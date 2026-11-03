@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T194 - Show All Actions and Make Table Hints Readable
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-03 19:43:39 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ปัญหา:
@@ -64,7 +64,11 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] เพิ่ม regression และทดสอบ responsive/keyboard
     - Done: `2026-11-03 19:45:50 +07:00`
     - Result: ผ่าน syntax, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`
-  - [ ] อัปเดต Version/`plan.md`, commit, push, deploy และตรวจ production
+  - [x] อัปเดต Version/`plan.md`, commit, push, deploy และตรวจ production
+    - Done: `2026-11-03 19:47:17 +07:00`
+    - Result: version `Think2 Readable Hints v0.5.2`, build `20261103-1950`, commit `5a7bc72` push สำเร็จ
+    - Production: deployment `dpl_4WRsd9BDWxEJpktHHGkCk9FfyoqC` READY; HTML production ใช้ cache build ใหม่แล้ว
+    - Limit: authenticated visual behavior ต้องให้เอกตรวจด้วยข้อมูลพอร์ตจริงหลัง `Ctrl+F5`
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T194 บน branch `codex/beginner-ai-companion-ui`
