@@ -29,9 +29,9 @@ const plansList = document.querySelector("#plansList");
 const businessViewButton = document.querySelector("[data-view='business']");
 const leftRailToggle = document.querySelector("#leftRailToggle");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20260708-0830";
-const programVersion = "Think2 Manual Plan Request v0.2.0";
-const githubDeployBuild = "codex/think2-safety-layer-planning@20260708-0830";
+const frontendBuildVersion = "20261103-0945";
+const programVersion = "Think2 Pro AI v0.3.0";
+const githubDeployBuild = "codex/pro-ai-openrouter-mvp@20261103-0945";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 

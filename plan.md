@@ -44,6 +44,40 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T184 - Deploy and Verify Pro AI Assistant
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-03 09:41:44 +07:00`
+- Branch: `codex/pro-ai-openrouter-mvp`
+- เป้าหมาย:
+  - Deploy Pro AI Assistant หลังเอกตั้งค่า OpenRouter Environment Variables และ Push Branch สำเร็จ
+  - ตรวจว่า Production เปิดใช้งานโค้ดใหม่, Secret ถูกอ่านได้ และ API ยังบังคับ Login/Pro ตามเดิม
+- งานที่ต้องทำ:
+  - [x] ตรวจ working tree, branch และ Commit บน GitHub
+    - Done: `2026-11-03 09:41:44 +07:00`
+    - Result: local และ remote branch ตรงกันที่ `fd38c1442caed6de0df1034207e2bbe8d05e7bd9`
+  - [x] Deploy Production บน Vercel
+    - Done: `2026-11-03 09:45:00 +07:00`
+    - Result: deployment `dpl_3qv3uYcx93ihRieeW2MLV6SZBywE` สถานะ READY และ alias `https://thai-stock-investment-web.vercel.app`
+  - [x] ตรวจ Production health, frontend markers และ AI auth guard
+    - Done: `2026-11-03 09:46:00 +07:00`
+    - Result: `/api/health` ตอบ ok, production bundle มี AI Assistant และ anonymous `/api/ai/explain` ได้ HTTP 401 ตามที่ออกแบบ
+  - [x] ยืนยัน AI configuration โดยไม่เปิดเผย Secret
+    - Done: `2026-11-03 09:47:00 +07:00`
+    - Result: พบชื่อ Environment Variables ทั้ง 5 ตัวใน Production และค่าทั้งหมดถูกซ่อนเป็น `Hidden`; ไม่มีการอ่านหรือแสดง Secret
+  - [x] อัปเดตเลข Version และ cache key สำหรับรุ่น Pro AI
+    - Done: `2026-11-03 09:48:00 +07:00`
+    - Result: `Think2 Pro AI v0.3.0`, build `20261103-0945`, branch `codex/pro-ai-openrouter-mvp`
+  - [x] รัน regression หลังปรับ Version
+    - Done: `2026-11-03 09:49:00 +07:00`
+    - Result: ผ่าน `test:ai-investment`, `test:web-smoke`, `test:frontend-viewport`, syntax และ `git diff --check`
+  - [ ] Commit, push และ Deploy Production รอบสุดท้าย
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T184 บน branch `codex/pro-ai-openrouter-mvp`
+  - ห้ามอ่าน แสดง หรือ commit ค่า `OPENROUTER_API_KEY`
+  - Think2 ต้องยังเป็น decision engine; AI เป็น explanation layer เท่านั้น
+
 ### T183 - Pro AI Investment Explainer via OpenRouter
 
 - สถานะ: Done (implementation ready; production activation waits for secret)
