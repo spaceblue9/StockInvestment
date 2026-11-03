@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T201 - Scope Screener AI to Current Filters
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-03 21:04:05 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ปัญหาจากภาพจริง: หลังกรองหุ้นใน Screener แล้ว AI Companion ยังอธิบายจาก recommendations ทั้งหมด ไม่ได้จำกัดเฉพาะรายการที่ผู้ใช้กำลังเห็น
@@ -63,7 +63,10 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] ทดสอบ อัปเดต Version และ `plan.md`
     - Done: `2026-11-03 21:06:53 +07:00`
     - Result: ผ่าน syntax, `test:ai-investment`, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`; version `Think2 Filtered AI Scope v0.5.9`, build `20261103-2110`
-  - [ ] commit, push, deploy และตรวจ production
+  - [x] commit, push, deploy และตรวจ production
+    - Done: `2026-11-03 21:08:22 +07:00`
+    - Result: commit `494dea5` push สำเร็จ; deployment `dpl_7KR7WcahtmKtsyR7V69rHeoLbeYk` READY
+    - Verification: production HTML ใช้ cache build `20261103-2110`; production app.js มี filtered rows, `contextView` และข้อความยืนยัน AI scope ครบ
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T201 บน branch `codex/beginner-ai-companion-ui`
