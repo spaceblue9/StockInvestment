@@ -141,8 +141,8 @@ try {
     "data-frontend-version",
     "leftRailToggle",
     "Hide panel",
-    "/styles.css?v=20261103-0945",
-    "/app.js?v=20261103-0945",
+    "/styles.css?v=20261103-1020",
+    "/app.js?v=20261103-1020",
   ], "Main HTML should expose the dashboard navigation.");
   assert(!html.includes('data-view="onboarding"'), "Launch navigation should not expose the hidden Guide view.");
   assert(!html.includes('data-view="approvals"'), "Launch navigation should not expose the deferred Approvals view.");
@@ -178,9 +178,9 @@ try {
     "Sign in to analyze",
     "Create an account or sign in before downloading templates",
     "frontendBuildVersion",
-    "20261103-0945",
-    "Think2 Pro AI v0.3.0",
-    "codex/pro-ai-openrouter-mvp@20261103-0945",
+    "20261103-1020",
+    "Think2 AI Companion v0.3.1",
+    "codex/beginner-ai-companion-ui@20261103-1020",
     "penthammachat",
     "/api/subscription/request",
     "/api/admin/plan-requests",
@@ -272,6 +272,10 @@ try {
     "ai.investment_explainer",
     "/api/ai/explain",
     "AI อธิบายจากข้อมูลวิเคราะห์ล่าสุดเท่านั้น",
+    "aiCompanionPrompts",
+    "เพื่อนช่วยอ่าน",
+    "portfolio_review",
+    "simulation_interpretation",
     "Score matrix แบบอ่านง่าย",
     "scoreStatusForValue",
     "score-status-dot",
@@ -388,7 +392,9 @@ try {
 
   const styles = await getText(`${baseUrl}/styles.css`);
   assertIncludes(styles, [
-    "--red: #e50914",
+    "--red: #ef6072",
+    "--pink-soft: #f5a7b5",
+    "--green-soft: #a8edc8",
     ".panel",
     ".analysis-status",
     ".analysis-links",
@@ -405,6 +411,8 @@ try {
     ".score-matrix-guide",
     ".ai-assistant-panel",
     ".ai-result-grid",
+    ".ai-companion-button",
+    ".ai-companion-drawer",
     ".score-matrix-cards",
     ".score-matrix-card",
     ".score-card-header",

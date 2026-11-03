@@ -25,8 +25,8 @@ assertIncludes(html, [
   'data-frontend-version',
   'leftRailToggle',
   'Hide panel',
-  '/styles.css?v=20261103-0945',
-  '/app.js?v=20261103-0945',
+  '/styles.css?v=20261103-1020',
+  '/app.js?v=20261103-1020',
 ], "HTML should expose viewport meta, brand, and primary dashboard navigation.");
 if (html.includes('data-view="approvals"')) {
   throw new Error("Launch navigation should not expose deferred Approvals.");
@@ -114,7 +114,9 @@ assertIncludes(styles, [
 ], "Stylesheet should include responsive viewport and tap-target safeguards.");
 
 assertIncludes(styles, [
-  "--red: #e50914",
+  "--red: #ef6072",
+  "--pink-soft: #f5a7b5",
+  "--green-soft: #a8edc8",
   "grid-template-columns: minmax(300px, 380px) 1fr",
   "grid-template-columns: 1fr;",
   ".table-wrap",
@@ -146,9 +148,9 @@ assertIncludes(appJs, [
   "Sign in to analyze",
   "Create an account or sign in before downloading templates",
   "frontendBuildVersion",
-  "20261103-0945",
-  "Think2 Pro AI v0.3.0",
-  "codex/pro-ai-openrouter-mvp@20261103-0945",
+  "20261103-1020",
+  "Think2 AI Companion v0.3.1",
+  "codex/beginner-ai-companion-ui@20261103-1020",
   "penthammachat",
   "/api/subscription/request",
   "/api/admin/plan-requests",

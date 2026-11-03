@@ -12,13 +12,14 @@ const snapshot = {
   ],
 };
 
-const context = buildAiInvestmentContext(snapshot, { mode: "compare", symbol: "AAA" });
+const context = buildAiInvestmentContext(snapshot, { mode: "compare", symbol: "AAA", focus: "sector_explain" });
 const serializedContext = JSON.stringify(context);
 assert.equal(serializedContext.includes("private@example.com"), false);
 assert.equal(serializedContext.includes("portfolio_private.xlsx"), false);
 assert.equal(context.selectedStock.Symbol, "AAA");
 assert.equal(context.peers[0].Symbol, "BBB");
 assert.equal(context.dataContract.companyProfileAvailable, false);
+assert.equal(context.focus, "sector_explain");
 
 const request = buildOpenRouterRequest(context);
 assert.equal(request.provider.zdr, true);
@@ -26,6 +27,7 @@ assert.equal(request.provider.data_collection, "deny");
 assert.equal(request.response_format.type, "json_schema");
 assert.match(request.messages[0].content, /Never calculate or replace Think2/u);
 assert.match(request.messages[0].content, /never infer it from the ticker/iu);
+assert.match(request.messages[1].content, /Explain sector strength/u);
 
 let sentRequest;
 const response = await generateAiInvestmentExplanation(snapshot, { mode: "stock", symbol: "AAA" }, {

@@ -44,6 +44,51 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T185 - Beginner-Friendly UI and Contextual AI Companion
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-03 10:07:57 +07:00`
+- Branch เป้าหมาย: `codex/beginner-ai-companion-ui`
+- เป้าหมาย:
+  - ทำให้หน้าจอสบายตา อ่านง่าย และใช้งานได้สำหรับผู้ที่ไม่ถนัด IT/การลงทุน
+  - เปลี่ยน AI จากกล่องเฉพาะ Portfolio ให้เป็น “เพื่อนช่วยอ่าน” ที่ใช้บริบทของหน้าปัจจุบันโดยไม่เปลี่ยนผล Think2
+  - แก้ UX ที่ข้อมูล Snapshot ขัดกับข้อมูลพอร์ต และเมนูแตกบรรทัด
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และตรวจ UX/CSS/AI flow ปัจจุบัน
+    - Done: `2026-11-03 10:07:57 +07:00`
+    - Note: พบ contrast ต่ำ, red-heavy background, เมนูมี track แคบ, Snapshot กับผลวิเคราะห์ใช้ state คนละจังหวะ และ AI อยู่เฉพาะ Portfolio
+  - [x] สร้าง branch แยกสำหรับงาน UX/AI companion
+    - Done: `2026-11-03 10:09:00 +07:00`
+    - Result: สร้าง `codex/beginner-ai-companion-ui` จาก Pro AI branch เดิม
+  - [x] ปรับสีหลักเป็นชมพูอ่อน/เขียวอ่อนบนพื้นเข้มที่อ่านง่าย โดยรักษา contrast และสถานะเตือน
+    - Done: `2026-11-03 10:15:00 +07:00`
+    - Note: ใช้ pink/green เป็น accent บน neutral dark background; สีความเสี่ยงเดิมยังแยกจากสถานะพร้อม
+  - [x] ปรับ font, line-height, ปุ่ม, input และ navigation ไม่ให้คำแตกหรืออ่านยาก
+    - Done: `2026-11-03 10:15:00 +07:00`
+    - Note: เพิ่ม Thai-friendly font fallback, line-height, touch target 44px และ desktop nav width/nowrap พร้อม mobile fallback
+  - [x] แก้ Snapshot ให้แสดงข้อมูลบนจอเมื่อมีผลพอร์ต แม้ snapshot persistence ถูก defer
+    - Done: `2026-11-03 10:16:00 +07:00`
+    - Note: ถ้า snapshot ยังไม่ถูกบันทึก ระบบสร้าง summary จาก `portfolioRows` บนจอและระบุว่าเป็น latest analysis on screen
+  - [x] เพิ่มแผง “เพื่อนช่วยอ่าน” แบบ context-aware และคำถามสำเร็จรูปสำหรับ Portfolio/Screener/Sector/Simulation
+    - Done: `2026-11-03 10:17:00 +07:00`
+    - Note: เพิ่ม floating button + drawer; คำถามเปลี่ยนตามเมนูและใช้ symbol ที่เด่นจากข้อมูลหน้าปัจจุบัน
+  - [x] จำกัด AI ให้ใช้ข้อมูล Think2/ข้อมูลหน้าปัจจุบัน ไม่สร้างคำสั่งซื้อขาย ราคาเป้าหมาย หรือผลตอบแทนรับประกัน
+    - Done: `2026-11-03 10:17:00 +07:00`
+    - Note: backend รับเฉพาะ focus ID ใน allowlist และยังใช้ system guard/structured output/privacy payload เดิม
+  - [x] เพิ่ม responsive/accessibility/frontend regression
+    - Done: `2026-11-03 10:21:00 +07:00`
+    - Note: เพิ่ม marker สำหรับ palette, companion drawer, prompt focus และ AI context task
+  - [x] รัน regression, ตรวจภาพ desktop/mobile และตรวจ diff
+    - Done: `2026-11-03 10:22:00 +07:00`
+    - Result: ผ่าน `test:ai-investment`, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth`, syntax และ `git diff --check`; mobile viewport 553px ไม่มี horizontal overflow/console error
+  - [ ] อัปเดต `plan.md`, commit, push branch และ deploy production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T185 บน branch `codex/beginner-ai-companion-ui`
+  - Think2 เป็น decision engine; AI ช่วยอธิบาย/จัดลำดับสิ่งที่ควรตรวจเท่านั้น
+  - ใช้สีชมพูอ่อนและเขียวอ่อนเป็น accent ไม่ใช้สีอ่อนเต็มพื้นจนแสบตา และต้องรักษาความหมายสีแดง/ส้ม/เหลืองของความเสี่ยง
+  - ห้ามส่ง PII, filename, workbook หรือ secret ไป OpenRouter
+
 ### T184 - Deploy and Verify Pro AI Assistant
 
 - สถานะ: Done

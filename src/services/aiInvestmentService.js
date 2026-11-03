@@ -5,6 +5,16 @@ const MAX_HOLDINGS = 25;
 const MAX_PEERS = 6;
 
 const allowedModes = new Set(["portfolio", "stock", "compare"]);
+const focusTasks = {
+  portfolio_review: "Prioritize which holdings need review first using severity, portfolio weight, loss, and data warnings.",
+  portfolio_warnings: "Explain the portfolio warnings and what facts the investor should verify before acting.",
+  portfolio_concentration: "Explain portfolio concentration and sector exposure in beginner-friendly language.",
+  screener_shortlist: "Explain why the strongest supplied screener rows passed the current quality and risk checks.",
+  screener_risks: "Explain hidden risks or conflicting signals in the supplied recommendation rows.",
+  sector_explain: "Explain sector strength, leaders, and shared risks using only the supplied rows.",
+  sector_concentration: "Explain whether the portfolio appears concentrated by sector and what to review next.",
+  simulation_interpretation: "Explain how to read a strategy simulation, emphasizing that backtests do not predict future returns.",
+};
 const stockFields = [
   "Symbol", "Sector", "Price", "Total_Score", "Quality_Score", "Valuation_Score",
   "Setup_Score", "Balance_Risk_Score", "Liquidity_Score", "Composite_Score_v2",
@@ -34,6 +44,7 @@ export function aiMonthlyRequestLimit() {
 
 export function buildAiInvestmentContext(snapshot, input = {}) {
   const mode = allowedModes.has(input.mode) ? input.mode : "portfolio";
+  const focus = Object.hasOwn(focusTasks, input.focus) ? input.focus : "";
   const portfolioRows = (snapshot?.portfolioRows || []).map(sanitizeStockRow).filter((row) => row.Symbol);
   const recommendations = (snapshot?.recommendations || []).map(sanitizeStockRow).filter((row) => row.Symbol);
   const symbol = cleanSymbol(input.symbol);
@@ -55,6 +66,7 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
 
   return {
     mode,
+    focus,
     generatedAt: snapshot?.generatedAt || "",
     dataContract: {
       scoringSource: "Think2 deterministic analysis",
@@ -75,6 +87,7 @@ export function buildOpenRouterRequest(context) {
     stock: "Explain the selected stock's Think2 metrics and warnings in beginner-friendly Thai. Do not invent its business description.",
     compare: "Compare the selected stock with supplied peers from the same sector using only supplied metrics.",
   }[context.mode];
+  const focusTask = context.focus ? focusTasks[context.focus] : "";
 
   return {
     model: process.env.OPENROUTER_MODEL || DEFAULT_MODEL,
@@ -108,7 +121,7 @@ export function buildOpenRouterRequest(context) {
       },
       {
         role: "user",
-        content: `${task}\n\nVerified application data:\n${JSON.stringify(context)}`,
+        content: `${task}${focusTask ? `\nFocus: ${focusTask}` : ""}\n\nVerified application data:\n${JSON.stringify(context)}`,
       },
     ],
   };

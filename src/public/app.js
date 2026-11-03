@@ -28,10 +28,12 @@ const customerSnapshot = document.querySelector("#customerSnapshot");
 const plansList = document.querySelector("#plansList");
 const businessViewButton = document.querySelector("[data-view='business']");
 const leftRailToggle = document.querySelector("#leftRailToggle");
+const aiCompanionButton = document.querySelector("#aiCompanionButton");
+const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261103-0945";
-const programVersion = "Think2 Pro AI v0.3.0";
-const githubDeployBuild = "codex/pro-ai-openrouter-mvp@20261103-0945";
+const frontendBuildVersion = "20261103-1020";
+const programVersion = "Think2 AI Companion v0.3.1";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-1020";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 
@@ -80,6 +82,8 @@ const state = {
     result: null,
     error: "",
     quota: null,
+    focus: "",
+    drawerOpen: false,
   },
 };
 
@@ -474,6 +478,7 @@ analysisForm.addEventListener("submit", runAnalysis);
 analysisSubmitButton.addEventListener("click", handleAnalysisButtonClick);
 analysisFileInputs.forEach((input) => input.addEventListener("change", updateFrontendDiagnostics));
 leftRailToggle?.addEventListener("click", toggleLeftRail);
+aiCompanionButton?.addEventListener("click", toggleAiCompanionDrawer);
 document.addEventListener("click", handleDelegatedAnalysisClick, true);
 document.addEventListener("pointerup", handleDelegatedAnalysisClick, true);
 document.querySelectorAll("[data-view]").forEach((button) => {
@@ -483,6 +488,21 @@ document.querySelectorAll("[data-view]").forEach((button) => {
   });
 });
 document.addEventListener("click", (event) => {
+  const aiCompanionClose = event.target.closest("[data-ai-companion-close]");
+  if (aiCompanionClose) {
+    closeAiCompanionDrawer();
+    return;
+  }
+
+  const aiPromptButton = event.target.closest("[data-ai-companion-prompt]");
+  if (aiPromptButton) {
+    state.aiAssistant.focus = aiPromptButton.dataset.aiCompanionPrompt || "";
+    state.aiAssistant.mode = aiPromptButton.dataset.aiMode || "portfolio";
+    state.aiAssistant.symbol = aiPromptButton.dataset.aiSymbol || bestContextSymbol();
+    runAiInvestmentExplanation({ drawer: true });
+    return;
+  }
+
   const aiRunButton = event.target.closest("[data-ai-run]");
   if (aiRunButton) {
     runAiInvestmentExplanation();
@@ -517,6 +537,7 @@ async function initialize() {
   updateFrontendDiagnostics();
   await Promise.all([checkHealth(), loadPlans(), loadCurrentUser()]);
   renderAuthState();
+  renderAiCompanion();
   renderPlans();
   if (state.user) {
     await Promise.all([loadSavedPortfolio(), loadBillingHistory(), loadPaymentSessions(), loadPlanRequests(), loadBusinessMetrics(), loadTeamUsers(), loadOrganizations(), loadAuditEvents(), loadTenantScope()]);
@@ -1544,7 +1565,7 @@ function clearAnalysisProgressTimers(timers) {
 }
 
 function renderSnapshot() {
-  const snapshot = state.savedSnapshot;
+  const snapshot = state.savedSnapshot || buildVisiblePortfolioSnapshot();
   if (!snapshot) {
     customerSnapshot.innerHTML = `
       <span>No portfolio saved yet</span>
@@ -1555,13 +1576,32 @@ function renderSnapshot() {
 
   const summary = snapshot.summary || {};
   customerSnapshot.innerHTML = `
-    <span>Last saved: ${formatDate(snapshot.generatedAt)}</span>
+    <span>${snapshot.visibleOnly ? "Latest analysis on screen" : `Last saved: ${formatDate(snapshot.generatedAt)}`}</span>
     <strong>${money(summary.marketValue || 0)} · ${formatNumber(summary.gainLossPct || 0)}% P/L</strong>
     <p class="muted">${summary.holdings || 0} holdings · ${summary.urgentActions || 0} urgent actions · Avg score ${formatNumber(summary.avgScore || 0)}</p>
   `;
 }
 
+function buildVisiblePortfolioSnapshot() {
+  if (!state.portfolioRows.length) return null;
+  const marketValue = sum(state.portfolioRows, "Market_Value");
+  const costValue = sum(state.portfolioRows, "Cost_Value");
+  const gainLoss = sum(state.portfolioRows, "Gain_Loss_Value");
+  return {
+    visibleOnly: true,
+    generatedAt: new Date().toISOString(),
+    summary: {
+      holdings: state.portfolioRows.length,
+      marketValue,
+      gainLossPct: costValue ? (gainLoss / costValue) * 100 : 0,
+      urgentActions: state.portfolioRows.filter((row) => /Exit|Reduce|Sell/i.test(String(row.Target_Action || row.Advice || ""))).length,
+      avgScore: average(state.portfolioRows, "Total_Score"),
+    },
+  };
+}
+
 function renderActiveView() {
+  renderAiCompanion();
   if (!state.user) {
     viewOutput.innerHTML = `
       <div class="metric-grid">
@@ -1745,18 +1785,19 @@ function attachAiAssistantControls(rows) {
   });
 }
 
-async function runAiInvestmentExplanation() {
+async function runAiInvestmentExplanation(options = {}) {
   if (state.aiAssistant.loading) return;
   state.aiAssistant.loading = true;
   state.aiAssistant.error = "";
   state.aiAssistant.result = null;
-  renderPortfolioView();
+  if (options.drawer) renderAiCompanion();
+  else renderPortfolioView();
 
   try {
     const response = await fetch("/api/ai/explain", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: state.aiAssistant.mode, symbol: state.aiAssistant.symbol }),
+      body: JSON.stringify({ mode: state.aiAssistant.mode, symbol: state.aiAssistant.symbol, focus: state.aiAssistant.focus }),
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.message || "AI Assistant could not finish.");
@@ -1766,8 +1807,93 @@ async function runAiInvestmentExplanation() {
     state.aiAssistant.error = error.message || "AI Assistant could not finish.";
   } finally {
     state.aiAssistant.loading = false;
-    renderPortfolioView();
+    if (options.drawer) renderAiCompanion();
+    else renderPortfolioView();
   }
+}
+
+function toggleAiCompanionDrawer() {
+  state.aiAssistant.drawerOpen = !state.aiAssistant.drawerOpen;
+  renderAiCompanion();
+}
+
+function closeAiCompanionDrawer() {
+  state.aiAssistant.drawerOpen = false;
+  renderAiCompanion();
+}
+
+function renderAiCompanion() {
+  const visible = Boolean(state.user && hasEntitlement("ai.investment_explainer") && state.activeView !== "business");
+  if (!aiCompanionButton || !aiCompanionDrawer) return;
+  aiCompanionButton.hidden = !visible;
+  if (!visible) {
+    aiCompanionDrawer.hidden = true;
+    return;
+  }
+
+  aiCompanionButton.setAttribute("aria-expanded", String(state.aiAssistant.drawerOpen));
+  aiCompanionDrawer.hidden = !state.aiAssistant.drawerOpen;
+  aiCompanionDrawer.setAttribute("aria-hidden", String(!state.aiAssistant.drawerOpen));
+  if (!state.aiAssistant.drawerOpen) return;
+
+  const prompts = aiCompanionPrompts(state.activeView);
+  aiCompanionDrawer.innerHTML = `
+    <div class="ai-companion-header">
+      <div>
+        <p class="eyebrow">PRO AI COMPANION</p>
+        <h2>เพื่อนช่วยอ่าน</h2>
+        <p>ช่วยอธิบายหน้า ${escapeHtml(viewLabel(state.activeView))} จากผล Think2 ล่าสุด</p>
+      </div>
+      <button class="icon-button" type="button" data-ai-companion-close aria-label="ปิดเพื่อนช่วยอ่าน">×</button>
+    </div>
+    <div class="ai-companion-note">เลือกคำถามที่ต้องการ ระบบจะไม่เปลี่ยนคะแนนหรือสั่งซื้อขายแทนคุณ</div>
+    <div class="ai-prompt-list">
+      ${prompts.map((prompt) => `
+        <button type="button" data-ai-companion-prompt="${escapeHtml(prompt.id)}" data-ai-mode="${escapeHtml(prompt.mode)}" data-ai-symbol="${escapeHtml(prompt.symbol || "")}" ${state.aiAssistant.loading ? "disabled" : ""}>
+          ${escapeHtml(prompt.label)}
+        </button>
+      `).join("")}
+    </div>
+    ${state.aiAssistant.loading ? '<div class="ai-companion-loading" aria-live="polite">กำลังอ่านข้อมูลและเรียบเรียงคำอธิบาย...</div>' : ""}
+    ${state.aiAssistant.error ? `<p class="ai-error">${escapeHtml(state.aiAssistant.error)}</p>` : ""}
+    ${state.aiAssistant.result ? renderAiAssistantResult(state.aiAssistant.result) : ""}
+    ${state.aiAssistant.quota ? `<p class="ai-companion-quota">เหลือ ${formatNumber(state.aiAssistant.quota.remaining)} ครั้งในเดือนนี้</p>` : ""}
+  `;
+}
+
+function aiCompanionPrompts(view) {
+  const symbol = bestContextSymbol();
+  const prompts = {
+    portfolio: [
+      { id: "portfolio_review", mode: "portfolio", label: "วันนี้ควรตรวจหุ้นตัวไหนก่อน" },
+      { id: "portfolio_warnings", mode: "portfolio", label: "อธิบายคำเตือนในพอร์ตให้เข้าใจง่าย" },
+      { id: "portfolio_concentration", mode: "portfolio", label: "พอร์ตกระจุกตัวตรงไหน" },
+    ],
+    screener: [
+      { id: "screener_shortlist", mode: "stock", symbol, label: "ทำไมหุ้นเด่นตัวแรกจึงน่าศึกษา" },
+      { id: "screener_risks", mode: "stock", symbol, label: "หุ้นเด่นมีความเสี่ยงซ่อนอยู่หรือไม่" },
+      { id: "portfolio_warnings", mode: "portfolio", label: "ตัวเลขใดที่มือใหม่ควรระวัง" },
+    ],
+    sector: [
+      { id: "sector_explain", mode: "compare", symbol, label: "อธิบายหุ้นผู้นำและคู่แข่งในกลุ่ม" },
+      { id: "sector_concentration", mode: "portfolio", label: "พอร์ตถือ Sector ใดมากเกินไป" },
+      { id: "screener_risks", mode: "stock", symbol, label: "ความเสี่ยงร่วมของหุ้นกลุ่มนี้คืออะไร" },
+    ],
+    simulation: [
+      { id: "simulation_interpretation", mode: "portfolio", label: "ควรอ่านผล Simulation อย่างไร" },
+      { id: "portfolio_warnings", mode: "portfolio", label: "ข้อจำกัดของ Backtest มีอะไรบ้าง" },
+    ],
+  };
+  return prompts[view] || prompts.portfolio;
+}
+
+function bestContextSymbol() {
+  const rows = state.activeView === "portfolio" ? state.portfolioRows : state.recommendations;
+  return rows.slice().sort((left, right) => numberValue(right.Total_Score) - numberValue(left.Total_Score))[0]?.Symbol || "";
+}
+
+function viewLabel(view) {
+  return { portfolio: "Portfolio", screener: "Screener", sector: "Sector", simulation: "Simulation" }[view] || "Portfolio";
 }
 
 function renderPortfolioDataWarning(rows) {

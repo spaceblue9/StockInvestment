@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>StockFlix Investor Studio</title>
-    <link rel="stylesheet" href="/styles.css?v=20261103-0945">
+    <link rel="stylesheet" href="/styles.css?v=20261103-1020">
   </head>
   <body>
     <header class="app-header">
@@ -136,6 +136,12 @@
       </section>
     </main>
 
-    <script type="module" src="/app.js?v=20261103-0945"></script>
+    <button id="aiCompanionButton" class="ai-companion-button" type="button" aria-controls="aiCompanionDrawer" aria-expanded="false" hidden>
+      <span aria-hidden="true">AI</span>
+      เพื่อนช่วยอ่าน
+    </button>
+    <aside id="aiCompanionDrawer" class="ai-companion-drawer" aria-label="เพื่อนช่วยอ่านผลลงทุน" aria-hidden="true" hidden></aside>
+
+    <script type="module" src="/app.js?v=20261103-1020"></script>
   </body>
 </html>
