@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T198 - Fix Sector Light Cards and Compact AI Launcher
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-03 20:31:16 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ปัญหาจากภาพจริง:
@@ -64,7 +64,10 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] เพิ่ม aria-label/title และ regression สำหรับ responsive/accessibility
     - Done: `2026-11-03 20:32:51 +07:00`
     - Result: ผ่าน syntax, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`; version `Think2 Sector Theme Fix v0.5.6`, build `20261103-2040`
-  - [ ] รันทดสอบ อัปเดต Version/`plan.md`, commit, push, deploy และตรวจ production
+  - [x] รันทดสอบ อัปเดต Version/`plan.md`, commit, push, deploy และตรวจ production
+    - Done: `2026-11-03 20:34:07 +07:00`
+    - Result: commit `b422353` push สำเร็จ; deployment `dpl_5Rq1WHJEsr4UfcXcWBAXp7w5zY78` READY
+    - Verification: production HTML ใช้ cache build `20261103-2040`; authenticated visual result ให้เอกตรวจหลัง `Ctrl+F5`
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T198 บน branch `codex/beginner-ai-companion-ui`
