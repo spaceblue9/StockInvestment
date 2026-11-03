@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T188 - Prevent AI Floating Button from Covering Drawer Content
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-03 12:03:10 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ปัญหา: ปุ่มลอย `เพื่อนช่วยอ่าน` ยังแสดงเมื่อ Drawer เปิด จึงทับข้อความโควตาด้านล่าง
@@ -59,7 +59,10 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] เพิ่มพื้นที่ท้าย Drawer และ regression marker ป้องกันข้อความถูกบัง
     - Done: `2026-11-03 12:04:00 +07:00`
     - Note: เพิ่ม bottom padding ให้ quota และ smoke marker ตรวจเงื่อนไขซ่อนปุ่ม
-  - [ ] รัน regression, อัปเดต Version/`plan.md`, commit, push และ deploy production
+  - [x] รัน regression, อัปเดต Version/`plan.md`, commit, push และ deploy production
+    - Done: `2026-11-03 12:10:00 +07:00`
+    - Result: ผ่าน `test:web-smoke`, `test:frontend-viewport`, syntax และ `git diff --check`; version `Think2 Companion Layout Hotfix v0.3.4`, build `20261103-1205`, commit `a4f70d8` push สำเร็จ
+    - Production: deployment `dpl_BU7hjv9NHpFA6qZEyn6VUaNKnJMH` READY; health, hide-button condition และ quota padding markers ผ่าน
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T188 บน branch `codex/beginner-ai-companion-ui`
