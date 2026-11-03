@@ -144,8 +144,8 @@ try {
     "สว่างสบายตา",
     "มืดสบายตา",
     "Hide panel",
-    "/styles.css?v=20261103-2005",
-    "/app.js?v=20261103-2005",
+    "/styles.css?v=20261103-2015",
+    "/app.js?v=20261103-2015",
   ], "Main HTML should expose the dashboard navigation.");
   assert(!html.includes('data-view="onboarding"'), "Launch navigation should not expose the hidden Guide view.");
   assert(!html.includes('data-view="approvals"'), "Launch navigation should not expose the deferred Approvals view.");
@@ -181,9 +181,9 @@ try {
     "Sign in to analyze",
     "Create an account or sign in before downloading templates",
     "frontendBuildVersion",
-    "20261103-2005",
-    "Think2 Aligned Hints v0.5.3",
-    "codex/beginner-ai-companion-ui@20261103-2005",
+    "20261103-2015",
+    "Think2 Light Chart Fix v0.5.4",
+    "codex/beginner-ai-companion-ui@20261103-2015",
     "data-today-review",
     "buildTodayReviewItems",
     "data-guided-action",

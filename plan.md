@@ -44,6 +44,36 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T196 - Fix Light Theme Hint and Chart Readability
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-03 20:06:17 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ปัญหาจากภาพจริง:
+  - Screener Hint ใช้พื้นเข้มแต่ข้อความ/หัวข้อในธีมสว่างมี contrast ต่ำ
+  - Quality vs Reward chart ใช้พื้นดำและข้อความสีเข้มในธีมสว่าง ทำให้อ่าน quadrant/แกนไม่ได้
+  - ปุ่ม AI ลอยทับพื้นที่กราฟด้านขวาล่าง
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และวิเคราะห์ภาพจาก production
+    - Done: `2026-11-03 20:06:17 +07:00`
+  - [x] ตรวจ SVG/CSS chart colors และ light-theme overrides
+    - Done: `2026-11-03 20:07:59 +07:00`
+    - Finding: `html[data-theme=light] svg text` และ global `strong` override สีเฉพาะ quadrant/tooltip ด้วย selector ที่แรงกว่า
+  - [x] ปรับ Hint contrast และกราฟให้มี palette อ่านง่ายในทั้งสองธีม
+    - Done: `2026-11-03 20:07:59 +07:00`
+    - Note: light chart ใช้พื้นขาวอมเขียว แกนเข้ม และ quadrant labels ที่มี contrast; tooltip text บังคับเป็นสีขาวบนพื้นเข้ม
+  - [x] เพิ่ม safe spacing ไม่ให้ AI button บัง chart/table content
+    - Done: `2026-11-03 20:07:59 +07:00`
+    - Note: เพิ่ม bottom workspace padding 96px เพื่อให้เลื่อนเนื้อหาพ้น floating launcher ได้
+  - [x] เพิ่ม regression, ทดสอบ responsive, อัปเดต Version/`plan.md`
+    - Done: `2026-11-03 20:07:59 +07:00`
+    - Result: ผ่าน syntax, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`; version `Think2 Light Chart Fix v0.5.4`, build `20261103-2015`
+  - [ ] commit, push, deploy และตรวจ production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T196 บน branch `codex/beginner-ai-companion-ui`
+  - กราฟต้องรักษาความหมายสีเขียว/แดง/เหลือง แต่ข้อความและแกนต้องอ่านได้ทั้ง light/dark theme
+
 ### T195 - Align Screener Hint Icons
 
 - สถานะ: Done

@@ -25,8 +25,8 @@ assertIncludes(html, [
   'data-frontend-version',
   'leftRailToggle',
   'Hide panel',
-  '/styles.css?v=20261103-2005',
-  '/app.js?v=20261103-2005',
+  '/styles.css?v=20261103-2015',
+  '/app.js?v=20261103-2015',
 ], "HTML should expose viewport meta, brand, and primary dashboard navigation.");
 if (html.includes('data-view="approvals"')) {
   throw new Error("Launch navigation should not expose deferred Approvals.");
@@ -126,6 +126,9 @@ assertIncludes(styles, [
   ".table-tooltip-card:popover-open",
   "justify-content: flex-start;",
   ".screener-tooltip-card:popover-open",
+  "html[data-theme=\"light\"] .scatter-frame",
+  "html[data-theme=\"light\"] .quadrant-label-best",
+  ".workspace { padding-bottom: 96px; }",
 ], "Stylesheet should keep desktop SaaS layout and table overflow guardrails.");
 
 assertIncludes(appJs, [
@@ -153,9 +156,9 @@ assertIncludes(appJs, [
   "Sign in to analyze",
   "Create an account or sign in before downloading templates",
   "frontendBuildVersion",
-  "20261103-2005",
-  "Think2 Aligned Hints v0.5.3",
-  "codex/beginner-ai-companion-ui@20261103-2005",
+  "20261103-2015",
+  "Think2 Light Chart Fix v0.5.4",
+  "codex/beginner-ai-companion-ui@20261103-2015",
   "today-review-detail",
   "today-review-facts",
   "today-review-item",
