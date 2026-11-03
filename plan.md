@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T187 - AI Companion Uses Current On-Screen Analysis Rows
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-03 11:39:04 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ปัญหา:
@@ -70,7 +70,10 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] ปรับข้อความ error ภาษาไทยให้ผู้ใช้เข้าใจง่าย
     - Done: `2026-11-03 11:42:00 +07:00`
     - Note: แจ้งให้รัน Analyze ใหม่เมื่อหุ้นไม่มีทั้งใน current rows และ snapshot
-  - [ ] รัน regression, อัปเดต Version/`plan.md`, commit, push และ deploy production
+  - [x] รัน regression, อัปเดต Version/`plan.md`, commit, push และ deploy production
+    - Done: `2026-11-03 11:49:00 +07:00`
+    - Result: ผ่าน `test:ai-investment`, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`; version `Think2 AI Context Hotfix v0.3.3`, build `20261103-1145`, commit `21e6bfc` push สำเร็จ
+    - Production: deployment `dpl_Fd1g84ULRJ7sKXhfJWbx4yFe1qqP` READY; health ok, current context markers และ anonymous AI guard ผ่าน
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T187 บน branch `codex/beginner-ai-companion-ui`
