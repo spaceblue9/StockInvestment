@@ -2678,11 +2678,21 @@ html[data-theme="light"] .sector-signal-card,
 html[data-theme="light"] .screener-insight-card,
 html[data-theme="light"] .plan-card,
 html[data-theme="light"] .admin-summary-card,
-html[data-theme="light"] .business-card {
+html[data-theme="light"] .business-card,
+html[data-theme="light"] .admin-action-card {
   background: #fff;
   border-color: var(--line);
   color: var(--text);
 }
+
+html[data-theme="light"] .admin-action-card {
+  background: #f5faf7;
+  border-color: #bdccc4;
+  box-shadow: 0 8px 22px rgba(44, 70, 56, 0.08);
+}
+
+html[data-theme="light"] .admin-action-card span { color: var(--pink-soft); }
+html[data-theme="light"] .admin-action-card strong { color: #193327; }
 
 html[data-theme="light"] .sector-beginner-summary article {
   background: #f5faf7;

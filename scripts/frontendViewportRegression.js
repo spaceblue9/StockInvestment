@@ -25,8 +25,8 @@ assertIncludes(html, [
   'data-frontend-version',
   'leftRailToggle',
   'Hide panel',
-  '/styles.css?v=20261103-2045',
-  '/app.js?v=20261103-2045',
+  '/styles.css?v=20261103-2055',
+  '/app.js?v=20261103-2055',
 ], "HTML should expose viewport meta, brand, and primary dashboard navigation.");
 if (html.includes('data-view="approvals"')) {
   throw new Error("Launch navigation should not expose deferred Approvals.");
@@ -132,6 +132,8 @@ assertIncludes(styles, [
   "aspect-ratio: 1;",
   "min-height: 22px;",
   "html[data-theme=\"light\"] .sector-beginner-summary article",
+  "html[data-theme=\"light\"] .admin-action-card",
+  "html[data-theme=\"light\"] .admin-action-card strong",
   ".ai-companion-button:focus-visible",
   "width: 56px;",
 ], "Stylesheet should keep desktop SaaS layout and table overflow guardrails.");
@@ -161,9 +163,9 @@ assertIncludes(appJs, [
   "Sign in to analyze",
   "Create an account or sign in before downloading templates",
   "frontendBuildVersion",
-  "20261103-2045",
-  "Think2 Portfolio Multi Search v0.5.7",
-  "codex/beginner-ai-companion-ui@20261103-2045",
+  "20261103-2055",
+  "Think2 Business Theme Fix v0.5.8",
+  "codex/beginner-ai-companion-ui@20261103-2055",
   "recommendedActionSearchTokens",
   "searchTokens",
   "today-review-detail",

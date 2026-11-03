@@ -44,6 +44,28 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T200 - Fix Business Light Theme Action Cards
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-03 20:52:48 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ปัญหาจากภาพจริง: การ์ด User roles, Advisor assignment, Workspace control, Billing monitor, Database readiness และ Production guard ยังใช้พื้นหลังดำจากธีมมืด แต่ข้อความในธีมสว่างเปลี่ยนเป็นสีเข้ม ทำให้อ่านแทบไม่ได้
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และตรวจ Business action card styles
+    - Done: `2026-11-03 20:52:48 +07:00`
+    - Root cause: `.admin-action-card` hard-code พื้น `#101010` และข้อความขาว แต่ไม่มี light-theme override
+  - [x] เพิ่มสีพื้น ขอบ และข้อความที่อ่านง่ายในธีมสว่าง
+    - Done: `2026-11-03 20:54:32 +07:00`
+    - Note: การ์ดใช้พื้นขาวอมเขียว ขอบเขียวเทาอ่อน หัวข้อชมพู และข้อความหลักเขียวเข้ม โดยไม่เปลี่ยนธีมมืด
+  - [x] เพิ่ม regression, ทดสอบ และอัปเดต Version
+    - Done: `2026-11-03 20:54:32 +07:00`
+    - Result: ผ่าน syntax, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`; version `Think2 Business Theme Fix v0.5.8`, build `20261103-2055`
+  - [ ] commit, push, deploy และตรวจ production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T200 บน branch `codex/beginner-ai-companion-ui`
+  - ตรวจให้ `.admin-action-card` อ่านง่ายทั้งธีมมืดและธีมสว่าง โดยไม่กระทบ Business controls อื่น
+
 ### T199 - Portfolio Multi-Symbol Search
 
 - สถานะ: Done
