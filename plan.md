@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T190 - Today Review and Guided Empty States
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-03 14:34:16 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - เป้าหมาย:
@@ -71,7 +71,11 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] รัน regression, ตรวจ responsive, อัปเดต Version และ `plan.md`
     - Done: `2026-11-03 14:37:02 +07:00`
     - Result: ผ่าน `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth`, `test:ai-investment`, syntax และ `git diff --check`; version `Think2 Today Review v0.4.0`, build `20261103-1434`
-  - [ ] commit, push, deploy production และตรวจผลหลัง deploy
+  - [x] commit, push, deploy production และตรวจผลหลัง deploy
+    - Done: `2026-11-03 14:38:52 +07:00`
+    - Result: commit `ae735e1` push ไป `origin/codex/beginner-ai-companion-ui` สำเร็จ
+    - Production: deployment `dpl_3g8LPoSRY6wJXSDfiW13z12sws66` READY และ alias `https://thai-stock-investment-web.vercel.app` สำเร็จ
+    - Verification: production `/api/health` ตอบ ok และ HTML ใช้ cache build `20261103-1434`; automated authenticated test ผ่าน แต่การกด Today Review ด้วยข้อมูลพอร์ตจริงยังต้องให้เอกตรวจบนบัญชีของเอก
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T190 บน branch `codex/beginner-ai-companion-ui`
