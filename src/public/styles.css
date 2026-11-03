@@ -2879,3 +2879,37 @@ html[data-theme="light"] a {
     width: 100vw;
   }
 }
+.today-review {
+  margin: 18px 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--green);
+  background: var(--panel-2);
+}
+
+.today-review-heading,
+.today-review-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.today-review-heading h3,
+.today-review-item p { margin: 4px 0 0; }
+.today-review-list { display: grid; gap: 10px; margin-top: 14px; }
+.today-review-item { padding: 14px; border: 1px solid var(--line); background: var(--panel); }
+.today-review-rank { display: grid; place-items: center; flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%; background: var(--panel-2); font-weight: 800; }
+.today-review-item > div { flex: 1; min-width: 0; }
+.today-review-item button { flex: 0 0 auto; }
+.today-review-danger { border-left: 3px solid var(--red); }
+.today-review-warning { border-left: 3px solid var(--gold); }
+.today-review-info { border-left: 3px solid var(--green); }
+.guided-empty-state { display: grid; justify-items: start; gap: 10px; padding: 24px; border: 1px solid var(--line); background: var(--panel-2); }
+.guided-empty-state p { margin: 0; }
+
+@media (max-width: 720px) {
+  .today-review-heading,
+  .today-review-item { align-items: flex-start; flex-wrap: wrap; }
+  .today-review-item button { width: 100%; }
+}

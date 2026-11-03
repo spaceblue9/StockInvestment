@@ -32,9 +32,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261103-1205";
-const programVersion = "Think2 Companion Layout Hotfix v0.3.4";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-1205";
+const frontendBuildVersion = "20261103-1434";
+const programVersion = "Think2 Today Review v0.4.0";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-1434";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -491,6 +491,12 @@ document.querySelectorAll("[data-view]").forEach((button) => {
   });
 });
 document.addEventListener("click", (event) => {
+  const guidedAction = event.target.closest("[data-guided-action]");
+  if (guidedAction) {
+    handleGuidedAction(guidedAction);
+    return;
+  }
+
   const aiCompanionClose = event.target.closest("[data-ai-companion-close]");
   if (aiCompanionClose) {
     closeAiCompanionDrawer();
@@ -1686,6 +1692,7 @@ function renderPortfolioView() {
         <span>${state.recommendations.length
           ? `The latest analysis has ${formatNumber(state.recommendations.length)} stock recommendation(s), but no portfolio file was uploaded. Open Screener to review the watchlist results, or upload a portfolio Excel file to see holding-level actions.`
           : "Upload a portfolio Excel file and run analysis to see holding-level actions."}</span>
+        <button type="button" data-guided-action="upload">ไปที่ช่องอัปโหลดพอร์ต</button>
       </section>
     `;
     return;
@@ -1707,6 +1714,7 @@ function renderPortfolioView() {
       ${metric("Urgent Actions", urgentRows.length)}
       ${metric("Avg Score", formatNumber(average(rows, "Total_Score")))}
     </div>
+    ${renderTodayReview(rows)}
     ${renderPortfolioDataWarning(rows)}
     ${renderThink2SafetySummary(rows, { context: "portfolio" })}
     ${renderScoreMatrixGuide(rows)}
@@ -1719,6 +1727,77 @@ function renderPortfolioView() {
   `;
   attachRecommendedActionsControls(rows);
   attachAiAssistantControls(rows);
+}
+
+function renderTodayReview(rows) {
+  const reviewItems = buildTodayReviewItems(rows).slice(0, 3);
+  if (!reviewItems.length) return "";
+  return `
+    <section class="today-review" data-today-review>
+      <div class="today-review-heading">
+        <div>
+          <p class="eyebrow">TODAY REVIEW</p>
+          <h3>วันนี้ควรตรวจอะไร</h3>
+          <p class="muted">เรียงจากเรื่องที่ควรอ่านก่อนจากผล Think2 ล่าสุด ไม่ใช่คำสั่งซื้อขาย</p>
+        </div>
+        <span>${formatNumber(reviewItems.length)} เรื่อง</span>
+      </div>
+      <div class="today-review-list">
+        ${reviewItems.map((item, index) => `
+          <article class="today-review-item today-review-${escapeHtml(item.tone)}">
+            <span class="today-review-rank">${index + 1}</span>
+            <div>
+              <strong>${escapeHtml(item.title)}</strong>
+              <p>${escapeHtml(item.reason)}</p>
+            </div>
+            <button type="button" data-guided-action="view" data-guided-view="${escapeHtml(item.view)}" data-guided-symbol="${escapeHtml(item.symbol || "")}">${escapeHtml(item.actionLabel)}</button>
+          </article>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function buildTodayReviewItems(rows) {
+  const ranked = rows.slice().sort((left, right) => {
+    const severityRank = { RED: 5, DATA_ERROR: 5, ORANGE: 4, REVIEW_REQUIRED: 4, YELLOW: 3 };
+    const leftRank = Math.max(severityRank[String(left.Conflict_Severity || "").toUpperCase()] || 0, severityRank[String(left.Data_Status || "").toUpperCase()] || 0);
+    const rightRank = Math.max(severityRank[String(right.Conflict_Severity || "").toUpperCase()] || 0, severityRank[String(right.Data_Status || "").toUpperCase()] || 0);
+    return rightRank - leftRank || numberValue(right.Portfolio_Weight_Pct) - numberValue(left.Portfolio_Weight_Pct);
+  });
+  const items = [];
+  const warning = ranked.find((row) => /RED|ORANGE|DATA_ERROR|REVIEW_REQUIRED/i.test(`${row.Conflict_Severity || ""} ${row.Data_Status || ""}`));
+  if (warning) {
+    items.push({ tone: "danger", title: `ตรวจข้อมูลและคำเตือนของ ${warning.Symbol}`, reason: `พบสถานะ ${warning.Conflict_Severity || warning.Data_Status} จึงควรอ่านเหตุผลและตรวจความครบถ้วนของข้อมูลก่อนตัดสินใจ`, view: "portfolio", symbol: warning.Symbol, actionLabel: "เปิดหุ้นนี้" });
+  }
+  const action = ranked.find((row) => /Exit|Reduce|Sell/i.test(String(row.Target_Action || row.Effective_Target_Action || row.Advice || "")) && row.Symbol !== warning?.Symbol);
+  if (action) {
+    items.push({ tone: "warning", title: `ทบทวนแผนของ ${action.Symbol}`, reason: `Think2 แสดง ${action.Target_Action || action.Effective_Target_Action || action.Advice} ควรอ่านคะแนน RRR และเหตุผลประกอบก่อนทำรายการ`, view: "portfolio", symbol: action.Symbol, actionLabel: "ดูเหตุผล" });
+  }
+  const sectorTotals = Object.entries(groupBy(rows, "Sector")).map(([sector, sectorRows]) => ({ sector, value: sum(sectorRows, "Market_Value") }));
+  const totalValue = sum(rows, "Market_Value");
+  const concentrated = sectorTotals.sort((left, right) => right.value - left.value)[0];
+  const concentrationPct = totalValue ? (numberValue(concentrated?.value) / totalValue) * 100 : 0;
+  if (concentrated && concentrationPct >= 30) {
+    items.push({ tone: "info", title: `ตรวจการกระจุกตัวใน ${concentrated.sector || "Unknown"}`, reason: `กลุ่มนี้คิดเป็นประมาณ ${formatNumber(concentrationPct)}% ของมูลค่าพอร์ต ควรดูว่าความเสี่ยงผูกกับธุรกิจเดียวมากเกินไปหรือไม่`, view: "sector", symbol: "", actionLabel: "ดู Sector" });
+  }
+  if (!items.length) {
+    const lowest = rows.slice().sort((left, right) => numberValue(left.Total_Score) - numberValue(right.Total_Score))[0];
+    if (lowest) items.push({ tone: "info", title: `ทบทวน ${lowest.Symbol} ซึ่งมีคะแนนต่ำสุดในพอร์ต`, reason: `คะแนน ${formatNumber(lowest.Total_Score)} เป็นจุดเริ่มต้นสำหรับอ่านคุณภาพ ราคา ความเสี่ยง และจังหวะประกอบกัน`, view: "portfolio", symbol: lowest.Symbol, actionLabel: "เปิดหุ้นนี้" });
+  }
+  return items;
+}
+
+function handleGuidedAction(button) {
+  if (button.dataset.guidedAction === "upload") {
+    if (state.leftRailCollapsed) toggleLeftRail();
+    analysisForm?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  state.activeView = button.dataset.guidedView || "portfolio";
+  const symbol = button.dataset.guidedSymbol || "";
+  renderActiveView();
+  if (symbol) requestAnimationFrame(() => highlightStockTableRow(symbol, viewOutput));
 }
 
 function renderAiAssistantPanel(rows) {
@@ -3325,7 +3404,7 @@ function renderScreenerFilterField({ id, label, tipKey, hint, controlHtml }) {
 
 function renderScreenerView() {
   if (!state.recommendations.length) {
-    viewOutput.innerHTML = `<p class="muted">Run analysis to load stock recommendations.</p>`;
+    viewOutput.innerHTML = renderGuidedEmptyState("ยังไม่มีข้อมูลสำหรับคัดกรองหุ้น", "อัปโหลด Watchlist หรือ Portfolio แล้วรันการวิเคราะห์ก่อน", "upload", "ไปที่ช่องอัปโหลด");
     return;
   }
 
@@ -3475,7 +3554,7 @@ function renderScreenerView() {
 
 function renderSectorView() {
   if (!state.recommendations.length) {
-    viewOutput.innerHTML = `<p class="muted">Run analysis to load sector data.</p>`;
+    viewOutput.innerHTML = renderGuidedEmptyState("ยังไม่มีข้อมูล Sector", "ระบบต้องใช้ผลวิเคราะห์ล่าสุดเพื่อจัดอันดับกลุ่มธุรกิจ", "upload", "ไปที่ช่องอัปโหลด");
     return;
   }
 
@@ -3566,6 +3645,10 @@ function renderSectorView() {
     input.addEventListener("change", renderDetails);
   });
   renderDetails();
+}
+
+function renderGuidedEmptyState(title, text, action, actionLabel) {
+  return `<section class="guided-empty-state"><strong>${escapeHtml(title)}</strong><p>${escapeHtml(text)}</p><button type="button" data-guided-action="${escapeHtml(action)}">${escapeHtml(actionLabel)}</button></section>`;
 }
 
 function renderSimulationView() {
