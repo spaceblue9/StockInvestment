@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T192 - Explain Today Review Reasons Inline
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-03 15:24:32 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - เป้าหมาย:
@@ -68,7 +68,10 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] รันทดสอบ อัปเดต Version และ `plan.md`
     - Done: `2026-11-03 15:27:28 +07:00`
     - Result: ผ่าน syntax, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth`, `test:ai-investment` และ `git diff --check`; version `Think2 Reason Guide v0.5.0`, build `20261103-1530`
-  - [ ] commit, push, deploy และตรวจ production
+  - [x] commit, push, deploy และตรวจ production
+    - Done: `2026-11-03 15:28:37 +07:00`
+    - Result: commit `0d6c617` push สำเร็จ; deployment `dpl_6oFyCDP6Z3RUVozEcaXgMtRqujwW` READY และ alias production สำเร็จ
+    - Verification: production HTML ใช้ cache build `20261103-1530`; automated tests ผ่าน การเปิด reason/AI ด้วยข้อมูลพอร์ตจริงให้เอกตรวจหลัง `Ctrl+F5`
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T192 บน branch `codex/beginner-ai-companion-ui`
