@@ -32,9 +32,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261103-2055";
-const programVersion = "Think2 Business Theme Fix v0.5.8";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-2055";
+const frontendBuildVersion = "20261103-2110";
+const programVersion = "Think2 Filtered AI Scope v0.5.9";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-2110";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -79,6 +79,8 @@ const state = {
   lastAnalysisTriggerAt: 0,
   entitlementErrors: {},
   todayReviewDetailSymbol: "",
+  screenerFilteredRows: [],
+  screenerFilterSummary: "",
   aiAssistant: {
     mode: "portfolio",
     symbol: "",
@@ -1957,6 +1959,8 @@ async function runAiInvestmentExplanation(options = {}) {
         mode: state.aiAssistant.mode,
         symbol: state.aiAssistant.symbol,
         focus: state.aiAssistant.focus,
+        contextView: state.activeView,
+        filterSummary: state.activeView === "screener" ? state.screenerFilterSummary : "",
         currentRows: currentAiContextRows(),
       }),
     });
@@ -1998,6 +2002,10 @@ function renderAiCompanion() {
   if (!state.aiAssistant.drawerOpen) return;
 
   const prompts = aiCompanionPrompts(state.activeView);
+  const contextRows = activeAiContextRows();
+  const contextNote = state.activeView === "screener"
+    ? `AI จะอ่านเฉพาะ ${formatNumber(contextRows.length)} หุ้นที่ผ่าน filter ปัจจุบัน: ${state.screenerFilterSummary || "ยังไม่มีรายการที่ผ่าน filter"}`
+    : `AI จะอ่านข้อมูลจากหน้า ${viewLabel(state.activeView)} ที่กำลังเปิดอยู่`;
   aiCompanionDrawer.innerHTML = `
     <div class="ai-companion-header">
       <div>
@@ -2008,6 +2016,7 @@ function renderAiCompanion() {
       <button class="icon-button" type="button" data-ai-companion-close aria-label="ปิดเพื่อนช่วยอ่าน">×</button>
     </div>
     <div class="ai-companion-note">เลือกคำถามที่ต้องการ ระบบจะไม่เปลี่ยนคะแนนหรือสั่งซื้อขายแทนคุณ</div>
+    <div class="ai-companion-scope" data-ai-context-scope>${escapeHtml(contextNote)}</div>
     <div class="ai-prompt-list">
       ${prompts.map((prompt) => `
         <button type="button" data-ai-companion-prompt="${escapeHtml(prompt.id)}" data-ai-mode="${escapeHtml(prompt.mode)}" data-ai-symbol="${escapeHtml(prompt.symbol || "")}" ${state.aiAssistant.loading ? "disabled" : ""}>
@@ -2049,8 +2058,14 @@ function aiCompanionPrompts(view) {
 }
 
 function bestContextSymbol() {
-  const rows = state.activeView === "portfolio" ? state.portfolioRows : state.recommendations;
+  const rows = activeAiContextRows();
   return rows.slice().sort((left, right) => numberValue(right.Total_Score) - numberValue(left.Total_Score))[0]?.Symbol || "";
+}
+
+function activeAiContextRows() {
+  if (state.activeView === "portfolio") return state.portfolioRows;
+  if (state.activeView === "screener") return state.screenerFilteredRows;
+  return state.recommendations;
 }
 
 function currentAiContextRows() {
@@ -2062,7 +2077,7 @@ function currentAiContextRows() {
     "Advice", "Target_Action", "Effective_Target_Action", "Conflict_Severity",
     "Data_Status", "Data_Warnings", "Conflict_Alerts", "Rationale",
   ];
-  const rows = state.activeView === "portfolio" ? state.portfolioRows : state.recommendations;
+  const rows = activeAiContextRows();
   return rows
     .slice()
     .sort((left, right) => numberValue(right.Total_Score) - numberValue(left.Total_Score))
@@ -3560,6 +3575,13 @@ function renderScreenerView() {
       numberValue(minRrr.value) > -10 ? `RRR >= ${formatNumber(minRrr.value)}` : "",
       numberValue(maxDe.value) < 99 ? `D/E <= ${formatNumber(maxDe.value)}` : "",
     ].filter(Boolean);
+    state.screenerFilteredRows = rows;
+    state.screenerFilterSummary = activeFilters.length ? activeFilters.join(" · ") : "beginner defaults";
+    if (!rows.some((row) => row.Symbol === state.aiAssistant.symbol)) {
+      state.aiAssistant.symbol = rows.slice().sort((left, right) => numberValue(right.Total_Score) - numberValue(left.Total_Score))[0]?.Symbol || "";
+    }
+    state.aiAssistant.result = null;
+    state.aiAssistant.error = "";
     filterStatus.textContent = activeFilters.length
       ? `${formatNumber(rows.length)} stocks match ${activeFilters.join(" · ")}. Click a stock in the charts to highlight its table row, or click a sector bar to drill down.`
       : `${formatNumber(rows.length)} stocks shown from the latest analysis with beginner defaults. Adjust filters if you want to broaden the list.`;
@@ -3601,6 +3623,7 @@ function renderScreenerView() {
       });
     });
     attachStockHighlightControls(document.querySelector("#screenerTable"));
+    if (state.aiAssistant.drawerOpen) renderAiCompanion();
   };
 
   [symbolSearch, minScore, minRrr, maxDe].forEach((input) => {

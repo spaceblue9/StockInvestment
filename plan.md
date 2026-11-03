@@ -44,6 +44,31 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T201 - Scope Screener AI to Current Filters
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-03 21:04:05 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ปัญหาจากภาพจริง: หลังกรองหุ้นใน Screener แล้ว AI Companion ยังอธิบายจาก recommendations ทั้งหมด ไม่ได้จำกัดเฉพาะรายการที่ผู้ใช้กำลังเห็น
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และตรวจ Screener filter -> AI request -> server context pipeline
+    - Done: `2026-11-03 21:04:05 +07:00`
+    - Root cause: `currentAiContextRows()` ใช้ `state.recommendations` ทั้งหมด และ `buildAiInvestmentContext()` รวม `currentRows` กลับเข้ากับ recommendations ทั้งหมด
+  - [x] เก็บ filtered rows/filter summary และส่ง active view scope ไป AI
+    - Done: `2026-11-03 21:06:53 +07:00`
+    - Note: AI Drawer แสดงจำนวนหุ้นและ Search/Score/RRR/D-E/Sector/Trend filters ที่กำลังใช้ เพื่อให้ผู้ใช้ตรวจ scope ได้
+  - [x] บังคับ server ใช้เฉพาะ filtered rows เมื่อ scope เป็น Screener พร้อม regression
+    - Done: `2026-11-03 21:06:53 +07:00`
+    - Note: server ไม่รวม portfolio/recommendations นอก filter กลับเข้ามา และไม่ส่ง portfolio summary เมื่ออธิบาย Screener
+  - [x] ทดสอบ อัปเดต Version และ `plan.md`
+    - Done: `2026-11-03 21:06:53 +07:00`
+    - Result: ผ่าน syntax, `test:ai-investment`, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`; version `Think2 Filtered AI Scope v0.5.9`, build `20261103-2110`
+  - [ ] commit, push, deploy และตรวจ production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T201 บน branch `codex/beginner-ai-companion-ui`
+  - Screener AI ต้องใช้เฉพาะ rows ที่ผ่าน Search/Score/RRR/D-E/Sector/Trend filters ปัจจุบัน และ server ต้องไม่รวม recommendations ทั้งหมดกลับเข้ามา
+
 ### T200 - Fix Business Light Theme Action Cards
 
 - สถานะ: Done

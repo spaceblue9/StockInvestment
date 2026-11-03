@@ -73,4 +73,25 @@ const staleSnapshotContext = buildAiInvestmentContext({
 assert.equal(staleSnapshotContext.selectedStock.Symbol, "NEW");
 assert.equal(JSON.stringify(staleSnapshotContext).includes("must-not-leak@example.com"), false);
 assert.equal(JSON.stringify(staleSnapshotContext).includes("private.xlsx"), false);
+
+const filteredScreenerContext = buildAiInvestmentContext({
+  generatedAt: snapshot.generatedAt,
+  summary: { holdings: 99, marketValue: 999999 },
+  portfolioRows: [{ Symbol: "OUTSIDE_PORT", Sector: "Energy", Total_Score: 99 }],
+  recommendations: [{ Symbol: "OUTSIDE_REC", Sector: "Energy", Total_Score: 98 }],
+}, {
+  mode: "stock",
+  symbol: "FILTERED",
+  contextView: "screener",
+  filterSummary: "symbols FILTERED · score >= 70",
+  currentRows: [{ Symbol: "FILTERED", Sector: "Healthcare", Total_Score: 80, RRR: 2 }],
+});
+assert.deepEqual(filteredScreenerContext.currentRows.map((row) => row.Symbol), ["FILTERED"]);
+assert.deepEqual(filteredScreenerContext.holdings.map((row) => row.Symbol), ["FILTERED"]);
+assert.equal(filteredScreenerContext.selectedStock.Symbol, "FILTERED");
+assert.equal(filteredScreenerContext.peers.length, 0);
+assert.deepEqual(filteredScreenerContext.portfolioSummary, {});
+assert.equal(filteredScreenerContext.filterSummary, "symbols FILTERED · score >= 70");
+assert.equal(JSON.stringify(filteredScreenerContext).includes("OUTSIDE_PORT"), false);
+assert.equal(JSON.stringify(filteredScreenerContext).includes("OUTSIDE_REC"), false);
 console.log("AI investment service regression passed.");

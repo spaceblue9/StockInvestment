@@ -1161,6 +1161,23 @@ td select {
   padding: 11px 12px;
 }
 
+.ai-companion-scope {
+  background: rgba(82, 194, 133, 0.1);
+  border: 1px solid rgba(82, 194, 133, 0.32);
+  border-radius: 6px;
+  color: var(--green-soft);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.5;
+  padding: 10px 12px;
+}
+
+html[data-theme="light"] .ai-companion-scope {
+  background: #edf8f2;
+  border-color: #b7ddc8;
+  color: #17663f;
+}
+
 .ai-prompt-list { display: grid; gap: 8px; }
 
 .ai-prompt-list button {

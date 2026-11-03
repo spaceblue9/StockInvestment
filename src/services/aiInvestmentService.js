@@ -5,6 +5,7 @@ const MAX_HOLDINGS = 25;
 const MAX_PEERS = 6;
 
 const allowedModes = new Set(["portfolio", "stock", "compare"]);
+const allowedContextViews = new Set(["portfolio", "screener", "sector", "simulation"]);
 const focusTasks = {
   portfolio_review: "Prioritize which holdings need review first using severity, portfolio weight, loss, and data warnings.",
   portfolio_warnings: "Explain the portfolio warnings and what facts the investor should verify before acting.",
@@ -44,6 +45,8 @@ export function aiMonthlyRequestLimit() {
 
 export function buildAiInvestmentContext(snapshot, input = {}) {
   const mode = allowedModes.has(input.mode) ? input.mode : "portfolio";
+  const contextView = allowedContextViews.has(input.contextView) ? input.contextView : "portfolio";
+  const filterSummary = String(input.filterSummary || "").trim().slice(0, 500);
   const focus = Object.hasOwn(focusTasks, input.focus) ? input.focus : "";
   const currentRows = (Array.isArray(input.currentRows) ? input.currentRows : [])
     .slice(0, MAX_HOLDINGS)
@@ -52,7 +55,10 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
   const portfolioRows = (snapshot?.portfolioRows || []).map(sanitizeStockRow).filter((row) => row.Symbol);
   const recommendations = (snapshot?.recommendations || []).map(sanitizeStockRow).filter((row) => row.Symbol);
   const symbol = cleanSymbol(input.symbol);
-  const allRows = uniqueBySymbol([...currentRows, ...portfolioRows, ...recommendations]);
+  const scopeIsFiltered = contextView === "screener";
+  const allRows = scopeIsFiltered
+    ? uniqueBySymbol(currentRows)
+    : uniqueBySymbol([...currentRows, ...portfolioRows, ...recommendations]);
   const selectedStock = symbol ? allRows.find((row) => row.Symbol === symbol) || null : null;
   const sector = selectedStock?.Sector || "";
   const peers = selectedStock
@@ -71,6 +77,8 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
   return {
     mode,
     focus,
+    contextView,
+    filterSummary,
     generatedAt: snapshot?.generatedAt || "",
     dataContract: {
       scoringSource: "Think2 deterministic analysis",
@@ -78,8 +86,10 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
       companyProfileAvailable: false,
       priceFreshness: "Use generatedAt; do not claim real-time data",
     },
-    portfolioSummary: sanitizeSummary(snapshot?.summary || {}),
-    holdings: uniqueBySymbol([...currentRows, ...portfolioRows]).slice(0, MAX_HOLDINGS),
+    portfolioSummary: scopeIsFiltered ? {} : sanitizeSummary(snapshot?.summary || {}),
+    holdings: scopeIsFiltered
+      ? uniqueBySymbol(currentRows).slice(0, MAX_HOLDINGS)
+      : uniqueBySymbol([...currentRows, ...portfolioRows]).slice(0, MAX_HOLDINGS),
     currentRows,
     selectedStock,
     peers,
