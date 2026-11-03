@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T203 - Add AI Decision Support to Every View
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-03 21:33:41 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - เป้าหมาย: ทุกคำตอบ AI ใน Portfolio, Screener, Sector และ Simulation ต้องมีมุมช่วยตัดสินใจที่ชัดเจน พร้อมเหตุผล สิ่งที่ควรตรวจต่อ และระดับความมั่นใจ
@@ -66,7 +66,10 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] เพิ่ม regression ทดสอบ อัปเดต Version และ `plan.md`
     - Done: `2026-11-03 21:36:06 +07:00`
     - Result: ผ่าน syntax, `test:ai-investment`, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`; version `Think2 AI Decision Support v0.6.1`, build `20261103-2135`
-  - [ ] commit, push, deploy และตรวจ production
+  - [x] commit, push, deploy และตรวจ production
+    - Done: `2026-11-03 21:37:37 +07:00`
+    - Result: commit `1046b64` push สำเร็จ; deployment `dpl_7EFogJAvCTwTUb1jeN7UgEeE4RQ5` READY
+    - Verification: production HTML ใช้ cache build `20261103-2135`; production app.js มี Decision Support card และ confidence rendering ครบ
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T203 บน branch `codex/beginner-ai-companion-ui`
