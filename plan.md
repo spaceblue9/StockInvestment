@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T186 - User-Selectable Dark and Soft Light Themes
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-03 10:57:13 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - เป้าหมาย:
@@ -75,7 +75,10 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] ตรวจภาพจริง/console ใน Browser และรัน regression
     - Done: `2026-11-03 11:04:00 +07:00`
     - Result: สลับ Light ได้, reload แล้วยังจำค่า, console ไม่มี error; ผ่าน `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`
-  - [ ] อัปเดต Version, `plan.md`, commit, push และ deploy production
+  - [x] อัปเดต Version, `plan.md`, commit, push และ deploy production
+    - Done: `2026-11-03 11:10:00 +07:00`
+    - Result: version `Think2 Theme Choice v0.3.2`, build `20261103-1100`, commit `dae0ace` push สำเร็จ; Vercel deployment `dpl_9EnGCtBbYyk5NvRJ76nBstxBummT` READY และ alias URL หลักสำเร็จ
+    - Production verification: health ok และพบ `themeSelect`, `stockflix.theme`, `applyTheme`, light theme CSS และ Soft Light palette ครบ
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T186 บน branch `codex/beginner-ai-companion-ui`
