@@ -44,6 +44,32 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T198 - Fix Sector Light Cards and Compact AI Launcher
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-03 20:31:16 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ปัญหาจากภาพจริง:
+  - `.sector-beginner-summary article` hard-code พื้น `#121212` แต่ light theme เปลี่ยนข้อความเป็นสีเข้ม จึงอ่านไม่ได้
+  - AI launcher แบบข้อความเต็มกินพื้นที่และทับการ์ด/กราฟด้านขวาล่าง
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และตรวจ Sector summary/AI launcher CSS
+    - Done: `2026-11-03 20:31:16 +07:00`
+  - [x] เพิ่ม light-theme card colors/contrast สำหรับ Sector beginner summary
+    - Done: `2026-11-03 20:32:51 +07:00`
+    - Note: เปลี่ยนเป็นพื้นขาวอมเขียว เส้นขอบ/เงาอ่อน และข้อความเขียวเข้มใน light theme
+  - [x] ทำ AI launcher เป็นปุ่มวงกลมกะทัดรัด และขยาย label เมื่อ hover/focus
+    - Done: `2026-11-03 20:32:51 +07:00`
+    - Note: ปกติ 56px; ขยายเป็น 190px เมื่อ hover หรือ keyboard focus และยังซ่อนเมื่อ Drawer เปิด
+  - [x] เพิ่ม aria-label/title และ regression สำหรับ responsive/accessibility
+    - Done: `2026-11-03 20:32:51 +07:00`
+    - Result: ผ่าน syntax, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`; version `Think2 Sector Theme Fix v0.5.6`, build `20261103-2040`
+  - [ ] รันทดสอบ อัปเดต Version/`plan.md`, commit, push, deploy และตรวจ production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T198 บน branch `codex/beginner-ai-companion-ui`
+  - Sector cards ต้องอ่านได้ทั้ง light/dark และ launcher ต้องไม่บังเนื้อหาเกินจำเป็น
+
 ### T197 - Circular Hint Icons and Multi-Symbol Search
 
 - สถานะ: Done

@@ -144,8 +144,8 @@ try {
     "สว่างสบายตา",
     "มืดสบายตา",
     "Hide panel",
-    "/styles.css?v=20261103-2025",
-    "/app.js?v=20261103-2025",
+    "/styles.css?v=20261103-2040",
+    "/app.js?v=20261103-2040",
   ], "Main HTML should expose the dashboard navigation.");
   assert(!html.includes('data-view="onboarding"'), "Launch navigation should not expose the hidden Guide view.");
   assert(!html.includes('data-view="approvals"'), "Launch navigation should not expose the deferred Approvals view.");
@@ -181,9 +181,9 @@ try {
     "Sign in to analyze",
     "Create an account or sign in before downloading templates",
     "frontendBuildVersion",
-    "20261103-2025",
-    "Think2 Multi Search v0.5.5",
-    "codex/beginner-ai-companion-ui@20261103-2025",
+    "20261103-2040",
+    "Think2 Sector Theme Fix v0.5.6",
+    "codex/beginner-ai-companion-ui@20261103-2040",
     "searchTokens",
     "split(/[\\s,;]+/u)",
     "data-today-review",

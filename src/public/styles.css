@@ -1081,9 +1081,19 @@ td select {
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.42);
   color: #0a2b1b;
   display: flex;
+  height: 56px;
   gap: 9px;
+  justify-content: flex-start;
+  max-width: 190px;
+  min-height: 56px;
+  min-width: 56px;
+  overflow: hidden;
+  padding: 14px;
   position: fixed;
   right: 22px;
+  transition: width 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  white-space: nowrap;
+  width: 56px;
   z-index: 30;
 }
 
@@ -1096,10 +1106,12 @@ td select {
   font-size: 11px;
   height: 28px;
   justify-content: center;
+  flex: 0 0 28px;
   width: 28px;
 }
 
-.ai-companion-button:hover { background: #c6f6dc; }
+.ai-companion-button:hover,
+.ai-companion-button:focus-visible { background: #c6f6dc; width: 190px; }
 
 .ai-companion-drawer {
   background: #151917;
@@ -2671,6 +2683,16 @@ html[data-theme="light"] .business-card {
   border-color: var(--line);
   color: var(--text);
 }
+
+html[data-theme="light"] .sector-beginner-summary article {
+  background: #f5faf7;
+  border-color: #bdccc4;
+  box-shadow: 0 8px 22px rgba(44, 70, 56, 0.08);
+}
+
+html[data-theme="light"] .sector-beginner-summary span,
+html[data-theme="light"] .sector-beginner-summary p { color: #53665c; }
+html[data-theme="light"] .sector-beginner-summary strong { color: #193327; }
 
 html[data-theme="light"] input,
 html[data-theme="light"] select,
