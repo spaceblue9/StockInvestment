@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T184 - Deploy and Verify Pro AI Assistant
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-03 09:41:44 +07:00`
 - Branch: `codex/pro-ai-openrouter-mvp`
 - เป้าหมาย:
@@ -71,7 +71,10 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] รัน regression หลังปรับ Version
     - Done: `2026-11-03 09:49:00 +07:00`
     - Result: ผ่าน `test:ai-investment`, `test:web-smoke`, `test:frontend-viewport`, syntax และ `git diff --check`
-  - [ ] Commit, push และ Deploy Production รอบสุดท้าย
+  - [x] Commit, push และ Deploy Production รอบสุดท้าย
+    - Done: `2026-11-03 09:53:00 +07:00`
+    - Result: commit `75bacc7` push สำเร็จ; deployment `dpl_8udrhB1PRQdKjZKrTSC4xrYcs5Gh` สถานะ READY และ alias URL หลักสำเร็จ
+    - Verification: Production health ตอบ ok และพบ `Think2 Pro AI v0.3.0`, build `20261103-0945`, `/api/ai/explain`, `data-ai-assistant` และ cache key ใหม่ครบ
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T184 บน branch `codex/pro-ai-openrouter-mvp`
@@ -121,9 +124,9 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] deploy เฉพาะเมื่อมี `OPENROUTER_API_KEY` ใน Vercel Production
     - Done: `2026-11-03 09:18:02 +07:00`
     - Result: ยังไม่ Deploy เพราะ environment ปัจจุบันไม่มี `OPENROUTER_API_KEY`; ต้องเพิ่ม secret บน Vercel ก่อนแล้วจึง Deploy
-  - [ ] อัปเดต `plan.md`, commit และ push branch
-    - Updated: `2026-11-03 09:19:00 +07:00`
-    - Result: commit สำเร็จบน branch แต่ push ถูก GitHub ปฏิเสธด้วย `Invalid username or token`; รอเอก login GitHub ใหม่แล้วใช้ `git push -u origin codex/pro-ai-openrouter-mvp`
+  - [x] อัปเดต `plan.md`, commit และ push branch
+    - Done: `2026-11-03 09:53:00 +07:00`
+    - Result: เอกยืนยันตัวตน GitHub ใหม่และ branch `codex/pro-ai-openrouter-mvp` push สำเร็จแล้ว; งาน Deploy ติดตามต่อใน T184
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T183 บน branch `codex/pro-ai-openrouter-mvp`
