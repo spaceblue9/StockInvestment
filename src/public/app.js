@@ -28,14 +28,16 @@ const customerSnapshot = document.querySelector("#customerSnapshot");
 const plansList = document.querySelector("#plansList");
 const businessViewButton = document.querySelector("[data-view='business']");
 const leftRailToggle = document.querySelector("#leftRailToggle");
+const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261103-1020";
-const programVersion = "Think2 AI Companion v0.3.1";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-1020";
+const frontendBuildVersion = "20261103-1100";
+const programVersion = "Think2 Theme Choice v0.3.2";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-1100";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
+const themeStorageKey = "stockflix.theme";
 
 const state = {
   user: null,
@@ -478,6 +480,7 @@ analysisForm.addEventListener("submit", runAnalysis);
 analysisSubmitButton.addEventListener("click", handleAnalysisButtonClick);
 analysisFileInputs.forEach((input) => input.addEventListener("change", updateFrontendDiagnostics));
 leftRailToggle?.addEventListener("click", toggleLeftRail);
+themeSelect?.addEventListener("change", () => applyTheme(themeSelect.value, { persist: true }));
 aiCompanionButton?.addEventListener("click", toggleAiCompanionDrawer);
 document.addEventListener("click", handleDelegatedAnalysisClick, true);
 document.addEventListener("pointerup", handleDelegatedAnalysisClick, true);
@@ -533,6 +536,7 @@ document.addEventListener("click", (event) => {
 await initialize();
 
 async function initialize() {
+  applyTheme(document.documentElement.dataset.theme || readStoredTheme());
   applyLeftRailState(readLeftRailCollapsed());
   updateFrontendDiagnostics();
   await Promise.all([checkHealth(), loadPlans(), loadCurrentUser()]);
@@ -544,6 +548,27 @@ async function initialize() {
     renderAuthState();
   }
   renderActiveView();
+}
+
+function applyTheme(theme, options = {}) {
+  const normalizedTheme = theme === "light" ? "light" : "dark";
+  document.documentElement.dataset.theme = normalizedTheme;
+  if (themeSelect) themeSelect.value = normalizedTheme;
+  if (options.persist) {
+    try {
+      localStorage.setItem(themeStorageKey, normalizedTheme);
+    } catch {
+      // The selected theme still applies for this page when storage is unavailable.
+    }
+  }
+}
+
+function readStoredTheme() {
+  try {
+    return localStorage.getItem(themeStorageKey) === "light" ? "light" : "dark";
+  } catch {
+    return "dark";
+  }
 }
 
 async function checkHealth() {

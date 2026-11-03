@@ -44,6 +44,44 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T186 - User-Selectable Dark and Soft Light Themes
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-03 10:57:13 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- เป้าหมาย:
+  - ให้ผู้ใช้เลือกธีมมืดหรือธีมสว่างสบายตาได้ทันที โดยไม่ต้อง Reload
+  - จำธีมที่เลือกใน Browser เพื่อให้ผู้ใช้มือใหม่ไม่ต้องตั้งค่าซ้ำ
+  - ธีมสว่างต้องอ่านตาราง กราฟ คำเตือน และ AI Companion ได้ชัด ไม่ใช้พื้นขาวจ้า
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และตรวจ hard-coded colors/ส่วนประกอบหลัก
+    - Done: `2026-11-03 10:57:13 +07:00`
+    - Note: พบ background/text colors กระจายใน panel, table, chart, form และ AI drawer จึงต้องมี override layer ครอบคลุม
+  - [x] เพิ่ม Theme selector บน Header ที่อ่านง่ายและรองรับ keyboard
+    - Done: `2026-11-03 10:59:00 +07:00`
+    - Note: เพิ่ม select `สว่างสบายตา` / `มืดสบายตา` พร้อม label และ aria-label
+  - [x] เพิ่ม Soft Light palette สีขาวอมชมพู/เขียวพร้อม contrast ที่อ่านง่าย
+    - Done: `2026-11-03 11:01:00 +07:00`
+    - Note: ใช้ off-white, blush และ mint; text หลักเป็นเขียวเทาเข้ม ไม่ใช้ขาวจ้าเต็มหน้า
+  - [x] รองรับ panel, table, form, chart, warning, badge และ AI Companion ในทั้งสองธีม
+    - Done: `2026-11-03 11:01:00 +07:00`
+    - Note: เพิ่ม light override สำหรับ component หลัก รวม tooltip, highlighted row และ SVG text
+  - [x] บันทึกค่าด้วย localStorage และใช้ธีมก่อน render เพื่อลดการกะพริบ
+    - Done: `2026-11-03 11:00:00 +07:00`
+    - Note: ใช้ `stockflix.theme`; inline head bootstrap เลือก theme ก่อน stylesheet และ fallback เป็น dark เมื่อ storage ใช้ไม่ได้
+  - [x] เพิ่ม regression สำหรับ theme control, persistence และ responsive layout
+    - Done: `2026-11-03 11:02:00 +07:00`
+    - Note: เพิ่ม markers สำหรับ control, storage, apply/read helpers และ light CSS layer
+  - [x] ตรวจภาพจริง/console ใน Browser และรัน regression
+    - Done: `2026-11-03 11:04:00 +07:00`
+    - Result: สลับ Light ได้, reload แล้วยังจำค่า, console ไม่มี error; ผ่าน `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`
+  - [ ] อัปเดต Version, `plan.md`, commit, push และ deploy production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T186 บน branch `codex/beginner-ai-companion-ui`
+  - ธีมสว่างต้องเป็น off-white ไม่ขาวจ้า และต้องรักษาความหมายสี risk/success
+  - ห้ามเปลี่ยน Think2 scoring, entitlement, OpenRouter secret หรือข้อมูลสมาชิก
+
 ### T185 - Beginner-Friendly UI and Contextual AI Companion
 
 - สถานะ: Done

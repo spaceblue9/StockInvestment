@@ -4,7 +4,16 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>StockFlix Investor Studio</title>
-    <link rel="stylesheet" href="/styles.css?v=20261103-1020">
+    <script>
+      (() => {
+        try {
+          document.documentElement.dataset.theme = localStorage.getItem("stockflix.theme") === "light" ? "light" : "dark";
+        } catch {
+          document.documentElement.dataset.theme = "dark";
+        }
+      })();
+    </script>
+    <link rel="stylesheet" href="/styles.css?v=20261103-1100">
   </head>
   <body>
     <header class="app-header">
@@ -16,6 +25,13 @@
         </div>
       </div>
       <div class="header-actions">
+        <label class="theme-control" for="themeSelect">
+          <span>Theme</span>
+          <select id="themeSelect" aria-label="เลือกสีพื้นหลัง">
+            <option value="light">สว่างสบายตา</option>
+            <option value="dark">มืดสบายตา</option>
+          </select>
+        </label>
         <button id="leftRailToggle" class="ghost-button workspace-toggle" type="button" aria-controls="leftRail" aria-expanded="true">Hide panel</button>
         <span id="healthStatus" class="status-pill">Checking</span>
         <button id="logoutButton" class="ghost-button" type="button" hidden>Sign out</button>
@@ -142,6 +158,6 @@
     </button>
     <aside id="aiCompanionDrawer" class="ai-companion-drawer" aria-label="เพื่อนช่วยอ่านผลลงทุน" aria-hidden="true" hidden></aside>
 
-    <script type="module" src="/app.js?v=20261103-1020"></script>
+    <script type="module" src="/app.js?v=20261103-1100"></script>
   </body>
 </html>

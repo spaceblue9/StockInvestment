@@ -53,6 +53,24 @@ body {
   gap: 14px;
 }
 
+.theme-control {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.theme-control span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.theme-control select {
+  min-height: 42px;
+  min-width: 142px;
+  padding: 8px 34px 8px 10px;
+}
+
 .brand-mark {
   align-items: center;
   background: var(--pink-soft);
@@ -2567,6 +2585,164 @@ tr.table-row-highlight:focus-visible td {
 a {
   color: #fff;
   font-weight: 800;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f7f5f6;
+  --panel: #fffdfd;
+  --panel-2: #f1f7f3;
+  --line: #cbd5cf;
+  --muted: #56635d;
+  --text: #1d2923;
+  --red: #c84359;
+  --red-2: #a93145;
+  --pink-soft: #c84369;
+  --pink-tint: rgba(221, 112, 140, 0.11);
+  --green: #217a50;
+  --green-soft: #2b8f60;
+  --green-tint: rgba(74, 169, 117, 0.12);
+}
+
+html[data-theme="light"] body {
+  background: linear-gradient(180deg, #f9e9ee 0%, #f4f8f5 22%, var(--bg) 52%);
+  color: var(--text);
+}
+
+html[data-theme="light"] .app-header {
+  background: rgba(255, 253, 253, 0.96);
+}
+
+html[data-theme="light"] .panel,
+html[data-theme="light"] .hero-panel,
+html[data-theme="light"] .output-box,
+html[data-theme="light"] .score-matrix-guide,
+html[data-theme="light"] .think2-safety-summary,
+html[data-theme="light"] .table-control-panel,
+html[data-theme="light"] .chart-panel,
+html[data-theme="light"] .sector-pro-panel,
+html[data-theme="light"] .portfolio-data-warning,
+html[data-theme="light"] .ai-assistant-panel,
+html[data-theme="light"] .locked-card,
+html[data-theme="light"] details {
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 12px 34px rgba(47, 66, 56, 0.09);
+}
+
+html[data-theme="light"] .metric-card,
+html[data-theme="light"] .score-matrix-card,
+html[data-theme="light"] .ai-result,
+html[data-theme="light"] .guidance-card,
+html[data-theme="light"] .sector-signal-card,
+html[data-theme="light"] .screener-insight-card,
+html[data-theme="light"] .plan-card,
+html[data-theme="light"] .admin-summary-card,
+html[data-theme="light"] .business-card {
+  background: #fff;
+  border-color: var(--line);
+  color: var(--text);
+}
+
+html[data-theme="light"] input,
+html[data-theme="light"] select,
+html[data-theme="light"] textarea {
+  background: #fff;
+  border-color: #afbeb6;
+  color: var(--text);
+}
+
+html[data-theme="light"] input::placeholder,
+html[data-theme="light"] textarea::placeholder {
+  color: #77837d;
+}
+
+html[data-theme="light"] label,
+html[data-theme="light"] h1,
+html[data-theme="light"] h2,
+html[data-theme="light"] h3,
+html[data-theme="light"] h4,
+html[data-theme="light"] strong,
+html[data-theme="light"] .score-matrix-intro strong,
+html[data-theme="light"] .think2-safety-summary strong,
+html[data-theme="light"] .portfolio-data-warning strong {
+  color: var(--text);
+}
+
+html[data-theme="light"] .view-grid button,
+html[data-theme="light"] .ghost-button,
+html[data-theme="light"] .auth-mode-tabs button,
+html[data-theme="light"] .ai-prompt-list button {
+  background: #eef4f0;
+  border-color: #b8c7bf;
+  color: #24372e;
+}
+
+html[data-theme="light"] .view-grid button:hover,
+html[data-theme="light"] .ghost-button:hover,
+html[data-theme="light"] .ai-prompt-list button:hover {
+  background: #f7dfe6;
+  border-color: #d57992;
+  color: #522232;
+}
+
+html[data-theme="light"] .auth-mode-tabs,
+html[data-theme="light"] .analysis-status,
+html[data-theme="light"] .ai-companion-note {
+  background: #eef6f1;
+  color: #294737;
+}
+
+html[data-theme="light"] .ai-companion-drawer {
+  background: #fbfdfb;
+  border-color: #aebfb6;
+  box-shadow: -18px 0 55px rgba(38, 57, 47, 0.18);
+  color: var(--text);
+}
+
+html[data-theme="light"] .ai-companion-header p,
+html[data-theme="light"] .ai-result > p,
+html[data-theme="light"] .ai-result li,
+html[data-theme="light"] .muted,
+html[data-theme="light"] td,
+html[data-theme="light"] .table-warning-text {
+  color: var(--muted);
+}
+
+html[data-theme="light"] table {
+  background: #fff;
+}
+
+html[data-theme="light"] th {
+  background: #e8f1ec;
+  color: #21382c;
+}
+
+html[data-theme="light"] td {
+  border-color: #d8e0dc;
+}
+
+html[data-theme="light"] tr.table-row-highlight td {
+  background: #f9e1e7;
+  color: #32151e;
+}
+
+html[data-theme="light"] .tooltip-card,
+html[data-theme="light"] .table-tooltip-card {
+  background: #26362e;
+  color: #fff;
+}
+
+html[data-theme="light"] svg text {
+  fill: #34483e;
+}
+
+html[data-theme="light"] .simulation-chart-frame,
+html[data-theme="light"] .chart-frame {
+  background: #fff;
+}
+
+html[data-theme="light"] a {
+  color: #9e2e4a;
 }
 
 @media (max-width: 980px) {
