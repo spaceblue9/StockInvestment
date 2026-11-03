@@ -44,6 +44,35 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T197 - Circular Hint Icons and Multi-Symbol Search
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-03 20:19:36 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ปัญหา:
+  - `.tooltip-trigger` ถูก global `button { min-height: 44px }` ขยายจนเป็นวงรี
+  - Screener Search ใช้ข้อความทั้งหมดเป็น token เดียว จึงค้น `PTT, AOT, CPALL` พร้อมกันไม่ได้
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และตรวจ button/search implementation
+    - Done: `2026-11-03 20:19:36 +07:00`
+  - [x] ล็อก Hint icon เป็นวงกลมขนาดคงที่ทั้ง desktop/mobile
+    - Done: `2026-11-03 20:20:56 +07:00`
+    - Note: กำหนด min/max width/height 22px, fixed flex basis และ aspect-ratio 1
+  - [x] รองรับหลาย Symbol คั่นด้วย comma, semicolon, space หรือขึ้นบรรทัดใหม่
+    - Done: `2026-11-03 20:20:56 +07:00`
+    - Note: parse token แบบ unique, ตัด `.BK` และใช้ OR ระหว่าง Symbol/Name/Company/Security Name
+  - [x] ปรับ placeholder/hint/filter status ให้ผู้ใช้เข้าใจรูปแบบ
+    - Done: `2026-11-03 20:20:56 +07:00`
+    - Note: แสดงตัวอย่าง `PTT, AOT, CPALL` และ status แสดงรายการ Symbol ที่กำลังค้น
+  - [x] เพิ่ม regression, ทดสอบ, อัปเดต Version/`plan.md`
+    - Done: `2026-11-03 20:20:56 +07:00`
+    - Result: ผ่าน syntax, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`; version `Think2 Multi Search v0.5.5`, build `20261103-2025`
+  - [ ] commit, push, deploy และตรวจ production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T197 บน branch `codex/beginner-ai-companion-ui`
+  - Search หลาย Symbol ต้องใช้ OR ระหว่าง token และยังใช้ร่วมกับ Score/RRR/D-E/Sector/Trend filters เดิม
+
 ### T196 - Fix Light Theme Hint and Chart Readability
 
 - สถานะ: Done

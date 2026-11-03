@@ -2247,9 +2247,15 @@ td select {
   font-size: 12px;
   font-weight: 900;
   height: 22px;
+  max-height: 22px;
+  max-width: 22px;
+  min-height: 22px;
+  min-width: 22px;
   justify-content: center;
   line-height: 1;
   padding: 0;
+  flex: 0 0 22px;
+  aspect-ratio: 1;
   width: 22px;
 }
 

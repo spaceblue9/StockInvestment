@@ -32,9 +32,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261103-2015";
-const programVersion = "Think2 Light Chart Fix v0.5.4";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-2015";
+const frontendBuildVersion = "20261103-2025";
+const programVersion = "Think2 Multi Search v0.5.5";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-2025";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -3475,8 +3475,8 @@ function renderScreenerView() {
         id: "symbolSearch",
         label: "Search stock",
         tipKey: "symbol",
-        hint: "พิมพ์ Symbol เช่น PTT, AOT, CPALL เพื่อหาหุ้นที่สนใจ",
-        controlHtml: '<input id="symbolSearch" type="search" placeholder="Search symbol or stock name" autocomplete="off" aria-describedby="screener-tip-symbol symbolSearchHint" data-screener-symbol-search>',
+        hint: "ค้นหลายตัวได้ เช่น PTT, AOT, CPALL โดยคั่นด้วย comma หรือเว้นวรรค",
+        controlHtml: '<input id="symbolSearch" type="search" placeholder="PTT, AOT, CPALL หรือชื่อหุ้น" autocomplete="off" aria-describedby="screener-tip-symbol symbolSearchHint" data-screener-symbol-search>',
       })}
       ${renderScreenerFilterField({
         id: "minScore",
@@ -3533,11 +3533,13 @@ function renderScreenerView() {
   const filterStatus = document.querySelector("#screenerFilterStatus");
   const renderFiltered = () => {
     const searchText = String(symbolSearch.value || "").trim().toUpperCase();
+    const searchTokens = [...new Set(searchText.split(/[\s,;]+/u).map((token) => token.replace(/\.BK$/u, "").trim()).filter(Boolean))];
     const rows = state.recommendations
       .filter((row) => {
-        if (!searchText) return true;
-        return [row.Symbol, row.Name, row.Company, row.Security_Name, row.Sector]
-          .some((value) => String(value || "").toUpperCase().includes(searchText));
+        if (!searchTokens.length) return true;
+        const searchableValues = [row.Symbol, row.Name, row.Company, row.Security_Name]
+          .map((value) => String(value || "").toUpperCase().replace(/\.BK$/u, ""));
+        return searchTokens.some((token) => searchableValues.some((value) => value.includes(token)));
       })
       .filter((row) => numberValue(row.Total_Score) >= numberValue(minScore.value))
       .filter((row) => numberValue(row.RRR) >= numberValue(minRrr.value))
@@ -3546,7 +3548,7 @@ function renderScreenerView() {
       .filter((row) => !trendFilter.value || (row.Trend_Status || "Unknown") === trendFilter.value)
       .slice(0, 100);
     const activeFilters = [
-      searchText ? `search ${searchText}` : "",
+      searchTokens.length ? `symbols ${searchTokens.join(", ")}` : "",
       sectorFilter.value ? `sector ${sectorFilter.value}` : "",
       trendFilter.value ? `trend ${trendFilter.value}` : "",
       numberValue(minScore.value) > 0 ? `score >= ${formatNumber(minScore.value)}` : "",
