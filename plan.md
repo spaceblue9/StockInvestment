@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T196 - Fix Light Theme Hint and Chart Readability
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-03 20:06:17 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ปัญหาจากภาพจริง:
@@ -68,7 +68,10 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] เพิ่ม regression, ทดสอบ responsive, อัปเดต Version/`plan.md`
     - Done: `2026-11-03 20:07:59 +07:00`
     - Result: ผ่าน syntax, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`; version `Think2 Light Chart Fix v0.5.4`, build `20261103-2015`
-  - [ ] commit, push, deploy และตรวจ production
+  - [x] commit, push, deploy และตรวจ production
+    - Done: `2026-11-03 20:09:18 +07:00`
+    - Result: commit `b88e8fe` push สำเร็จ; deployment `dpl_9ddMPb2ZSZ7tgxf5g2Kh1orQXjk9` READY
+    - Verification: production HTML ใช้ cache build `20261103-2015`; authenticated visual result ให้เอกตรวจหลัง `Ctrl+F5`
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T196 บน branch `codex/beginner-ai-companion-ui`
