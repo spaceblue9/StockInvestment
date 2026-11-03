@@ -45,10 +45,14 @@ export function aiMonthlyRequestLimit() {
 export function buildAiInvestmentContext(snapshot, input = {}) {
   const mode = allowedModes.has(input.mode) ? input.mode : "portfolio";
   const focus = Object.hasOwn(focusTasks, input.focus) ? input.focus : "";
+  const currentRows = (Array.isArray(input.currentRows) ? input.currentRows : [])
+    .slice(0, MAX_HOLDINGS)
+    .map(sanitizeStockRow)
+    .filter((row) => row.Symbol);
   const portfolioRows = (snapshot?.portfolioRows || []).map(sanitizeStockRow).filter((row) => row.Symbol);
   const recommendations = (snapshot?.recommendations || []).map(sanitizeStockRow).filter((row) => row.Symbol);
   const symbol = cleanSymbol(input.symbol);
-  const allRows = uniqueBySymbol([...portfolioRows, ...recommendations]);
+  const allRows = uniqueBySymbol([...currentRows, ...portfolioRows, ...recommendations]);
   const selectedStock = symbol ? allRows.find((row) => row.Symbol === symbol) || null : null;
   const sector = selectedStock?.Sector || "";
   const peers = selectedStock
@@ -59,7 +63,7 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
     : [];
 
   if (["stock", "compare"].includes(mode) && !selectedStock) {
-    const error = new Error("The selected stock is not available in the latest portfolio or recommendation data.");
+    const error = new Error("ไม่พบหุ้นที่เลือกในผลวิเคราะห์ปัจจุบัน กรุณารัน Analyze my portfolio อีกครั้งแล้วลองใหม่");
     error.statusCode = 400;
     throw error;
   }
@@ -75,7 +79,8 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
       priceFreshness: "Use generatedAt; do not claim real-time data",
     },
     portfolioSummary: sanitizeSummary(snapshot?.summary || {}),
-    holdings: portfolioRows.slice(0, MAX_HOLDINGS),
+    holdings: uniqueBySymbol([...currentRows, ...portfolioRows]).slice(0, MAX_HOLDINGS),
+    currentRows,
     selectedStock,
     peers,
   };

@@ -54,4 +54,23 @@ const response = await generateAiInvestmentExplanation(snapshot, { mode: "stock"
 assert.equal(response.result.title, "คำอธิบาย AAA");
 assert.equal(response.usage.totalTokens, 150);
 assert.equal(sentRequest.provider.zdr, true);
+
+const staleSnapshotContext = buildAiInvestmentContext({
+  generatedAt: snapshot.generatedAt,
+  portfolioRows: [{ Symbol: "OLD", Sector: "Energy", Total_Score: 55 }],
+  recommendations: [],
+}, {
+  mode: "stock",
+  symbol: "NEW",
+  currentRows: [{
+    Symbol: "NEW",
+    Sector: "Technology",
+    Total_Score: 81,
+    email: "must-not-leak@example.com",
+    uploadedFile: "private.xlsx",
+  }],
+});
+assert.equal(staleSnapshotContext.selectedStock.Symbol, "NEW");
+assert.equal(JSON.stringify(staleSnapshotContext).includes("must-not-leak@example.com"), false);
+assert.equal(JSON.stringify(staleSnapshotContext).includes("private.xlsx"), false);
 console.log("AI investment service regression passed.");

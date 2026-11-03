@@ -44,6 +44,39 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T187 - AI Companion Uses Current On-Screen Analysis Rows
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-03 11:39:04 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ปัญหา:
+  - หน้า Screener เลือกหุ้นเด่นจากผลวิเคราะห์ล่าสุดใน Browser แต่ AI endpoint อ่าน snapshot เก่าจากฐานข้อมูล
+  - Vercel trial อาจ defer การบันทึก snapshot เพื่อหลีกเลี่ยง timeout ทำให้ symbol ในหน้าจอไม่มีใน snapshot เก่าและเกิด `The selected stock is not available...`
+- งานที่ต้องทำ:
+  - [x] อ่าน `plan.md` และระบุสาเหตุจาก current frontend rows เทียบ persisted snapshot
+    - Done: `2026-11-03 11:39:04 +07:00`
+  - [x] ส่งเฉพาะ current analysis rows ที่อยู่ใน allowlist ไปยัง AI endpoint
+    - Done: `2026-11-03 11:42:00 +07:00`
+    - Note: Frontend ส่ง current rows สูงสุด 25 แถวและ map เฉพาะ field ที่ AI ใช้
+  - [x] ให้ backend sanitize/จำกัดจำนวน rows และรวม current rows ก่อน snapshot rows
+    - Done: `2026-11-03 11:42:00 +07:00`
+    - Note: Backend sanitize ซ้ำและให้ current rows มาก่อน persisted snapshot เพื่อ resolve symbol ที่อยู่บนจอ
+  - [x] ห้ามส่ง PII, filename, workbook หรือ field นอก allowlist
+    - Done: `2026-11-03 11:43:00 +07:00`
+    - Result: regression ยืนยันว่า email และ filename สมมติไม่อยู่ใน AI context
+  - [x] เพิ่ม regression สำหรับ current symbol ที่ไม่มีใน persisted snapshot
+    - Done: `2026-11-03 11:43:00 +07:00`
+    - Result: snapshot มี `OLD` แต่ current rows มี `NEW`; selected stock resolve เป็น `NEW` สำเร็จ
+  - [x] ปรับข้อความ error ภาษาไทยให้ผู้ใช้เข้าใจง่าย
+    - Done: `2026-11-03 11:42:00 +07:00`
+    - Note: แจ้งให้รัน Analyze ใหม่เมื่อหุ้นไม่มีทั้งใน current rows และ snapshot
+  - [ ] รัน regression, อัปเดต Version/`plan.md`, commit, push และ deploy production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T187 บน branch `codex/beginner-ai-companion-ui`
+  - Current rows ต้องผ่าน `sanitizeStockRow` ฝั่ง server เสมอ และจำกัดจำนวนก่อนส่ง OpenRouter
+  - ห้ามแก้ Think2 scoring/action หรือส่งข้อมูลส่วนตัวและไฟล์ต้นฉบับ
+
 ### T186 - User-Selectable Dark and Soft Light Themes
 
 - สถานะ: Done

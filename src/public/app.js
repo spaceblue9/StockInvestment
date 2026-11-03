@@ -32,9 +32,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261103-1100";
-const programVersion = "Think2 Theme Choice v0.3.2";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-1100";
+const frontendBuildVersion = "20261103-1145";
+const programVersion = "Think2 AI Context Hotfix v0.3.3";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-1145";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -1822,7 +1822,12 @@ async function runAiInvestmentExplanation(options = {}) {
     const response = await fetch("/api/ai/explain", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: state.aiAssistant.mode, symbol: state.aiAssistant.symbol, focus: state.aiAssistant.focus }),
+      body: JSON.stringify({
+        mode: state.aiAssistant.mode,
+        symbol: state.aiAssistant.symbol,
+        focus: state.aiAssistant.focus,
+        currentRows: currentAiContextRows(),
+      }),
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.message || "AI Assistant could not finish.");
@@ -1915,6 +1920,26 @@ function aiCompanionPrompts(view) {
 function bestContextSymbol() {
   const rows = state.activeView === "portfolio" ? state.portfolioRows : state.recommendations;
   return rows.slice().sort((left, right) => numberValue(right.Total_Score) - numberValue(left.Total_Score))[0]?.Symbol || "";
+}
+
+function currentAiContextRows() {
+  const allowedFields = [
+    "Symbol", "Sector", "Price", "Total_Score", "Quality_Score", "Valuation_Score",
+    "Setup_Score", "Balance_Risk_Score", "Liquidity_Score", "Composite_Score_v2",
+    "PE", "ROE", "DE", "Yield", "RSI", "RRR", "Technical_RRR", "Upside_Pct",
+    "Gain_Loss_Pct", "Market_Value", "Portfolio_Weight_Pct", "Trend_Status",
+    "Advice", "Target_Action", "Effective_Target_Action", "Conflict_Severity",
+    "Data_Status", "Data_Warnings", "Conflict_Alerts", "Rationale",
+  ];
+  const rows = state.activeView === "portfolio" ? state.portfolioRows : state.recommendations;
+  return rows
+    .slice()
+    .sort((left, right) => numberValue(right.Total_Score) - numberValue(left.Total_Score))
+    .slice(0, 25)
+    .map((row) => allowedFields.reduce((safeRow, field) => {
+      if (row[field] !== undefined && row[field] !== null && row[field] !== "") safeRow[field] = row[field];
+      return safeRow;
+    }, {}));
 }
 
 function viewLabel(view) {
