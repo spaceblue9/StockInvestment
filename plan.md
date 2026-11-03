@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T199 - Portfolio Multi-Symbol Search
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-03 20:41:36 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ปัญหา: Recommended actions Search ใช้ข้อความทั้งหมดเป็น substring เดียว จึงค้นหลาย Symbol พร้อมกันไม่ได้ แม้ placeholder แสดง `AOT, PTT...`
@@ -62,7 +62,10 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] เพิ่ม regression, ทดสอบ, อัปเดต Version/`plan.md`
     - Done: `2026-11-03 20:43:32 +07:00`
     - Result: ผ่าน syntax, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`; version `Think2 Portfolio Multi Search v0.5.7`, build `20261103-2045`
-  - [ ] commit, push, deploy และตรวจ production
+  - [x] commit, push, deploy และตรวจ production
+    - Done: `2026-11-03 20:44:48 +07:00`
+    - Result: commit `ff69e79` push สำเร็จ; deployment `dpl_AubtBcEJQPyrztsDeiuVrY82PBwS` READY
+    - Verification: production HTML ใช้ cache build `20261103-2045`; authenticated multi-search result ให้เอกตรวจหลัง `Ctrl+F5`
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T199 บน branch `codex/beginner-ai-companion-ui`
