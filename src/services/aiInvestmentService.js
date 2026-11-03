@@ -13,7 +13,7 @@ const focusTasks = {
   screener_shortlist: "Explain why the strongest supplied screener rows passed the current quality and risk checks.",
   screener_risks: "Explain hidden risks or conflicting signals in the supplied recommendation rows.",
   sector_explain: "Explain sector strength, leaders, and shared risks using only the supplied rows.",
-  sector_concentration: "Explain whether the portfolio appears concentrated by sector and what to review next.",
+  sector_concentration: "Explain whether the currently filtered sector rows are concentrated in a few stocks and what to review next.",
   simulation_interpretation: "Explain how to read a strategy simulation, emphasizing that backtests do not predict future returns.",
 };
 const stockFields = [
@@ -55,7 +55,7 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
   const portfolioRows = (snapshot?.portfolioRows || []).map(sanitizeStockRow).filter((row) => row.Symbol);
   const recommendations = (snapshot?.recommendations || []).map(sanitizeStockRow).filter((row) => row.Symbol);
   const symbol = cleanSymbol(input.symbol);
-  const scopeIsFiltered = contextView === "screener";
+  const scopeIsFiltered = ["screener", "sector"].includes(contextView);
   const allRows = scopeIsFiltered
     ? uniqueBySymbol(currentRows)
     : uniqueBySymbol([...currentRows, ...portfolioRows, ...recommendations]);

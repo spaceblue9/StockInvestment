@@ -94,4 +94,24 @@ assert.deepEqual(filteredScreenerContext.portfolioSummary, {});
 assert.equal(filteredScreenerContext.filterSummary, "symbols FILTERED · score >= 70");
 assert.equal(JSON.stringify(filteredScreenerContext).includes("OUTSIDE_PORT"), false);
 assert.equal(JSON.stringify(filteredScreenerContext).includes("OUTSIDE_REC"), false);
+
+const filteredSectorContext = buildAiInvestmentContext({
+  generatedAt: snapshot.generatedAt,
+  recommendations: [{ Symbol: "OTHER_SECTOR", Sector: "Energy", Total_Score: 99 }],
+}, {
+  mode: "compare",
+  symbol: "HEALTH_A",
+  focus: "sector_concentration",
+  contextView: "sector",
+  filterSummary: "Healthcare · score >= 70 · price position line 60",
+  currentRows: [
+    { Symbol: "HEALTH_A", Sector: "Healthcare", Total_Score: 82 },
+    { Symbol: "HEALTH_B", Sector: "Healthcare", Total_Score: 75 },
+  ],
+});
+assert.deepEqual(filteredSectorContext.currentRows.map((row) => row.Symbol), ["HEALTH_A", "HEALTH_B"]);
+assert.equal(filteredSectorContext.selectedStock.Symbol, "HEALTH_A");
+assert.deepEqual(filteredSectorContext.peers.map((row) => row.Symbol), ["HEALTH_B"]);
+assert.equal(JSON.stringify(filteredSectorContext).includes("OTHER_SECTOR"), false);
+assert.match(buildOpenRouterRequest(filteredSectorContext).messages[1].content, /currently filtered sector rows/u);
 console.log("AI investment service regression passed.");

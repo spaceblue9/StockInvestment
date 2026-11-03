@@ -25,8 +25,8 @@ assertIncludes(html, [
   'data-frontend-version',
   'leftRailToggle',
   'Hide panel',
-  '/styles.css?v=20261103-2110',
-  '/app.js?v=20261103-2110',
+  '/styles.css?v=20261103-2125',
+  '/app.js?v=20261103-2125',
 ], "HTML should expose viewport meta, brand, and primary dashboard navigation.");
 if (html.includes('data-view="approvals"')) {
   throw new Error("Launch navigation should not expose deferred Approvals.");
@@ -163,11 +163,13 @@ assertIncludes(appJs, [
   "Sign in to analyze",
   "Create an account or sign in before downloading templates",
   "frontendBuildVersion",
-  "20261103-2110",
-  "Think2 Filtered AI Scope v0.5.9",
-  "codex/beginner-ai-companion-ui@20261103-2110",
+  "20261103-2125",
+  "Think2 Sector AI Scope v0.6.0",
+  "codex/beginner-ai-companion-ui@20261103-2125",
   "screenerFilteredRows",
   "screenerFilterSummary",
+  "sectorFilteredRows",
+  "sectorFilterSummary",
   "contextView: state.activeView",
   "data-ai-context-scope",
   "AI จะอ่านเฉพาะ",

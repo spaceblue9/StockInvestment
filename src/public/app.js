@@ -32,9 +32,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261103-2110";
-const programVersion = "Think2 Filtered AI Scope v0.5.9";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-2110";
+const frontendBuildVersion = "20261103-2125";
+const programVersion = "Think2 Sector AI Scope v0.6.0";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-2125";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -81,6 +81,8 @@ const state = {
   todayReviewDetailSymbol: "",
   screenerFilteredRows: [],
   screenerFilterSummary: "",
+  sectorFilteredRows: [],
+  sectorFilterSummary: "",
   aiAssistant: {
     mode: "portfolio",
     symbol: "",
@@ -1960,7 +1962,7 @@ async function runAiInvestmentExplanation(options = {}) {
         symbol: state.aiAssistant.symbol,
         focus: state.aiAssistant.focus,
         contextView: state.activeView,
-        filterSummary: state.activeView === "screener" ? state.screenerFilterSummary : "",
+        filterSummary: activeAiFilterSummary(),
         currentRows: currentAiContextRows(),
       }),
     });
@@ -2003,8 +2005,8 @@ function renderAiCompanion() {
 
   const prompts = aiCompanionPrompts(state.activeView);
   const contextRows = activeAiContextRows();
-  const contextNote = state.activeView === "screener"
-    ? `AI จะอ่านเฉพาะ ${formatNumber(contextRows.length)} หุ้นที่ผ่าน filter ปัจจุบัน: ${state.screenerFilterSummary || "ยังไม่มีรายการที่ผ่าน filter"}`
+  const contextNote = ["screener", "sector"].includes(state.activeView)
+    ? `AI จะอ่านเฉพาะ ${formatNumber(contextRows.length)} หุ้นที่ผ่านเงื่อนไขปัจจุบัน: ${activeAiFilterSummary() || "ยังไม่มีรายการที่ผ่านเงื่อนไข"}`
     : `AI จะอ่านข้อมูลจากหน้า ${viewLabel(state.activeView)} ที่กำลังเปิดอยู่`;
   aiCompanionDrawer.innerHTML = `
     <div class="ai-companion-header">
@@ -2046,7 +2048,7 @@ function aiCompanionPrompts(view) {
     ],
     sector: [
       { id: "sector_explain", mode: "compare", symbol, label: "อธิบายหุ้นผู้นำและคู่แข่งในกลุ่ม" },
-      { id: "sector_concentration", mode: "portfolio", label: "พอร์ตถือ Sector ใดมากเกินไป" },
+      { id: "sector_concentration", mode: "portfolio", label: "Sector ที่เลือกกระจุกตัวในหุ้นใด" },
       { id: "screener_risks", mode: "stock", symbol, label: "ความเสี่ยงร่วมของหุ้นกลุ่มนี้คืออะไร" },
     ],
     simulation: [
@@ -2065,7 +2067,14 @@ function bestContextSymbol() {
 function activeAiContextRows() {
   if (state.activeView === "portfolio") return state.portfolioRows;
   if (state.activeView === "screener") return state.screenerFilteredRows;
+  if (state.activeView === "sector") return state.sectorFilteredRows;
   return state.recommendations;
+}
+
+function activeAiFilterSummary() {
+  if (state.activeView === "screener") return state.screenerFilterSummary;
+  if (state.activeView === "sector") return state.sectorFilterSummary;
+  return "";
 }
 
 function currentAiContextRows() {
@@ -3692,6 +3701,13 @@ function renderSectorView() {
       .filter((row) => numberValue(row.Total_Score) >= minScore)
       .slice()
       .sort((left, right) => numberValue(right.Total_Score) - numberValue(left.Total_Score));
+    state.sectorFilteredRows = sectorRows;
+    state.sectorFilterSummary = `${isAllSectors ? "All sectors" : selectedSector} · score >= ${formatNumber(minScore)} · price position line ${formatNumber(pricePositionThreshold)}`;
+    if (!sectorRows.some((row) => row.Symbol === state.aiAssistant.symbol)) {
+      state.aiAssistant.symbol = sectorRows[0]?.Symbol || "";
+    }
+    state.aiAssistant.result = null;
+    state.aiAssistant.error = "";
     const leader = sectorRows[0];
     const stats = getSectorStats(sectorRows);
     const insight = isAllSectors
@@ -3719,6 +3735,7 @@ function renderSectorView() {
     `;
     attachStockHighlightControls(document.querySelector("#sectorDetails"));
     attachSectorSelectionControls(sectorSelect, renderDetails);
+    if (state.aiAssistant.drawerOpen) renderAiCompanion();
   };
 
   sectorSelect.addEventListener("change", renderDetails);
