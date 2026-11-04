@@ -44,6 +44,31 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T205 - Lock Single-Stock AI Scope
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-04 08:52:11 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ปัญหาจาก Production: เลือก `อธิบายหุ้นรายตัว` และ Symbol `OR` แต่ AI ตอบภาพรวมพอร์ต Consumer Defensive/Energy
+- Root cause: request ระบุ `mode=stock` และ `symbol=OR` แล้ว แต่ AI context ยังแนบ `currentRows` และ `portfolioSummary` ของทั้งพอร์ต ทำให้โมเดลตีความผิดขอบเขต
+- งานที่ต้องทำ:
+  - [x] ตรวจ dropdown -> request -> server context -> prompt
+    - Done: `2026-11-04 08:52:11 +07:00`
+  - [x] ล็อกโหมด stock ให้ส่งเฉพาะหุ้นที่เลือก และไม่ส่ง portfolio summary
+    - Done: `2026-11-04 08:54:07 +07:00`
+    - Note: currentRows/holdings เหลือเฉพาะ selected Symbol และ peers เป็น array ว่างในโหมด stock
+  - [x] ล็อกโหมด compare ให้ส่งเฉพาะหุ้นที่เลือกกับ peers ใน sector เดียวกัน
+    - Done: `2026-11-04 08:54:07 +07:00`
+  - [x] เพิ่ม regression ที่ใช้ OR พร้อมหุ้นต่าง sector เพื่อกันคำตอบภาพรวมย้อนกลับ
+    - Done: `2026-11-04 08:54:07 +07:00`
+    - Result: ยืนยัน stock context มีเฉพาะ OR ไม่มี CPALL/PTT/portfolioSummary และ compare context มี OR+PTT แต่ไม่มี CPALL
+  - [ ] ทดสอบ อัปเดต Version, commit, push, deploy และตรวจ Production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
+  - ทำ T205 บน branch `codex/beginner-ai-companion-ui`
+  - โหมด `stock` ต้องไม่มี Symbol อื่นหรือ portfolio summary ใน verified application data
+  - โหมด `compare` อนุญาตเฉพาะ selected stock และ peers ที่ Sector เดียวกัน
+
 ### T204 - Context-Aware AI Questions and Analysis Tools
 
 - สถานะ: Done

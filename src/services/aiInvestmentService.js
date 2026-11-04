@@ -76,6 +76,12 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
     throw error;
   }
 
+  const modeRows = mode === "stock"
+    ? [selectedStock].filter(Boolean)
+    : mode === "compare"
+      ? [selectedStock, ...peers].filter(Boolean)
+      : allRows;
+
   return {
     mode,
     focus,
@@ -89,16 +95,14 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
       companyProfileAvailable: Boolean(input.researchContext?.profile?.name),
       priceFreshness: input.marketContext?.fetchedAt ? "Use marketContext fetchedAt; historical chart is not a real-time trade quote" : "Use generatedAt; do not claim real-time data",
     },
-    portfolioSummary: contextView === "portfolio" ? sanitizeSummary(snapshot?.summary || {}) : {},
-    holdings: rowsAreScoped
-      ? uniqueBySymbol(currentRows).slice(0, MAX_HOLDINGS)
-      : uniqueBySymbol([...currentRows, ...portfolioRows]).slice(0, MAX_HOLDINGS),
-    currentRows,
+    portfolioSummary: contextView === "portfolio" && mode === "portfolio" ? sanitizeSummary(snapshot?.summary || {}) : {},
+    holdings: uniqueBySymbol(modeRows).slice(0, MAX_HOLDINGS),
+    currentRows: uniqueBySymbol(modeRows).slice(0, MAX_HOLDINGS),
     viewContext: contextView === "simulation" ? sanitizeSimulationViewContext(input.viewContext) : null,
     marketContext: sanitizeMarketContext(input.marketContext, allRows),
     researchContext: sanitizeResearchContext(input.researchContext, allRows),
     selectedStock,
-    peers,
+    peers: mode === "compare" ? peers : [],
   };
 }
 
@@ -107,8 +111,8 @@ export function buildOpenRouterRequest(context) {
     ? "Explain the supplied simulation summary, strategy versus buy-and-hold result, buy plan, sampled history, and trades. State whether the result merits further study or should be treated cautiously."
     : ({
     portfolio: "Summarize portfolio concentration, strengths, risks, and practical questions the investor should study next.",
-    stock: "Explain the selected stock's Think2 metrics and warnings in beginner-friendly Thai. Do not invent its business description.",
-    compare: "Compare the selected stock with supplied peers from the same sector using only supplied metrics.",
+    stock: "Explain only the selected stock's Think2 metrics and warnings in beginner-friendly Thai. Do not summarize the portfolio and do not mention any other stock. Do not invent its business description.",
+    compare: "Compare only the selected stock with the supplied peers from the same sector using supplied metrics. Do not summarize the whole portfolio.",
   }[context.mode]);
   const focusTask = context.focus ? focusTasks[context.focus] : "";
   const questionTask = context.question

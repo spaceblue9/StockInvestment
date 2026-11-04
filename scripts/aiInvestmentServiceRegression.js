@@ -197,4 +197,43 @@ const researchContext = buildAiInvestmentContext(snapshot, {
 assert.equal(researchContext.researchContext.profile.name, "BBB Company");
 assert.equal(researchContext.researchContext.news.length, 1);
 assert.equal(JSON.stringify(researchContext.researchContext).includes("privateNote"), false);
+
+const orSingleStockContext = buildAiInvestmentContext({
+  generatedAt: snapshot.generatedAt,
+  summary: { holdings: 3, marketValue: 300000, avgScore: 66.08 },
+  portfolioRows: [
+    { Symbol: "OR", Sector: "Energy", Total_Score: 61, RRR: 0.8 },
+    { Symbol: "CPALL", Sector: "Consumer Defensive", Total_Score: 80, RRR: 2 },
+    { Symbol: "PTT", Sector: "Energy", Total_Score: 70, RRR: 1.1 },
+  ],
+}, {
+  mode: "stock",
+  symbol: "OR",
+  contextView: "portfolio",
+  currentRows: [
+    { Symbol: "OR", Sector: "Energy", Total_Score: 61, RRR: 0.8 },
+    { Symbol: "CPALL", Sector: "Consumer Defensive", Total_Score: 80, RRR: 2 },
+    { Symbol: "PTT", Sector: "Energy", Total_Score: 70, RRR: 1.1 },
+  ],
+});
+assert.deepEqual(orSingleStockContext.currentRows.map((row) => row.Symbol), ["OR"]);
+assert.deepEqual(orSingleStockContext.holdings.map((row) => row.Symbol), ["OR"]);
+assert.deepEqual(orSingleStockContext.portfolioSummary, {});
+const orSingleStockPrompt = buildOpenRouterRequest(orSingleStockContext).messages[1].content;
+assert.match(orSingleStockPrompt, /Explain only the selected stock/u);
+assert.equal(orSingleStockPrompt.includes("CPALL"), false);
+assert.equal(orSingleStockPrompt.includes('"PTT"'), false);
+
+const orCompareContext = buildAiInvestmentContext({ portfolioRows: [] }, {
+  mode: "compare",
+  symbol: "OR",
+  contextView: "portfolio",
+  currentRows: [
+    { Symbol: "OR", Sector: "Energy", Total_Score: 61 },
+    { Symbol: "PTT", Sector: "Energy", Total_Score: 70 },
+    { Symbol: "CPALL", Sector: "Consumer Defensive", Total_Score: 80 },
+  ],
+});
+assert.deepEqual(orCompareContext.currentRows.map((row) => row.Symbol), ["OR", "PTT"]);
+assert.equal(JSON.stringify(orCompareContext).includes("CPALL"), false);
 console.log("AI investment service regression passed.");

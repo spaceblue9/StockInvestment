@@ -144,8 +144,8 @@ try {
     "สว่างสบายตา",
     "มืดสบายตา",
     "Hide panel",
-    "/styles.css?v=20261104-0835",
-    "/app.js?v=20261104-0835",
+    "/styles.css?v=20261104-0855",
+    "/app.js?v=20261104-0855",
   ], "Main HTML should expose the dashboard navigation.");
   assert(!html.includes('data-view="onboarding"'), "Launch navigation should not expose the hidden Guide view.");
   assert(!html.includes('data-view="approvals"'), "Launch navigation should not expose the deferred Approvals view.");
@@ -181,9 +181,9 @@ try {
     "Sign in to analyze",
     "Create an account or sign in before downloading templates",
     "frontendBuildVersion",
-    "20261104-0835",
-    "Think2 Verified AI Research v0.7.1",
-    "codex/beginner-ai-companion-ui@20261104-0835",
+    "20261104-0855",
+    "Think2 Locked Stock Scope v0.7.2",
+    "codex/beginner-ai-companion-ui@20261104-0855",
     "data-ai-decision-support",
     "มุมมองช่วยตัดสินใจ",
     "data-ai-custom-question",
