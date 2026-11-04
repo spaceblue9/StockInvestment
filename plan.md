@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T205 - Lock Single-Stock AI Scope
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-04 08:52:11 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ปัญหาจาก Production: เลือก `อธิบายหุ้นรายตัว` และ Symbol `OR` แต่ AI ตอบภาพรวมพอร์ต Consumer Defensive/Energy
@@ -62,7 +62,12 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] เพิ่ม regression ที่ใช้ OR พร้อมหุ้นต่าง sector เพื่อกันคำตอบภาพรวมย้อนกลับ
     - Done: `2026-11-04 08:54:07 +07:00`
     - Result: ยืนยัน stock context มีเฉพาะ OR ไม่มี CPALL/PTT/portfolioSummary และ compare context มี OR+PTT แต่ไม่มี CPALL
-  - [ ] ทดสอบ อัปเดต Version, commit, push, deploy และตรวจ Production
+  - [x] ทดสอบ อัปเดต Version, commit, push, deploy และตรวจ Production
+    - Done: `2026-11-04 08:55:07 +07:00`
+    - Result: ผ่าน `test:ai-investment`, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`
+    - Release: `Think2 Locked Stock Scope v0.7.2`, build `20261104-0855`
+    - Git: commit `2798b79` push สำเร็จ
+    - Deploy: `dpl_fjRrV7utZjZJCrv4ZQThEDqWK5ey` สถานะ READY และ production alias สำเร็จ
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
   - ทำ T205 บน branch `codex/beginner-ai-companion-ui`
