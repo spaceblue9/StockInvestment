@@ -44,6 +44,34 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T206 - Secure AI Citations and Repair Market Chart
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-04 09:13:17 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ปัญหาจาก Production:
+  - AI แสดงลิงก์ `https://example.com/or-stock` ซึ่งไม่ได้มาจากข้อมูล Yahoo ที่ระบบโหลด
+  - กราฟ OR โหลดตัวเลข Current/Low/High/Position ได้ แต่เส้นกราฟไม่ปรากฏและพื้นที่ SVG สูงผิดปกติ
+- งานที่ต้องทำ:
+  - [x] ฝั่ง server ต้อง whitelist citation เฉพาะ sourceUrl/news URL ที่อยู่ใน verified research context
+    - Done: `2026-11-04 09:15:57 +07:00`
+    - Note: เทียบ URL แบบ exact match หลัง normalize protocol; label จาก AI ไม่สามารถเพิ่ม URL ใหม่ได้
+  - [x] ถ้ายังไม่ได้โหลดข้อมูลบริษัท/ข่าว ต้องไม่แสดง citation ใดๆ จาก AI
+    - Done: `2026-11-04 09:15:57 +07:00`
+  - [x] ตรวจ computed layout ของ SVG และแก้ขนาด/สี/เส้นกราฟใน dark/light theme
+    - Done: `2026-11-04 09:15:57 +07:00`
+    - Root cause: CSS ใช้ตัวแปร `--success`, `--accent`, `--border` ที่ไม่มีใน theme จึงตกเป็นเส้น/จุดสีดำ
+    - Note: ล็อก SVG 180px ใช้ `--green`, `--pink-soft`, `--line` และมี light-theme override
+  - [x] เพิ่ม regression สำหรับ hallucinated URL และ chart rendering markers
+    - Done: `2026-11-04 09:15:57 +07:00`
+    - Result: ลิงก์ปลอมถูกตัดทิ้ง, Yahoo profile/news URL ที่อยู่ใน whitelist ผ่าน และ chart CSS markers ผ่าน
+  - [ ] ทดสอบ อัปเดต Version, commit, push, deploy และตรวจ Production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
+  - ทำ T206 บน branch `codex/beginner-ai-companion-ui`
+  - ห้ามเชื่อ URL ที่ LLM ส่งกลับโดยตรง ต้องเทียบ exact URL กับรายการที่ server ส่งให้โมเดล
+  - กราฟต้องมีความสูงคงที่ เส้นเห็นชัด และไม่ถูก global SVG theme rule กลบ
+
 ### T205 - Lock Single-Stock AI Scope
 
 - สถานะ: Done

@@ -1240,26 +1240,30 @@ html[data-theme="light"] .ai-companion-scope {
 .ai-custom-question textarea { min-height: 84px; resize: vertical; }
 .ai-custom-question small { color: var(--muted); line-height: 1.45; }
 
-.ai-market-tool { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--border); background: var(--panel-soft); }
+.ai-market-tool { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--line); background: var(--panel-2); }
 .ai-market-tool label { display: block; font-weight: 900; }
 .ai-market-tool small { color: var(--muted); }
 .ai-market-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; }
 .ai-market-controls select, .ai-market-controls button { min-height: 44px; }
 .ai-market-chart { display: grid; gap: 10px; overflow: hidden; }
 .ai-market-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.ai-market-metrics span { padding: 9px; border: 1px solid var(--border); background: var(--panel); }
+.ai-market-metrics span { padding: 9px; border: 1px solid var(--line); background: var(--panel); }
 .ai-market-metrics small, .ai-market-metrics strong { display: block; }
-.ai-market-chart svg { width: 100%; height: 180px; background: var(--panel); border: 1px solid var(--border); }
-.ai-chart-axis { stroke: var(--border-strong); stroke-width: 1; }
-.ai-chart-line { fill: none; stroke: var(--success); stroke-width: 3; vector-effect: non-scaling-stroke; }
-.ai-chart-current { fill: var(--accent); stroke: var(--panel); stroke-width: 3; vector-effect: non-scaling-stroke; }
-.ai-price-position { height: 8px; background: var(--border); overflow: hidden; }
-.ai-price-position span { display: block; height: 100%; background: var(--success); }
+.ai-market-chart svg { display: block; width: 100%; height: 180px; min-height: 180px; max-height: 180px; flex: 0 0 180px; background: #0d1210; border: 1px solid var(--line); }
+.ai-chart-axis { stroke: #69736e; stroke-width: 1; }
+.ai-chart-line { fill: none; stroke: var(--green); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.ai-chart-current { fill: var(--pink-soft); stroke: #ffffff; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.ai-price-position { height: 8px; background: var(--line); overflow: hidden; }
+.ai-price-position span { display: block; height: 100%; background: var(--green); }
 .ai-market-chart p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
-.ai-company-research { padding: 12px; border-left: 3px solid var(--success); background: var(--panel); }
+.ai-company-research { padding: 12px; border-left: 3px solid var(--green); background: var(--panel); }
 .ai-company-research p { margin: 6px 0; }
 .ai-company-research ul { margin: 8px 0; padding-left: 20px; }
-.ai-company-research a { color: var(--success); overflow-wrap: anywhere; }
+.ai-company-research a { color: var(--green-soft); overflow-wrap: anywhere; }
+html[data-theme="light"] .ai-market-chart svg { background: #ffffff; }
+html[data-theme="light"] .ai-chart-axis { stroke: #728078; }
+html[data-theme="light"] .ai-chart-line { stroke: #138a58; }
+html[data-theme="light"] .ai-chart-current { fill: #cf3d62; stroke: #ffffff; }
 @media (max-width: 680px) {
   .ai-market-controls, .ai-market-metrics { grid-template-columns: 1fr; }
 }

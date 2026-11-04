@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { buildAiInvestmentContext, buildOpenRouterRequest, generateAiInvestmentExplanation } from "../src/services/aiInvestmentService.js";
+import { buildAiInvestmentContext, buildOpenRouterRequest, filterVerifiedCitations, generateAiInvestmentExplanation } from "../src/services/aiInvestmentService.js";
 
 const snapshot = {
   generatedAt: "2026-11-03T02:00:00.000Z",
@@ -46,7 +46,7 @@ const response = await generateAiInvestmentExplanation(snapshot, { mode: "stock"
           decisionHeadline: "AAA น่าศึกษาต่อก่อน", decisionAction: "ตรวจงบและ RRR ของ AAA เพิ่มก่อนตัดสินใจ",
           decisionReasons: ["คะแนนรวมสูงกว่าเพื่อน"], decisionChecks: ["ตรวจงบล่าสุด"], decisionConfidence: "ปานกลาง",
           risks: ["ควรตรวจข้อมูลเพิ่ม"], nextQuestions: ["งบล่าสุดเป็นอย่างไร"],
-          dataLimitations: ["ไม่มีข้อมูลประเภทธุรกิจที่ยืนยันแล้ว"], citations: [], disclaimer: "ใช้เพื่อการศึกษา",
+          dataLimitations: ["ไม่มีข้อมูลประเภทธุรกิจที่ยืนยันแล้ว"], citations: [{ label: "ข้อมูลหุ้น AAA", url: "https://example.com/aaa-stock" }], disclaimer: "ใช้เพื่อการศึกษา",
         }) } }],
       }),
     };
@@ -56,6 +56,7 @@ const response = await generateAiInvestmentExplanation(snapshot, { mode: "stock"
 assert.equal(response.result.title, "คำอธิบาย AAA");
 assert.equal(response.result.decisionHeadline, "AAA น่าศึกษาต่อก่อน");
 assert.equal(response.result.decisionConfidence, "ปานกลาง");
+assert.deepEqual(response.result.citations, []);
 assert.equal(response.usage.totalTokens, 150);
 assert.equal(sentRequest.provider.zdr, true);
 assert.match(sentRequest.messages[0].content, /Always provide decision support/u);
@@ -236,4 +237,18 @@ const orCompareContext = buildAiInvestmentContext({ portfolioRows: [] }, {
 });
 assert.deepEqual(orCompareContext.currentRows.map((row) => row.Symbol), ["OR", "PTT"]);
 assert.equal(JSON.stringify(orCompareContext).includes("CPALL"), false);
+
+const verifiedCitations = filterVerifiedCitations([
+  { label: "โปรไฟล์ OR", url: "https://finance.yahoo.com/quote/OR.BK/profile/" },
+  { label: "ข่าว OR", url: "https://example-news.com/or" },
+  { label: "ลิงก์ที่ AI สร้างเอง", url: "https://example.com/or-stock" },
+], {
+  sourceUrl: "https://finance.yahoo.com/quote/OR.BK/profile/",
+  news: [{ url: "https://example-news.com/or" }],
+});
+assert.deepEqual(verifiedCitations.map((item) => item.url), [
+  "https://finance.yahoo.com/quote/OR.BK/profile/",
+  "https://example-news.com/or",
+]);
+assert.deepEqual(filterVerifiedCitations([{ label: "ปลอม", url: "https://example.com/or-stock" }], null), []);
 console.log("AI investment service regression passed.");

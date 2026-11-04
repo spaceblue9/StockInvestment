@@ -195,7 +195,7 @@ export async function generateAiInvestmentExplanation(snapshot, input = {}, opti
     }
 
     const content = payload?.choices?.[0]?.message?.content;
-    const result = validateAiResponse(parseJsonContent(content));
+    const result = validateAiResponse(parseJsonContent(content), context);
     return {
       result,
       context: {
@@ -403,7 +403,7 @@ function parseJsonContent(content) {
   }
 }
 
-function validateAiResponse(result) {
+function validateAiResponse(result, context = {}) {
   if (!result || typeof result !== "object" || !result.title || !result.summary) {
     const error = new Error("AI Assistant response was incomplete. Please try again.");
     error.statusCode = 502;
@@ -421,12 +421,21 @@ function validateAiResponse(result) {
     risks: cleanStringList(result.risks, 6),
     nextQuestions: cleanStringList(result.nextQuestions, 5),
     dataLimitations: cleanStringList(result.dataLimitations, 5),
-    citations: (Array.isArray(result.citations) ? result.citations : []).slice(0, 6).map((item) => ({
-      label: String(item?.label || "แหล่งข้อมูล").slice(0, 200),
-      url: safeCitationUrl(item?.url),
-    })).filter((item) => item.url),
+    citations: filterVerifiedCitations(result.citations, context.researchContext),
     disclaimer: String(result.disclaimer || "ข้อมูลนี้ใช้เพื่อการศึกษา ไม่ใช่คำแนะนำเฉพาะบุคคล").slice(0, 500),
   };
+}
+
+export function filterVerifiedCitations(citations, researchContext) {
+  if (!researchContext) return [];
+  const allowedUrls = new Set([
+    researchContext.sourceUrl,
+    ...(researchContext.news || []).map((item) => item.url),
+  ].map(safeCitationUrl).filter(Boolean));
+  return (Array.isArray(citations) ? citations : []).slice(0, 6).map((item) => ({
+    label: String(item?.label || "แหล่งข้อมูล").slice(0, 200),
+    url: safeCitationUrl(item?.url),
+  })).filter((item) => allowedUrls.has(item.url));
 }
 
 function safeCitationUrl(value) {
