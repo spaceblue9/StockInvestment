@@ -25,8 +25,10 @@ assertIncludes(html, [
   'data-frontend-version',
   'leftRailToggle',
   'Hide panel',
-  '/styles.css?v=20261104-0915',
-  '/app.js?v=20261104-0915',
+  '/styles.css?v=20261104-0940',
+  '/app.js?v=20261104-0940',
+  '<option value="light">Light</option>',
+  '<option value="dark">Dark</option>',
 ], "HTML should expose viewport meta, brand, and primary dashboard navigation.");
 if (html.includes('data-view="approvals"')) {
   throw new Error("Launch navigation should not expose deferred Approvals.");
@@ -142,6 +144,9 @@ assertIncludes(styles, [
   ".ai-market-chart",
   "min-height: 180px;",
   "stroke: var(--green);",
+  "html[data-theme=\"light\"] .analysis-steps li.done",
+  "html[data-theme=\"light\"] .plan-tags span",
+  "background: #fffdfd;",
   ".ai-context-empty",
   "width: 56px;",
 ], "Stylesheet should keep desktop SaaS layout and table overflow guardrails.");
@@ -171,9 +176,9 @@ assertIncludes(appJs, [
   "Sign in to analyze",
   "Create an account or sign in before downloading templates",
   "frontendBuildVersion",
-  "20261104-0915",
-  "Think2 Verified Sources and Chart v0.7.3",
-  "codex/beginner-ai-companion-ui@20261104-0915",
+  "20261104-0940",
+  "Think2 Accessible Themes v0.7.4",
+  "codex/beginner-ai-companion-ui@20261104-0940",
   "data-ai-decision-support",
   "มุมมองช่วยตัดสินใจ",
   "data-ai-custom-question",

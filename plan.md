@@ -44,6 +44,34 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T207 - Light Theme Contrast and English Theme Names
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-04 09:35:32 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ปัญหาจาก Production:
+  - Light theme แสดงขั้นตอน Analysis ที่เสร็จแล้วเป็นสีขาวบนพื้นเขียวอ่อน จึงอ่านไม่ออก
+  - คำอธิบายแพ็กเกจและ plan badges ใช้สีอ่อนจาก Dark theme บนพื้นขาว
+  - ชื่อ Theme เป็นภาษาไทยยาวเกินความจำเป็น ผู้ใช้ต้องการชื่อมาตรฐานภาษาอังกฤษ
+- งานที่ต้องทำ:
+  - [x] เปลี่ยนชื่อ Theme option เป็น `Light` และ `Dark`
+    - Done: `2026-11-04 09:38:28 +07:00`
+  - [x] เพิ่ม Light-theme contrast สำหรับ analysis steps/status/detail
+    - Done: `2026-11-04 09:38:28 +07:00`
+    - Note: active/done ใช้เขียวเข้ม, ข้อความทั่วไปใช้เทาเขียว และ success panel ใช้พื้นเขียวอ่อน
+  - [x] เพิ่ม Light-theme contrast สำหรับ plan description/tags/features
+    - Done: `2026-11-04 09:38:28 +07:00`
+    - Note: plan meta/features ใช้สีเข้ม และ badges ใช้ตัวอักษรชมพูเข้มบนพื้นชมพูอ่อน
+  - [x] เพิ่ม regression markers และตรวจ responsive layout
+    - Done: `2026-11-04 09:38:28 +07:00`
+    - Result: computed color ผ่าน (`step #53665c`, `plan meta #53665c`, `tag #76283e`), header เป็น `#fffdfd`, Theme แสดง `Light`; ตรวจ screenshot จริงแล้วอ่านชัด
+  - [ ] ทดสอบ อัปเดต Version, commit, push, deploy และตรวจ Production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
+  - ทำ T207 บน branch `codex/beginner-ai-companion-ui`
+  - อย่าเปลี่ยนสีปุ่มหลักสีชมพู; แก้เฉพาะ contrast ของข้อความใน Light theme
+  - ตรวจข้อความ active/done/disabled/description/badge ให้ผ่านทั้ง Light และ Dark
+
 ### T206 - Secure AI Citations and Repair Market Chart
 
 - สถานะ: Done
