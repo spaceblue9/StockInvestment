@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T211 - Reliable Sign Out Feedback and Recovery
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-04 14:08:51 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ปัญหาจาก Production:
@@ -65,7 +65,11 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] เพิ่ม regression test สำหรับ logout UI และรันทดสอบ auth/frontend
     - Done: `2026-11-04 14:12:37 +07:00`
     - Result: API logout ล้าง session ผ่าน frontend auth regression และผ่าน web smoke, viewport, syntax, diff checks
-  - [ ] อัปเดต Version, commit, push และ deploy Production
+  - [x] อัปเดต Version, commit, push และ deploy Production
+    - Done: `2026-11-04 14:14:12 +07:00`
+    - Release: `Think2 Reliable Sign Out v0.7.8` / build `20261104-1415`
+    - Git: commit `268cc2f` push ไปที่ `codex/beginner-ai-companion-ui` แล้ว
+    - Deploy: Vercel `dpl_EwwptHFVsWp1SQV3fuyRA5qdE4P4` สถานะ READY และ Production HTML มี `logoutStatus` พร้อม build `20261104-1415`
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
   - ทำ T211 บน branch `codex/beginner-ai-companion-ui`
