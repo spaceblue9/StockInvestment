@@ -45,6 +45,7 @@
     "test:simulation-split-buy": "node scripts/simulationSplitBuyRegression.js",
     "test:launch-evidence": "node scripts/launchEvidenceCenterRegression.js",
     "test:market-coverage": "node scripts/liveMarketCoverageRegression.js",
+    "test:market-history": "node scripts/marketHistoryRegression.js",
     "test:reference-master-admin": "node scripts/referenceMasterAdminRegression.js",
     "test:reference-master-database": "node scripts/referenceMasterDatabaseRegression.js",
     "test:reference-master-migration": "node scripts/referenceMasterMigrationRegression.js",

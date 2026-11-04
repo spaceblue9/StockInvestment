@@ -159,6 +159,48 @@ export async function fetchYahooChartQuoteBatch(symbols, options = {}) {
   return quoteBySymbol;
 }
 
+export async function fetchYahoo52WeekHistory(symbol, options = {}) {
+  const normalizedSymbol = String(symbol || "").trim().toUpperCase().replace(/\.BK$/iu, "");
+  if (!/^[A-Z0-9&-]{1,15}$/u.test(normalizedSymbol)) {
+    const error = new Error("Invalid Thai stock symbol.");
+    error.statusCode = 400;
+    throw error;
+  }
+  const chart = await fetchChart(`${normalizedSymbol}.BK`, {
+    range: "1y",
+    interval: "1d",
+    timeoutMs: options.timeoutMs || 8000,
+    fetchImpl: options.fetchImpl,
+  });
+  const history = (chart.history || [])
+    .filter((row) => numberValue(row.close) > 0)
+    .map((row) => ({
+      Date: row.date.toISOString().slice(0, 10),
+      Close: numberValue(row.close),
+      Volume: numberValue(row.volume),
+    }));
+  if (!history.length) {
+    const error = new Error("Yahoo did not return 52-week price history for this symbol.");
+    error.statusCode = 502;
+    throw error;
+  }
+  const closes = history.map((row) => row.Close);
+  const current = numberValue(chart.meta?.regularMarketPrice) || closes.at(-1);
+  const low = Math.min(...closes);
+  const high = Math.max(...closes);
+  const range = Math.max(high - low, 0);
+  return {
+    symbol: normalizedSymbol,
+    source: "Yahoo Finance chart",
+    fetchedAt: new Date().toISOString(),
+    current,
+    low52Week: low,
+    high52Week: high,
+    pricePositionPct: range > 0 ? ((current - low) / range) * 100 : 0,
+    history,
+  };
+}
+
 async function fetchYahooChartQuote(symbol, options = {}) {
   const chart = await fetchChart(`${symbol}.BK`, {
     interval: "1d",
@@ -327,6 +369,7 @@ export async function fetchChart(ticker, options = {}) {
     period2,
     signal,
     timeoutMs,
+    fetchImpl = fetch,
   } = options;
   const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}`);
   if (period1) {
@@ -340,7 +383,7 @@ export async function fetchChart(ticker, options = {}) {
   const timeoutSignal = timeoutMs && typeof AbortSignal !== "undefined" && "timeout" in AbortSignal
     ? AbortSignal.timeout(timeoutMs)
     : null;
-  const response = await fetch(url, {
+  const response = await fetchImpl(url, {
     signal: signal || timeoutSignal || undefined,
   });
   if (!response.ok) {

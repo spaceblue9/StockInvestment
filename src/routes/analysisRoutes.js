@@ -4,7 +4,7 @@ import path from "path";
 import { collectInputSymbolsFromFiles } from "../services/inputService.js";
 import { buildBlankPortfolioTemplateBuffer, buildBlankWatchlistTemplateText } from "../services/inputTemplateService.js";
 import { getUserFromRequest, recordAuditEvent, requirePlanEntitlement, saveCustomerPortfolioSnapshot } from "../services/authService.js";
-import { fetchThaiMarketData } from "../services/marketDataService.js";
+import { fetchThaiMarketData, fetchYahoo52WeekHistory } from "../services/marketDataService.js";
 import { ensureDataDirs, outputPath, UPLOAD_DIR } from "../services/pathService.js";
 import { analyzePortfolio } from "../services/portfolioService.js";
 import { runStrategySimulation } from "../services/simulationService.js";
@@ -337,6 +337,21 @@ router.post("/simulation/run", async (req, res) => {
       ok: true,
       ...result,
     });
+  } catch (error) {
+    sendAnalysisError(res, error);
+  }
+});
+
+router.get("/market/history/:symbol", async (req, res) => {
+  try {
+    const currentUser = await getUserFromRequest(req);
+    if (!currentUser) {
+      res.status(401).json({ ok: false, message: "Please sign in before loading market history." });
+      return;
+    }
+    requirePlanEntitlement(currentUser, "ai.investment_explainer");
+    const history = await fetchYahoo52WeekHistory(req.params.symbol);
+    res.json({ ok: true, ...history });
   } catch (error) {
     sendAnalysisError(res, error);
   }

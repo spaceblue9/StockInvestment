@@ -44,6 +44,48 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T204 - Context-Aware AI Questions and Analysis Tools
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-04 08:18:54 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ผลทดลอง Production จริง:
+  - Portfolio AI ตอบภาพรวมได้แต่คำถาม `ควรตรวจหุ้นตัวไหนก่อน` ยังไม่ระบุหุ้นจริงอย่างชัดเจน
+  - Screener filter เหลือ 0 หุ้น แต่ปุ่ม AI ยังให้กด
+  - Sector scope ตาม Sector/Score ถูกต้อง
+  - Simulation AI ยังไม่ได้รับผล Simulation/ROI/history ที่ผู้ใช้เพิ่งรัน
+  - ไม่มีช่องถามอิสระ และไม่มีทางเลือกแยกข้อมูลในหน้าออกจากข้อมูลตลาดภายนอก
+- งานที่ต้องทำระยะที่ 1 (ความถูกต้องก่อน):
+  - [x] ทดลอง AI จริงทุกหน้าและตรวจ data pipeline
+    - Done: `2026-11-04 08:18:54 +07:00`
+  - [x] เพิ่มช่องถามอิสระ โดยส่งคำถามพร้อม active view/filter scope และจำกัดความยาว
+    - Done: `2026-11-04 08:29:53 +07:00`
+    - Note: คำถามยาวไม่เกิน 600 ตัวอักษร และ server ใช้เฉพาะ currentRows ของหน้าที่กำลังเปิด
+  - [x] ผูก Portfolio Recommended actions filters เข้ากับ AI scope
+    - Done: `2026-11-04 08:29:53 +07:00`
+    - Note: Search/Action/Sector/Trend/Min Score/Order ที่เห็นในตารางเป็น Scope เดียวกับ AI รวมถึงกรณีกรองเหลือ 0 หุ้น
+  - [x] ส่ง Simulation summary/buy plan/history/trades จริงเข้า AI
+    - Done: `2026-11-04 08:29:53 +07:00`
+    - Note: ส่งผลกลยุทธ์เทียบ Buy & Hold, แผนแบ่งไม้, sample history และ trades ล่าสุดแบบ sanitize แล้ว
+  - [x] ปิดคำถาม AI เมื่อ scope ไม่มีข้อมูล พร้อมคำแนะนำผ่อน filter/รัน Simulation
+    - Done: `2026-11-04 08:29:53 +07:00`
+  - [x] บังคับคำตอบ Portfolio ระบุชื่อหุ้น/เหตุผลเมื่อถามลำดับตรวจสอบ
+    - Done: `2026-11-04 08:29:53 +07:00`
+  - [ ] เพิ่ม regression, ทดสอบ, อัปเดต Version, commit, push และ deploy
+- งานที่ต้องทำระยะที่ 2 (ข้อมูลตลาดภายนอก):
+  - [x] เพิ่มกราฟราคาย้อนหลัง 52 สัปดาห์จากข้อมูลรายวัน โดยโปรแกรมวาดกราฟและ AI อธิบายเท่านั้น
+    - Done: `2026-11-04 08:29:53 +07:00`
+    - Note: เลือกได้เฉพาะ Symbol ใน Scope ปัจจุบัน ดึง Yahoo chart 1y/1d และไม่หักโควตา AI
+  - [x] แสดง Current/High/Low/Price Position พร้อม timestamp และ source
+    - Done: `2026-11-04 08:29:53 +07:00`
+    - Note: โปรแกรมคำนวณและวาดกราฟเองจากราคาปิด ไม่ให้ LLM สร้างตัวเลขหรือเส้นกราฟ
+  - [ ] เพิ่ม verified company profile/news research mode พร้อม citation และแยกจากคะแนน Think2
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
+  - ทำ T204 ระยะที่ 1 ก่อนระยะที่ 2 บน branch `codex/beginner-ai-companion-ui`
+  - ห้ามให้คำถามอิสระข้าม filter โดยเงียบ ๆ; ถ้า Symbol อยู่นอก scope ต้องแจ้งผู้ใช้
+  - ห้ามให้ LLM สร้างกราฟหรือเดาราคา โปรแกรมต้องสร้างจากข้อมูลตลาดจริงพร้อมแหล่งที่มาและเวลา
+
 ### T203 - Add AI Decision Support to Every View
 
 - สถานะ: Done

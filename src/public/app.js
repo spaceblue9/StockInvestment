@@ -32,9 +32,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261103-2135";
-const programVersion = "Think2 AI Decision Support v0.6.1";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261103-2135";
+const frontendBuildVersion = "20261104-0830";
+const programVersion = "Think2 Scoped AI Questions v0.7.0";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261104-0830";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -83,6 +83,10 @@ const state = {
   screenerFilterSummary: "",
   sectorFilteredRows: [],
   sectorFilterSummary: "",
+  portfolioFilteredRows: [],
+  portfolioFilterSummary: "",
+  portfolioScopeSignature: "",
+  simulationAiContext: null,
   aiAssistant: {
     mode: "portfolio",
     symbol: "",
@@ -91,6 +95,10 @@ const state = {
     error: "",
     quota: null,
     focus: "",
+    question: "",
+    marketChart: null,
+    marketChartLoading: false,
+    marketChartError: "",
     drawerOpen: false,
   },
 };
@@ -511,11 +519,34 @@ document.addEventListener("click", (event) => {
 
   const aiPromptButton = event.target.closest("[data-ai-companion-prompt]");
   if (aiPromptButton) {
+    if (aiPromptButton.disabled) return;
     state.aiAssistant.focus = aiPromptButton.dataset.aiCompanionPrompt || "";
+    state.aiAssistant.question = "";
     state.aiAssistant.mode = aiPromptButton.dataset.aiMode || "portfolio";
     state.aiAssistant.symbol = aiPromptButton.dataset.aiSymbol || bestContextSymbol();
     state.aiAssistant.drawerOpen = true;
     runAiInvestmentExplanation({ drawer: true });
+    return;
+  }
+
+  const aiCustomSubmit = event.target.closest("[data-ai-custom-submit]");
+  if (aiCustomSubmit) {
+    const questionInput = document.querySelector("[data-ai-custom-question]");
+    const question = String(questionInput?.value || "").trim();
+    if (!question || aiCustomSubmit.disabled) return;
+    state.aiAssistant.focus = "";
+    state.aiAssistant.question = question.slice(0, 600);
+    state.aiAssistant.mode = state.activeView === "sector" ? "compare" : "portfolio";
+    state.aiAssistant.symbol = bestContextSymbol();
+    runAiInvestmentExplanation({ drawer: true });
+    return;
+  }
+
+  const aiMarketHistoryButton = event.target.closest("[data-ai-market-history]");
+  if (aiMarketHistoryButton) {
+    if (aiMarketHistoryButton.disabled) return;
+    const symbolSelect = document.querySelector("[data-ai-market-symbol]");
+    loadAiMarketHistory(symbolSelect?.value || bestContextSymbol());
     return;
   }
 
@@ -1975,9 +2006,12 @@ async function runAiInvestmentExplanation(options = {}) {
         mode: state.aiAssistant.mode,
         symbol: state.aiAssistant.symbol,
         focus: state.aiAssistant.focus,
+        question: state.aiAssistant.question,
         contextView: state.activeView,
         filterSummary: activeAiFilterSummary(),
         currentRows: currentAiContextRows(),
+        viewContext: currentAiViewContext(),
+        marketContext: state.aiAssistant.marketChart,
       }),
     });
     const payload = await response.json().catch(() => ({}));
@@ -2019,8 +2053,19 @@ function renderAiCompanion() {
 
   const prompts = aiCompanionPrompts(state.activeView);
   const contextRows = activeAiContextRows();
-  const contextNote = ["screener", "sector"].includes(state.activeView)
+  const canAsk = aiContextReady();
+  const marketSymbols = [...new Set(contextRows.map((row) => String(row.Symbol || "").trim()).filter(Boolean))].slice(0, 25);
+  if (state.aiAssistant.marketChart && !marketSymbols.includes(state.aiAssistant.marketChart.symbol)) {
+    state.aiAssistant.marketChart = null;
+    state.aiAssistant.marketChartError = "";
+  }
+  const emptyMessage = state.activeView === "simulation"
+    ? "กรุณารัน Simulation ก่อน เพื่อให้ AI อ่านผล ROI กราฟ และรายการซื้อขายจริง"
+    : "ไม่มีหุ้นอยู่ในขอบเขตปัจจุบัน กรุณาผ่อน Filter หรือเลือกข้อมูลใหม่ก่อนถาม AI";
+  const contextNote = ["portfolio", "screener", "sector"].includes(state.activeView)
     ? `AI จะอ่านเฉพาะ ${formatNumber(contextRows.length)} หุ้นที่ผ่านเงื่อนไขปัจจุบัน: ${activeAiFilterSummary() || "ยังไม่มีรายการที่ผ่านเงื่อนไข"}`
+    : state.activeView === "simulation" && state.simulationAiContext
+      ? `AI จะอ่านผล Simulation ล่าสุด: ${state.simulationAiContext.filterSummary}`
     : `AI จะอ่านข้อมูลจากหน้า ${viewLabel(state.activeView)} ที่กำลังเปิดอยู่`;
   aiCompanionDrawer.innerHTML = `
     <div class="ai-companion-header">
@@ -2033,13 +2078,37 @@ function renderAiCompanion() {
     </div>
     <div class="ai-companion-note">เลือกคำถามที่ต้องการ ระบบจะไม่เปลี่ยนคะแนนหรือสั่งซื้อขายแทนคุณ</div>
     <div class="ai-companion-scope" data-ai-context-scope>${escapeHtml(contextNote)}</div>
+    ${marketSymbols.length ? `
+      <div class="ai-market-tool" data-ai-market-tool>
+        <div>
+          <label for="aiMarketSymbol">กราฟราคาจริง 52 สัปดาห์</label>
+          <small>เลือกได้เฉพาะหุ้นใน Scope นี้ ข้อมูลจาก Yahoo ไม่หักโควตา AI</small>
+        </div>
+        <div class="ai-market-controls">
+          <select id="aiMarketSymbol" data-ai-market-symbol>
+            ${marketSymbols.map((symbol) => `<option value="${escapeHtml(symbol)}" ${symbol === (state.aiAssistant.marketChart?.symbol || bestContextSymbol()) ? "selected" : ""}>${escapeHtml(symbol)}</option>`).join("")}
+          </select>
+          <button type="button" data-ai-market-history ${state.aiAssistant.marketChartLoading ? "disabled" : ""}>${state.aiAssistant.marketChartLoading ? "กำลังโหลด..." : "ดูกราฟราคา"}</button>
+        </div>
+        ${state.aiAssistant.marketChartError ? `<p class="ai-error">${escapeHtml(state.aiAssistant.marketChartError)}</p>` : ""}
+        ${state.aiAssistant.marketChart ? renderAiMarketChart(state.aiAssistant.marketChart) : ""}
+      </div>
+    ` : ""}
     <div class="ai-prompt-list">
       ${prompts.map((prompt) => `
-        <button type="button" data-ai-companion-prompt="${escapeHtml(prompt.id)}" data-ai-mode="${escapeHtml(prompt.mode)}" data-ai-symbol="${escapeHtml(prompt.symbol || "")}" ${state.aiAssistant.loading ? "disabled" : ""}>
+        <button type="button" data-ai-companion-prompt="${escapeHtml(prompt.id)}" data-ai-mode="${escapeHtml(prompt.mode)}" data-ai-symbol="${escapeHtml(prompt.symbol || "")}" ${state.aiAssistant.loading || !canAsk ? "disabled" : ""}>
           ${escapeHtml(prompt.label)}
         </button>
       `).join("")}
     </div>
+    ${canAsk ? `
+      <div class="ai-custom-question" data-ai-custom-question-form>
+        <label for="aiCustomQuestion">ถามเพิ่มเติมจากข้อมูลในขอบเขตนี้</label>
+        <textarea id="aiCustomQuestion" maxlength="600" rows="3" data-ai-custom-question placeholder="เช่น หุ้นตัวไหนน่าศึกษาต่อ เพราะอะไร และต้องตรวจอะไรเพิ่ม">${escapeHtml(state.aiAssistant.question || "")}</textarea>
+        <button type="button" data-ai-custom-submit ${state.aiAssistant.loading ? "disabled" : ""}>ถาม AI จากข้อมูลชุดนี้</button>
+        <small>AI จะใช้เฉพาะข้อมูลที่ระบุใน Scope ด้านบน หากคำถามอยู่นอก Scope ระบบต้องแจ้งว่าไม่มีข้อมูล</small>
+      </div>
+    ` : `<div class="ai-context-empty" data-ai-context-empty>${escapeHtml(emptyMessage)}</div>`}
     ${state.aiAssistant.loading ? '<div class="ai-companion-loading" aria-live="polite">กำลังอ่านข้อมูลและเรียบเรียงคำอธิบาย...</div>' : ""}
     ${state.aiAssistant.error ? `<p class="ai-error">${escapeHtml(state.aiAssistant.error)}</p>` : ""}
     ${state.aiAssistant.result ? renderAiAssistantResult(state.aiAssistant.result) : ""}
@@ -2079,16 +2148,86 @@ function bestContextSymbol() {
 }
 
 function activeAiContextRows() {
-  if (state.activeView === "portfolio") return state.portfolioRows;
+  if (state.activeView === "portfolio") return state.portfolioFilteredRows;
   if (state.activeView === "screener") return state.screenerFilteredRows;
   if (state.activeView === "sector") return state.sectorFilteredRows;
+  if (state.activeView === "simulation") return [];
   return state.recommendations;
 }
 
 function activeAiFilterSummary() {
+  if (state.activeView === "portfolio") return state.portfolioFilterSummary;
   if (state.activeView === "screener") return state.screenerFilterSummary;
   if (state.activeView === "sector") return state.sectorFilterSummary;
+  if (state.activeView === "simulation") return state.simulationAiContext?.filterSummary || "";
   return "";
+}
+
+function aiContextReady() {
+  if (state.activeView === "simulation") return Boolean(state.simulationAiContext);
+  return activeAiContextRows().length > 0;
+}
+
+function currentAiViewContext() {
+  return state.activeView === "simulation" ? state.simulationAiContext : null;
+}
+
+async function loadAiMarketHistory(symbol) {
+  const normalizedSymbol = String(symbol || "").trim().toUpperCase();
+  const allowedSymbols = new Set(activeAiContextRows().map((row) => String(row.Symbol || "").trim().toUpperCase()));
+  if (!normalizedSymbol || !allowedSymbols.has(normalizedSymbol) || state.aiAssistant.marketChartLoading) return;
+  state.aiAssistant.marketChartLoading = true;
+  state.aiAssistant.marketChartError = "";
+  state.aiAssistant.marketChart = null;
+  renderAiCompanion();
+  try {
+    const response = await fetch(`/api/market/history/${encodeURIComponent(normalizedSymbol)}`);
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.message || "โหลดข้อมูลราคา 52 สัปดาห์ไม่สำเร็จ");
+    state.aiAssistant.marketChart = payload;
+  } catch (error) {
+    state.aiAssistant.marketChartError = error.message || "โหลดข้อมูลราคา 52 สัปดาห์ไม่สำเร็จ";
+  } finally {
+    state.aiAssistant.marketChartLoading = false;
+    renderAiCompanion();
+  }
+}
+
+function renderAiMarketChart(data = {}) {
+  const history = Array.isArray(data.history) ? data.history.filter((row) => numberValue(row.Close) > 0) : [];
+  if (history.length < 2) return "";
+  const width = 560;
+  const height = 180;
+  const padding = 18;
+  const values = history.map((row) => numberValue(row.Close));
+  const low = Math.min(...values);
+  const high = Math.max(...values);
+  const range = Math.max(high - low, 1);
+  const points = history.map((row, index) => {
+    const x = padding + (index / Math.max(history.length - 1, 1)) * (width - padding * 2);
+    const y = padding + ((high - numberValue(row.Close)) / range) * (height - padding * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  const current = numberValue(data.current);
+  const position = Math.max(0, Math.min(100, numberValue(data.pricePositionPct)));
+  const fetchedAt = data.fetchedAt ? new Date(data.fetchedAt).toLocaleString("th-TH") : "-";
+  return `
+    <div class="ai-market-chart" data-ai-market-chart>
+      <div class="ai-market-metrics">
+        <span><small>ราคาปัจจุบัน</small><strong>${formatNumber(current)} THB</strong></span>
+        <span><small>ต่ำสุด 52 สัปดาห์</small><strong>${formatNumber(data.low52Week)} THB</strong></span>
+        <span><small>สูงสุด 52 สัปดาห์</small><strong>${formatNumber(data.high52Week)} THB</strong></span>
+        <span><small>ตำแหน่งราคา</small><strong>${formatNumber(position)}%</strong></span>
+      </div>
+      <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="กราฟราคาปิด 52 สัปดาห์ของ ${escapeHtml(data.symbol || "หุ้น")}" preserveAspectRatio="none">
+        <line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" class="ai-chart-axis"></line>
+        <polyline points="${points}" class="ai-chart-line"></polyline>
+        <circle cx="${width - padding}" cy="${points.split(" ").at(-1).split(",")[1]}" r="5" class="ai-chart-current"></circle>
+      </svg>
+      <div class="ai-price-position"><span style="width:${position}%"></span></div>
+      <p>ข้อมูลราคาปิดจาก ${escapeHtml(data.source || "Yahoo Finance chart")} · อัปเดต ${escapeHtml(fetchedAt)} · ใช้เพื่อศึกษาประวัติราคา ไม่ใช่ราคาซื้อขายแบบเรียลไทม์</p>
+    </div>
+  `;
 }
 
 function currentAiContextRows() {
@@ -2315,7 +2454,17 @@ function attachRecommendedActionsControls(rows) {
   const renderActions = () => {
     const filteredRows = getFilteredRecommendedActions(rows, panel);
     const selectedColumns = getSelectedRecommendedActionFields(panel);
+    const filterSummary = recommendedActionsFilterSummary(panel);
+    const scopeSignature = `${filterSummary}|${filteredRows.map((row) => row.Symbol).join(",")}`;
+    if (state.portfolioScopeSignature && state.portfolioScopeSignature !== scopeSignature) {
+      state.aiAssistant.result = null;
+      state.aiAssistant.error = "";
+    }
+    state.portfolioFilteredRows = filteredRows;
+    state.portfolioFilterSummary = filterSummary;
+    state.portfolioScopeSignature = scopeSignature;
     output.innerHTML = renderRecommendedActionsOutput(filteredRows, rows.length, selectedColumns, panel);
+    if (state.aiAssistant.drawerOpen) renderAiCompanion();
   };
 
   panel.querySelectorAll("[data-recommended-action-input], [data-action-field]").forEach((control) => {
@@ -2373,6 +2522,19 @@ function getFilteredRecommendedActions(rows, panel) {
 function recommendedActionSearchTokens(panel) {
   const searchText = String(panel.querySelector("#actionSearch")?.value || "").trim().toUpperCase();
   return [...new Set(searchText.split(/[\s,;]+/u).map((token) => token.replace(/\.BK$/u, "").trim()).filter(Boolean))];
+}
+
+function recommendedActionsFilterSummary(panel) {
+  const searchTokens = recommendedActionSearchTokens(panel);
+  const filters = [
+    searchTokens.length ? `symbols ${searchTokens.join(", ")}` : "",
+    panel.querySelector("#actionGroupFilter")?.value ? `action ${panel.querySelector("#actionGroupFilter").value}` : "",
+    panel.querySelector("#actionSectorFilter")?.value ? `sector ${panel.querySelector("#actionSectorFilter").value}` : "",
+    panel.querySelector("#actionTrendFilter")?.value ? `trend ${panel.querySelector("#actionTrendFilter").value}` : "",
+    numberValue(panel.querySelector("#actionMinScore")?.value || 0) > 0 ? `score >= ${formatNumber(panel.querySelector("#actionMinScore").value)}` : "",
+    panel.dataset.scoreBandFilter ? `score band ${panel.dataset.scoreBandFilter}` : "",
+  ].filter(Boolean);
+  return filters.length ? filters.join(" · ") : "Recommended actions ทั้งหมด";
 }
 
 function matchesRecommendedActionFilter(row, filterValue) {
@@ -3817,8 +3979,14 @@ async function runSimulation(event) {
 
   if (!data.ok) {
     output.textContent = data.message || "Simulation failed.";
+    state.simulationAiContext = null;
+    if (state.aiAssistant.drawerOpen) renderAiCompanion();
     return;
   }
+
+  state.simulationAiContext = buildSimulationAiContext(data);
+  state.aiAssistant.result = null;
+  state.aiAssistant.error = "";
 
   output.classList.remove("muted");
   output.innerHTML = `
@@ -3839,7 +4007,21 @@ async function runSimulation(event) {
     <h3>Trade History</h3>
     ${renderTable(data.trades || [], ["Date", "Action", "Price", "Shares", "Cost"])}
   `;
+  if (state.aiAssistant.drawerOpen) renderAiCompanion();
   await loadAuditEvents();
+}
+
+function buildSimulationAiContext(data = {}) {
+  const history = Array.isArray(data.history) ? data.history : [];
+  const sampleStep = Math.max(1, Math.ceil(history.length / 24));
+  return {
+    symbol: String(data.symbol || "").replace(/\.BK$/iu, "").slice(0, 20),
+    filterSummary: `${String(data.symbol || "-").replace(/\.BK$/iu, "")} · ${simulationBuyModeLabel(data.buyPlan)} · ${formatNumber(data.summary?.totalTrades || 0)} trades`,
+    summary: data.summary || {},
+    buyPlan: data.buyPlan || {},
+    history: history.filter((_row, index) => index % sampleStep === 0 || index === history.length - 1).slice(-25),
+    trades: (Array.isArray(data.trades) ? data.trades : []).slice(-20),
+  };
 }
 
 function simulationBuyModeLabel(buyPlan = {}) {

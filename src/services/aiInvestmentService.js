@@ -7,7 +7,7 @@ const MAX_PEERS = 6;
 const allowedModes = new Set(["portfolio", "stock", "compare"]);
 const allowedContextViews = new Set(["portfolio", "screener", "sector", "simulation"]);
 const focusTasks = {
-  portfolio_review: "Prioritize which holdings need review first using severity, portfolio weight, loss, and data warnings.",
+  portfolio_review: "Name at least one supplied Symbol that needs review first. Cite its severity, action, score, loss, RRR, or data warning. Do not answer only with generic portfolio advice.",
   portfolio_warnings: "Explain the portfolio warnings and what facts the investor should verify before acting.",
   portfolio_concentration: "Explain portfolio concentration and sector exposure in beginner-friendly language.",
   screener_shortlist: "Explain why the strongest supplied screener rows passed the current quality and risk checks.",
@@ -45,8 +45,10 @@ export function aiMonthlyRequestLimit() {
 
 export function buildAiInvestmentContext(snapshot, input = {}) {
   const mode = allowedModes.has(input.mode) ? input.mode : "portfolio";
-  const contextView = allowedContextViews.has(input.contextView) ? input.contextView : "portfolio";
+  const hasExplicitContextView = allowedContextViews.has(input.contextView);
+  const contextView = hasExplicitContextView ? input.contextView : "portfolio";
   const filterSummary = String(input.filterSummary || "").trim().slice(0, 500);
+  const question = String(input.question || "").trim().slice(0, 600);
   const focus = Object.hasOwn(focusTasks, input.focus) ? input.focus : "";
   const currentRows = (Array.isArray(input.currentRows) ? input.currentRows : [])
     .slice(0, MAX_HOLDINGS)
@@ -55,8 +57,8 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
   const portfolioRows = (snapshot?.portfolioRows || []).map(sanitizeStockRow).filter((row) => row.Symbol);
   const recommendations = (snapshot?.recommendations || []).map(sanitizeStockRow).filter((row) => row.Symbol);
   const symbol = cleanSymbol(input.symbol);
-  const scopeIsFiltered = ["screener", "sector"].includes(contextView);
-  const allRows = scopeIsFiltered
+  const rowsAreScoped = hasExplicitContextView;
+  const allRows = rowsAreScoped
     ? uniqueBySymbol(currentRows)
     : uniqueBySymbol([...currentRows, ...portfolioRows, ...recommendations]);
   const selectedStock = symbol ? allRows.find((row) => row.Symbol === symbol) || null : null;
@@ -79,6 +81,7 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
     focus,
     contextView,
     filterSummary,
+    question,
     generatedAt: snapshot?.generatedAt || "",
     dataContract: {
       scoringSource: "Think2 deterministic analysis",
@@ -86,23 +89,30 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
       companyProfileAvailable: false,
       priceFreshness: "Use generatedAt; do not claim real-time data",
     },
-    portfolioSummary: scopeIsFiltered ? {} : sanitizeSummary(snapshot?.summary || {}),
-    holdings: scopeIsFiltered
+    portfolioSummary: contextView === "portfolio" ? sanitizeSummary(snapshot?.summary || {}) : {},
+    holdings: rowsAreScoped
       ? uniqueBySymbol(currentRows).slice(0, MAX_HOLDINGS)
       : uniqueBySymbol([...currentRows, ...portfolioRows]).slice(0, MAX_HOLDINGS),
     currentRows,
+    viewContext: contextView === "simulation" ? sanitizeSimulationViewContext(input.viewContext) : null,
+    marketContext: sanitizeMarketContext(input.marketContext, allRows),
     selectedStock,
     peers,
   };
 }
 
 export function buildOpenRouterRequest(context) {
-  const task = {
+  const task = context.contextView === "simulation"
+    ? "Explain the supplied simulation summary, strategy versus buy-and-hold result, buy plan, sampled history, and trades. State whether the result merits further study or should be treated cautiously."
+    : ({
     portfolio: "Summarize portfolio concentration, strengths, risks, and practical questions the investor should study next.",
     stock: "Explain the selected stock's Think2 metrics and warnings in beginner-friendly Thai. Do not invent its business description.",
     compare: "Compare the selected stock with supplied peers from the same sector using only supplied metrics.",
-  }[context.mode];
+  }[context.mode]);
   const focusTask = context.focus ? focusTasks[context.focus] : "";
+  const questionTask = context.question
+    ? `\nUser question: ${context.question}\nAnswer this question directly. If it asks about a stock, fact, date, or metric outside the supplied scope, explicitly say the information is outside the current scope and do not guess.`
+    : "";
 
   return {
     model: process.env.OPENROUTER_MODEL || DEFAULT_MODEL,
@@ -139,7 +149,7 @@ export function buildOpenRouterRequest(context) {
       },
       {
         role: "user",
-        content: `${task}${focusTask ? `\nFocus: ${focusTask}` : ""}\n\nVerified application data:\n${JSON.stringify(context)}`,
+        content: `${task}${focusTask ? `\nFocus: ${focusTask}` : ""}${questionTask}\n\nVerified application data:\n${JSON.stringify(context)}`,
       },
     ],
   };
@@ -247,6 +257,58 @@ function sanitizeSummary(summary = {}) {
       }
       return result;
     }, {});
+}
+
+function sanitizeSimulationViewContext(input = {}) {
+  if (!input || typeof input !== "object") return null;
+  const numericSummaryFields = ["initialCapital", "finalValue", "roi", "buyHoldValue", "buyHoldRoi", "totalTrades", "averageCost", "completedTranches", "deployedCapital"];
+  const summary = numericSummaryFields.reduce((result, field) => {
+    if (input.summary?.[field] !== undefined && input.summary?.[field] !== null) result[field] = numberValue(input.summary[field]);
+    return result;
+  }, {});
+  const buyPlan = ["mode", "tranches", "trancheIntervalDays", "amountPerTranche", "completedTranches", "deployedCapital", "averageCost"].reduce((result, field) => {
+    const value = input.buyPlan?.[field];
+    if (value !== undefined && value !== null && value !== "") result[field] = sanitizeScalar(value);
+    return result;
+  }, {});
+  const historyFields = ["Date", "Price", "Portfolio_Value", "Buy_Hold_Value", "Cash", "Shares", "Deployed_Capital", "Action"];
+  const tradeFields = ["Date", "Action", "Price", "Shares", "Cost"];
+  return {
+    symbol: cleanSymbol(input.symbol),
+    summary,
+    buyPlan,
+    history: sanitizeRecordList(input.history, historyFields, 25),
+    trades: sanitizeRecordList(input.trades, tradeFields, 20),
+  };
+}
+
+function sanitizeMarketContext(input = {}, allowedRows = []) {
+  const symbol = cleanSymbol(input?.symbol);
+  const allowedSymbols = new Set(allowedRows.map((row) => row.Symbol));
+  if (!symbol || !allowedSymbols.has(symbol)) return null;
+  const history = (Array.isArray(input.history) ? input.history : []).slice(-260).map((row) => ({
+    Date: String(row?.Date || "").slice(0, 10),
+    Close: numberValue(row?.Close),
+    Volume: numberValue(row?.Volume),
+  })).filter((row) => /^\d{4}-\d{2}-\d{2}$/u.test(row.Date) && row.Close > 0);
+  return {
+    symbol,
+    source: String(input?.source || "").slice(0, 80),
+    fetchedAt: String(input?.fetchedAt || "").slice(0, 40),
+    current: numberValue(input?.current),
+    low52Week: numberValue(input?.low52Week),
+    high52Week: numberValue(input?.high52Week),
+    pricePositionPct: numberValue(input?.pricePositionPct),
+    history,
+  };
+}
+
+function sanitizeRecordList(rows, fields, limit) {
+  return (Array.isArray(rows) ? rows : []).slice(-limit).map((row) => fields.reduce((result, field) => {
+    const value = row?.[field];
+    if (value !== undefined && value !== null && value !== "") result[field] = sanitizeScalar(value);
+    return result;
+  }, {}));
 }
 
 function sanitizeScalar(value) {

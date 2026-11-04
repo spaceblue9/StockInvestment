@@ -120,4 +120,65 @@ assert.equal(filteredSectorContext.selectedStock.Symbol, "HEALTH_A");
 assert.deepEqual(filteredSectorContext.peers.map((row) => row.Symbol), ["HEALTH_B"]);
 assert.equal(JSON.stringify(filteredSectorContext).includes("OTHER_SECTOR"), false);
 assert.match(buildOpenRouterRequest(filteredSectorContext).messages[1].content, /currently filtered sector rows/u);
+
+const filteredPortfolioContext = buildAiInvestmentContext(snapshot, {
+  mode: "portfolio",
+  contextView: "portfolio",
+  filterSummary: "symbols BBB",
+  currentRows: [{ Symbol: "BBB", Sector: "Energy", Total_Score: 65, RRR: 1.2 }],
+  question: "หุ้นตัวไหนควรตรวจต่อ เพราะอะไร",
+});
+assert.deepEqual(filteredPortfolioContext.currentRows.map((row) => row.Symbol), ["BBB"]);
+assert.deepEqual(filteredPortfolioContext.holdings.map((row) => row.Symbol), ["BBB"]);
+assert.equal(JSON.stringify(filteredPortfolioContext.holdings).includes("AAA"), false);
+assert.equal(filteredPortfolioContext.question, "หุ้นตัวไหนควรตรวจต่อ เพราะอะไร");
+assert.match(buildOpenRouterRequest(filteredPortfolioContext).messages[1].content, /User question:/u);
+
+const simulationContext = buildAiInvestmentContext(snapshot, {
+  mode: "portfolio",
+  contextView: "simulation",
+  question: "กลยุทธ์นี้ดีกว่าซื้อถือหรือไม่",
+  currentRows: [],
+  viewContext: {
+    symbol: "CPALL",
+    summary: { initialCapital: 100000, finalValue: 112000, roi: 12, buyHoldRoi: 8, totalTrades: 3 },
+    buyPlan: { mode: "split", tranches: 5, trancheIntervalDays: 20 },
+    history: [{ Date: "2026-01-01", Price: 50, Portfolio_Value: 100000, Buy_Hold_Value: 100000 }],
+    trades: [{ Date: "2026-01-01", Action: "BUY", Price: 50, Shares: 400 }],
+    privateNote: "must-not-leak",
+  },
+});
+assert.equal(simulationContext.viewContext.symbol, "CPALL");
+assert.equal(simulationContext.viewContext.summary.roi, 12);
+assert.equal(simulationContext.viewContext.buyPlan.tranches, 5);
+assert.equal(JSON.stringify(simulationContext).includes("must-not-leak"), false);
+assert.match(buildOpenRouterRequest(simulationContext).messages[1].content, /strategy versus buy-and-hold/u);
+
+const marketContext = buildAiInvestmentContext(snapshot, {
+  contextView: "screener",
+  mode: "stock",
+  symbol: "BBB",
+  currentRows: [{ Symbol: "BBB", Sector: "Energy", Total_Score: 77 }],
+  marketContext: {
+    symbol: "BBB",
+    source: "Yahoo Finance chart",
+    fetchedAt: "2026-11-04T01:30:00.000Z",
+    current: 12,
+    low52Week: 8,
+    high52Week: 16,
+    pricePositionPct: 50,
+    history: [{ Date: "2026-11-03", Close: 12, Volume: 1000 }],
+    privateNote: "must not leak",
+  },
+});
+assert.equal(marketContext.marketContext.symbol, "BBB");
+assert.equal(marketContext.marketContext.pricePositionPct, 50);
+assert.equal(JSON.stringify(marketContext.marketContext).includes("privateNote"), false);
+
+const rejectedMarketContext = buildAiInvestmentContext(snapshot, {
+  contextView: "screener",
+  currentRows: [{ Symbol: "BBB" }],
+  marketContext: { symbol: "AAA", current: 99 },
+});
+assert.equal(rejectedMarketContext.marketContext, null);
 console.log("AI investment service regression passed.");
