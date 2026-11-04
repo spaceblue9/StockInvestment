@@ -1146,7 +1146,7 @@ html[data-theme="light"] .ai-decision-card li { color: #53665c; }
   z-index: 30;
 }
 
-.ai-companion-button span {
+.ai-companion-icon {
   align-items: center;
   background: #153c2a;
   border-radius: 50%;
@@ -1159,8 +1159,39 @@ html[data-theme="light"] .ai-decision-card li { color: #53665c; }
   width: 28px;
 }
 
+.ai-companion-label {
+  display: block;
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-width 0.18s ease, opacity 0.12s ease;
+  white-space: nowrap;
+}
+
 .ai-companion-button:hover,
 .ai-companion-button:focus-visible { background: #c6f6dc; width: 190px; }
+
+.ai-companion-button:hover .ai-companion-label,
+.ai-companion-button:focus-visible .ai-companion-label {
+  max-width: 120px;
+  opacity: 1;
+}
+
+html[data-theme="light"] .ai-companion-button {
+  background: #bdeed3;
+  color: #174b34;
+  box-shadow: 0 10px 28px rgba(35, 90, 62, 0.2);
+}
+
+html[data-theme="light"] .ai-companion-icon {
+  background: #2f805b;
+  color: #ffffff;
+}
+
+html[data-theme="light"] .ai-companion-button:hover,
+html[data-theme="light"] .ai-companion-button:focus-visible {
+  background: #d8f6e5;
+}
 
 .ai-companion-drawer {
   background: #151917;
@@ -3099,6 +3130,22 @@ html[data-theme="light"] a {
   .app-header,
   .app-shell {
     padding: 14px;
+  }
+
+  .ai-companion-button,
+  .ai-companion-button:hover,
+  .ai-companion-button:focus-visible {
+    justify-content: center;
+    padding: 14px;
+    width: 56px;
+  }
+
+  .ai-companion-label,
+  .ai-companion-button:hover .ai-companion-label,
+  .ai-companion-button:focus-visible .ai-companion-label {
+    display: none;
+    max-width: 0;
+    opacity: 0;
   }
 
   .brand-block,

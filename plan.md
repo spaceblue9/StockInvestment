@@ -44,6 +44,34 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T208 - AI Floating Button Label and Softer Green
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-04 13:23:14 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ปัญหาจาก Production:
+  - ปุ่มลอย AI ตอนย่อเหลือ 56px ยังเห็นตัวอักษร `เ` จากคำว่า `เพื่อนช่วยอ่าน` โผล่ด้านขวา
+  - Light theme ใช้พื้นปุ่มเขียวเข้มเกินไปเมื่อเทียบกับหน้าจอส่วนอื่น
+- งานที่ต้องทำ:
+  - [x] แยก icon/label เป็น element คนละตัวและซ่อน label จริงเมื่อปุ่มย่อ
+    - Done: `2026-11-04 13:24:53 +07:00`
+    - Note: label ใช้ `max-width: 0`, `opacity: 0`, `overflow: hidden` แยกจากวงกลม AI
+  - [x] แสดง label เฉพาะ hover/focus บนจอกว้าง และคงเป็น icon-only บนจอเล็ก
+    - Done: `2026-11-04 13:24:53 +07:00`
+    - Note: viewport ไม่เกิน 640px บังคับ button 56px และ label `display: none`
+  - [x] ปรับ Light-theme AI button เป็นเขียวอ่อนพร้อม contrast ที่อ่านชัด
+    - Done: `2026-11-04 13:24:53 +07:00`
+    - Note: พื้น `#bdeed3`, ตัวอักษร `#174b34`, วงกลม AI `#2f805b`
+  - [x] เพิ่ม regression และตรวจภาพจริง
+    - Done: `2026-11-04 13:24:53 +07:00`
+    - Result: ผ่าน HTML/CSS markers และ responsive icon-only rules; รอตรวจ Production หลัง deploy
+  - [ ] ทดสอบ อัปเดต Version, commit, push, deploy และตรวจ Production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
+  - ทำ T208 บน branch `codex/beginner-ai-companion-ui`
+  - ปุ่มย่อห้ามมีตัวอักษร label โผล่ออกมาแม้ 1 ตัว
+  - บนมือถือให้เป็น icon-only เสมอเพื่อไม่บังตารางหรือข้อความ
+
 ### T207 - Light Theme Contrast and English Theme Names
 
 - สถานะ: Done
