@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T204 - Context-Aware AI Questions and Analysis Tools
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-04 08:18:54 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ผลทดลอง Production จริง:
@@ -71,7 +71,12 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
     - Done: `2026-11-04 08:29:53 +07:00`
   - [x] บังคับคำตอบ Portfolio ระบุชื่อหุ้น/เหตุผลเมื่อถามลำดับตรวจสอบ
     - Done: `2026-11-04 08:29:53 +07:00`
-  - [ ] เพิ่ม regression, ทดสอบ, อัปเดต Version, commit, push และ deploy
+  - [x] เพิ่ม regression, ทดสอบ, อัปเดต Version, commit, push และ deploy
+    - Done: `2026-11-04 08:38:57 +07:00`
+    - Result: ผ่าน syntax, market history/research, AI context, web smoke, viewport, authenticated flow, simulation และ `git diff --check`
+    - Release: `Think2 Verified AI Research v0.7.1`, build `20261104-0835`
+    - Git: commits `80feec2`, `d0e57d4` push ไป `codex/beginner-ai-companion-ui` สำเร็จ
+    - Deploy: Vercel production `dpl_75xW88iA9nJE5jH75XwZfEG1DZ3m` สถานะ READY และ alias `https://thai-stock-investment-web.vercel.app`
 - งานที่ต้องทำระยะที่ 2 (ข้อมูลตลาดภายนอก):
   - [x] เพิ่มกราฟราคาย้อนหลัง 52 สัปดาห์จากข้อมูลรายวัน โดยโปรแกรมวาดกราฟและ AI อธิบายเท่านั้น
     - Done: `2026-11-04 08:29:53 +07:00`
