@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T206 - Secure AI Citations and Repair Market Chart
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-04 09:13:17 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ปัญหาจาก Production:
@@ -65,7 +65,12 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] เพิ่ม regression สำหรับ hallucinated URL และ chart rendering markers
     - Done: `2026-11-04 09:15:57 +07:00`
     - Result: ลิงก์ปลอมถูกตัดทิ้ง, Yahoo profile/news URL ที่อยู่ใน whitelist ผ่าน และ chart CSS markers ผ่าน
-  - [ ] ทดสอบ อัปเดต Version, commit, push, deploy และตรวจ Production
+  - [x] ทดสอบ อัปเดต Version, commit, push, deploy และตรวจ Production
+    - Done: `2026-11-04 09:17:50 +07:00`
+    - Result: ผ่าน syntax, `test:ai-investment`, `test:market-history`, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth` และ `git diff --check`
+    - Release: `Think2 Verified Sources and Chart v0.7.3`, build `20261104-0915`
+    - Git: commit `e9ee144` push สำเร็จ
+    - Deploy: `dpl_4MQRrRtyiYtGimb1gmtycGbd5bc7` สถานะ READY; refresh Production ใน Edge สำเร็จและผล AI เก่าที่มีลิงก์ปลอมไม่ถูกเก็บหลัง reload
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
   - ทำ T206 บน branch `codex/beginner-ai-companion-ui`
