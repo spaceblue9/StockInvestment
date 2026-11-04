@@ -13,6 +13,7 @@ const nameField = document.querySelector("#nameField");
 const signupPlanField = document.querySelector("#signupPlanField");
 const signupPlanChoices = document.querySelector("#signupPlanChoices");
 const logoutButton = document.querySelector("#logoutButton");
+const logoutStatus = document.querySelector("#logoutStatus");
 const analysisForm = document.querySelector("#analysisForm");
 const analysisSubmitButton = document.querySelector("#analysisSubmitButton");
 const analysisStatusPanel = document.querySelector("#analysisStatusPanel");
@@ -32,9 +33,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261104-1345";
-const programVersion = "Think2 Readable AI States v0.7.7";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261104-1345";
+const frontendBuildVersion = "20261104-1415";
+const programVersion = "Think2 Reliable Sign Out v0.7.8";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261104-1415";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -75,6 +76,7 @@ const state = {
   },
   businessSection: "packages",
   analysisRunning: false,
+  signingOut: false,
   analysisClickCount: 0,
   lastAnalysisTriggerAt: 0,
   entitlementErrors: {},
@@ -927,7 +929,41 @@ async function submitAuth(event) {
 }
 
 async function logout() {
-  await fetch("/api/auth/logout", { method: "POST" });
+  if (state.signingOut) return;
+
+  state.signingOut = true;
+  logoutButton.disabled = true;
+  logoutButton.textContent = "กำลังออก...";
+  logoutStatus.hidden = false;
+  logoutStatus.textContent = "กำลังออกจากระบบ กรุณารอสักครู่";
+  logoutStatus.classList.remove("error");
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
+
+  try {
+    const response = await fetch("/api/auth/logout", {
+      method: "POST",
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok) {
+      throw new Error(data.message || "Sign out request failed.");
+    }
+  } catch (error) {
+    logoutStatus.textContent = error?.name === "AbortError"
+      ? "ออกจากระบบใช้เวลานานเกินไป กรุณากด Sign out อีกครั้ง"
+      : "ออกจากระบบไม่สำเร็จ กรุณาลองอีกครั้ง";
+    logoutStatus.classList.add("error");
+    return;
+  } finally {
+    clearTimeout(timeout);
+    state.signingOut = false;
+    logoutButton.disabled = false;
+    logoutButton.textContent = "Sign out";
+  }
+
   state.user = null;
   state.savedSnapshot = null;
   state.businessMetrics = null;
@@ -947,6 +983,8 @@ async function logout() {
   state.entitlementErrors = {};
   state.portfolioRows = [];
   state.recommendations = [];
+  logoutStatus.textContent = "ออกจากระบบแล้ว";
+  logoutStatus.classList.remove("error");
   renderAuthState();
   renderPlans();
   renderSnapshot();
@@ -968,6 +1006,9 @@ function renderAuthState() {
   authPanel.hidden = signedIn;
   accountPanel.hidden = !signedIn;
   logoutButton.hidden = !signedIn;
+  if (!signedIn && !state.signingOut) {
+    logoutStatus.hidden = true;
+  }
   businessViewButton.hidden = !canSeeWorkspaceNav();
   nameField.hidden = state.authMode === "login";
   signupPlanField.hidden = state.authMode === "login";

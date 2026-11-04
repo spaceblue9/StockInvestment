@@ -44,6 +44,34 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T211 - Reliable Sign Out Feedback and Recovery
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-04 14:08:51 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ปัญหาจาก Production:
+  - กดปุ่ม `Sign out` แล้วหน้าจอไม่เปลี่ยนและไม่มีข้อความแจ้งว่าระบบกำลังทำงานหรือเกิดข้อผิดพลาด
+  - Frontend รอ `fetch` โดยไม่มี loading state, timeout และ error handling ทำให้ network/database delay ดูเหมือนปุ่มเสีย
+- งานที่ต้องทำ:
+  - [x] เพิ่มสถานะ `Signing out...` และป้องกันการกดซ้ำ
+    - Done: `2026-11-04 14:12:37 +07:00`
+    - Note: ปุ่มเปลี่ยนเป็น `กำลังออก...` ทันทีและใช้ `state.signingOut` ป้องกัน request ซ้ำ
+  - [x] เพิ่ม timeout/error recovery พร้อมข้อความภาษาไทยที่ผู้ใช้เข้าใจง่าย
+    - Done: `2026-11-04 14:12:37 +07:00`
+    - Note: timeout 20 วินาที พร้อมแสดงสาเหตุแบบลองใหม่ได้ใน header
+  - [x] ตรวจ response ของ API ก่อนล้างข้อมูลผู้ใช้ และคืนปุ่มเมื่อออกจากระบบไม่สำเร็จ
+    - Done: `2026-11-04 14:12:37 +07:00`
+    - Note: ล้าง state เฉพาะ response `ok`; error จะคง session และคืนปุ่ม `Sign out`
+  - [x] เพิ่ม regression test สำหรับ logout UI และรันทดสอบ auth/frontend
+    - Done: `2026-11-04 14:12:37 +07:00`
+    - Result: API logout ล้าง session ผ่าน frontend auth regression และผ่าน web smoke, viewport, syntax, diff checks
+  - [ ] อัปเดต Version, commit, push และ deploy Production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
+  - ทำ T211 บน branch `codex/beginner-ai-companion-ui`
+  - ห้ามแสดงว่าออกจากระบบสำเร็จถ้า API ยังไม่ตอบสำเร็จ
+  - เมื่อช้าต้องมี feedback ทันที และเมื่อผิดพลาดต้องคืนปุ่มให้ลองใหม่ได้
+
 ### T210 - Light Theme AI Question and Loading Contrast
 
 - สถานะ: Done

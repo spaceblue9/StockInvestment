@@ -362,6 +362,17 @@ button:disabled {
   white-space: nowrap;
 }
 
+.logout-status {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  max-width: 220px;
+}
+
+.logout-status.error {
+  color: #ffb3b7;
+}
+
 .analysis-status {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -2829,6 +2840,14 @@ html[data-theme="light"] .analysis-steps li.done::before {
 html[data-theme="light"] .analysis-status.success {
   background: #eef8f2;
   border-color: #8dc9a9;
+}
+
+html[data-theme="light"] .logout-status {
+  color: #355b47;
+}
+
+html[data-theme="light"] .logout-status.error {
+  color: #9e2f45;
 }
 
 html[data-theme="light"] .plan-meta,
