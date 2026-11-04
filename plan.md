@@ -44,9 +44,33 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
-### T208 - AI Floating Button Label and Softer Green
+### T209 - Light Theme Score Matrix Hint Contrast
 
 - สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-04 13:30:50 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ปัญหาจาก Production:
+  - ข้อความอธิบายเกณฑ์คะแนนด้านล่างการ์ด Score matrix ใช้สีเทาอ่อนสำหรับ Dark theme จึงแทบอ่านไม่ออกบนพื้นขาว
+- งานที่ต้องทำ:
+  - [x] เพิ่ม Light-theme override ให้คำอธิบายและเกณฑ์คะแนนมี contrast ชัดเจน
+    - Done: `2026-11-04 13:31:55 +07:00`
+    - Note: `.score-card-hint` ใช้สีเทาเขียว `#59665f` เฉพาะ Light theme
+  - [x] คงลำดับชั้นของข้อความ โดยไม่ทำให้ข้อความรองเด่นกว่าคะแนน
+    - Done: `2026-11-04 13:31:55 +07:00`
+    - Note: เพิ่มน้ำหนักเป็น 600 แต่คงขนาด 11px เพื่อให้ยังเป็นข้อมูลรอง
+  - [x] เพิ่ม regression test และตรวจ syntax/diff
+    - Done: `2026-11-04 13:31:55 +07:00`
+    - Result: ผ่าน web smoke, frontend viewport, frontend auth, Node syntax และ `git diff --check`
+  - [ ] อัปเดต Version, commit, push และ deploy Production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
+  - ทำ T209 บน branch `codex/beginner-ai-companion-ui`
+  - ตรวจ `.score-card-hint` ใน Light theme เป็นหลัก และต้องไม่ทำให้ Dark theme เปลี่ยนสี
+  - หลังแก้ต้องรัน web smoke, frontend viewport และ frontend auth regression
+
+### T208 - AI Floating Button Label and Softer Green
+
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-04 13:23:14 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ปัญหาจาก Production:
@@ -65,7 +89,9 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] เพิ่ม regression และตรวจภาพจริง
     - Done: `2026-11-04 13:24:53 +07:00`
     - Result: ผ่าน HTML/CSS markers และ responsive icon-only rules; รอตรวจ Production หลัง deploy
-  - [ ] ทดสอบ อัปเดต Version, commit, push, deploy และตรวจ Production
+  - [x] ทดสอบ อัปเดต Version, commit, push, deploy และตรวจ Production
+    - Done: `2026-11-04 13:31:55 +07:00`
+    - Result: commit `b94f71a`, Vercel deployment `dpl_2eNjGKr3EofntCCNnUyD6HFwogTE` READY และภาพ Production ล่าสุดยืนยันว่าปุ่มย่อไม่แสดงตัวอักษรเกินกรอบ
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
   - ทำ T208 บน branch `codex/beginner-ai-companion-ui`

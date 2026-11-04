@@ -2892,6 +2892,11 @@ html[data-theme="light"] .sector-beginner-summary span,
 html[data-theme="light"] .sector-beginner-summary p { color: #53665c; }
 html[data-theme="light"] .sector-beginner-summary strong { color: #193327; }
 
+html[data-theme="light"] .score-matrix-card .score-card-hint {
+  color: #59665f;
+  font-weight: 600;
+}
+
 html[data-theme="light"] input,
 html[data-theme="light"] select,
 html[data-theme="light"] textarea {
