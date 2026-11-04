@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T207 - Light Theme Contrast and English Theme Names
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-04 09:35:32 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ปัญหาจาก Production:
@@ -65,7 +65,12 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] เพิ่ม regression markers และตรวจ responsive layout
     - Done: `2026-11-04 09:38:28 +07:00`
     - Result: computed color ผ่าน (`step #53665c`, `plan meta #53665c`, `tag #76283e`), header เป็น `#fffdfd`, Theme แสดง `Light`; ตรวจ screenshot จริงแล้วอ่านชัด
-  - [ ] ทดสอบ อัปเดต Version, commit, push, deploy และตรวจ Production
+  - [x] ทดสอบ อัปเดต Version, commit, push, deploy และตรวจ Production
+    - Done: `2026-11-04 09:39:36 +07:00`
+    - Result: ผ่าน syntax, `test:web-smoke`, `test:frontend-viewport`, `test:frontend-auth`, `git diff --check` และ visual/computed-style QA
+    - Release: `Think2 Accessible Themes v0.7.4`, build `20261104-0940`
+    - Git: commit `7788521` push สำเร็จ
+    - Deploy: `dpl_87e3KJmazkfhFiY4vcTUSSxaireD` สถานะ READY และ production alias สำเร็จ
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
   - ทำ T207 บน branch `codex/beginner-ai-companion-ui`
