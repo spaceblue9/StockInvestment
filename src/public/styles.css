@@ -2897,6 +2897,20 @@ html[data-theme="light"] .score-matrix-card .score-card-hint {
   font-weight: 600;
 }
 
+html[data-theme="light"] .ai-custom-question button:disabled {
+  background: #ead7dc;
+  border: 1px solid #c99ca7;
+  color: #6e414c;
+  opacity: 1;
+}
+
+html[data-theme="light"] .ai-companion-loading {
+  background: #fff0f3;
+  border-color: #e1a2b0;
+  color: #7e3044;
+  font-weight: 700;
+}
+
 html[data-theme="light"] input,
 html[data-theme="light"] select,
 html[data-theme="light"] textarea {

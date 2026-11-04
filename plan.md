@@ -44,6 +44,31 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T210 - Light Theme AI Question and Loading Contrast
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-04 13:39:47 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ปัญหาจาก Production:
+  - ปุ่ม `ถาม AI จากข้อมูลชุดนี้` ระหว่างประมวลผลเป็นพื้นเทาเข้มแต่ข้อความเทาจาง
+  - กล่อง `กำลังอ่านข้อมูลและเรียบเรียงคำอธิบาย...` ใช้ชมพูอ่อนบนพื้นชมพูอ่อน จึงอ่านยากใน Light theme
+- งานที่ต้องทำ:
+  - [x] ปรับ contrast ปุ่มถาม AI ในสถานะ disabled/loading เฉพาะ Light theme
+    - Done: `2026-11-04 13:41:08 +07:00`
+    - Note: ใช้พื้น `#ead7dc` ตัวอักษร `#6e414c` และคง `opacity: 1`
+  - [x] ปรับข้อความและกรอบสถานะ loading ให้อ่านชัดแต่ยังสื่อว่ากำลังทำงาน
+    - Done: `2026-11-04 13:41:08 +07:00`
+    - Note: ใช้พื้น `#fff0f3` ขอบ `#e1a2b0` และข้อความ `#7e3044`
+  - [x] เพิ่ม regression และรันทดสอบ frontend ที่เกี่ยวข้อง
+    - Done: `2026-11-04 13:41:08 +07:00`
+    - Result: ผ่าน web smoke, frontend viewport, frontend auth, Node syntax และ `git diff --check`
+  - [ ] อัปเดต Version, commit, push และ deploy Production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
+  - ทำ T210 บน branch `codex/beginner-ai-companion-ui`
+  - จำกัด CSS override อยู่ใน Light theme และส่วน AI Companion เพื่อไม่กระทบปุ่ม disabled อื่น
+  - ตรวจทั้งปุ่มระหว่าง loading และกล่องข้อความ `ai-companion-loading`
+
 ### T209 - Light Theme Score Matrix Hint Contrast
 
 - สถานะ: Done
