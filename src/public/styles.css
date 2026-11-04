@@ -1243,7 +1243,7 @@ html[data-theme="light"] .ai-companion-scope {
 .ai-market-tool { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--border); background: var(--panel-soft); }
 .ai-market-tool label { display: block; font-weight: 900; }
 .ai-market-tool small { color: var(--muted); }
-.ai-market-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+.ai-market-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; }
 .ai-market-controls select, .ai-market-controls button { min-height: 44px; }
 .ai-market-chart { display: grid; gap: 10px; overflow: hidden; }
 .ai-market-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -1256,6 +1256,10 @@ html[data-theme="light"] .ai-companion-scope {
 .ai-price-position { height: 8px; background: var(--border); overflow: hidden; }
 .ai-price-position span { display: block; height: 100%; background: var(--success); }
 .ai-market-chart p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.ai-company-research { padding: 12px; border-left: 3px solid var(--success); background: var(--panel); }
+.ai-company-research p { margin: 6px 0; }
+.ai-company-research ul { margin: 8px 0; padding-left: 20px; }
+.ai-company-research a { color: var(--success); overflow-wrap: anywhere; }
 @media (max-width: 680px) {
   .ai-market-controls, .ai-market-metrics { grid-template-columns: 1fr; }
 }

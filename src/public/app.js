@@ -32,9 +32,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261104-0830";
-const programVersion = "Think2 Scoped AI Questions v0.7.0";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261104-0830";
+const frontendBuildVersion = "20261104-0835";
+const programVersion = "Think2 Verified AI Research v0.7.1";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261104-0835";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -99,6 +99,9 @@ const state = {
     marketChart: null,
     marketChartLoading: false,
     marketChartError: "",
+    companyResearch: null,
+    companyResearchLoading: false,
+    companyResearchError: "",
     drawerOpen: false,
   },
 };
@@ -547,6 +550,14 @@ document.addEventListener("click", (event) => {
     if (aiMarketHistoryButton.disabled) return;
     const symbolSelect = document.querySelector("[data-ai-market-symbol]");
     loadAiMarketHistory(symbolSelect?.value || bestContextSymbol());
+    return;
+  }
+
+  const aiCompanyResearchButton = event.target.closest("[data-ai-company-research]");
+  if (aiCompanyResearchButton) {
+    if (aiCompanyResearchButton.disabled) return;
+    const symbolSelect = document.querySelector("[data-ai-market-symbol]");
+    loadAiCompanyResearch(symbolSelect?.value || bestContextSymbol());
     return;
   }
 
@@ -1945,6 +1956,9 @@ function renderAiAssistantResult(result) {
   const list = (title, values) => Array.isArray(values) && values.length
     ? `<div><strong>${escapeHtml(title)}</strong><ul>${values.map((value) => `<li>${escapeHtml(value)}</li>`).join("")}</ul></div>`
     : "";
+  const citations = Array.isArray(result.citations) && result.citations.length
+    ? `<div class="ai-citations"><strong>แหล่งข้อมูล</strong><ul>${result.citations.map((item) => `<li><a href="${escapeHtml(safeExternalUrl(item.url))}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.label || item.url)}</a></li>`).join("")}</ul></div>`
+    : "";
   return `
     <article class="ai-result" aria-live="polite">
       <h4>${escapeHtml(result.title || "ผลคำอธิบาย")}</h4>
@@ -1969,6 +1983,7 @@ function renderAiAssistantResult(result) {
         ${list("คำถามที่ควรศึกษาต่อ", result.nextQuestions)}
         ${list("ข้อจำกัดของข้อมูล", result.dataLimitations)}
       </div>
+      ${citations}
       <p class="ai-disclaimer">${escapeHtml(result.disclaimer || "ข้อมูลนี้ใช้เพื่อการศึกษา ไม่ใช่คำแนะนำเฉพาะบุคคล")}</p>
     </article>
   `;
@@ -2012,6 +2027,7 @@ async function runAiInvestmentExplanation(options = {}) {
         currentRows: currentAiContextRows(),
         viewContext: currentAiViewContext(),
         marketContext: state.aiAssistant.marketChart,
+        researchContext: state.aiAssistant.companyResearch,
       }),
     });
     const payload = await response.json().catch(() => ({}));
@@ -2059,6 +2075,10 @@ function renderAiCompanion() {
     state.aiAssistant.marketChart = null;
     state.aiAssistant.marketChartError = "";
   }
+  if (state.aiAssistant.companyResearch && !marketSymbols.includes(state.aiAssistant.companyResearch.symbol)) {
+    state.aiAssistant.companyResearch = null;
+    state.aiAssistant.companyResearchError = "";
+  }
   const emptyMessage = state.activeView === "simulation"
     ? "กรุณารัน Simulation ก่อน เพื่อให้ AI อ่านผล ROI กราฟ และรายการซื้อขายจริง"
     : "ไม่มีหุ้นอยู่ในขอบเขตปัจจุบัน กรุณาผ่อน Filter หรือเลือกข้อมูลใหม่ก่อนถาม AI";
@@ -2089,9 +2109,12 @@ function renderAiCompanion() {
             ${marketSymbols.map((symbol) => `<option value="${escapeHtml(symbol)}" ${symbol === (state.aiAssistant.marketChart?.symbol || bestContextSymbol()) ? "selected" : ""}>${escapeHtml(symbol)}</option>`).join("")}
           </select>
           <button type="button" data-ai-market-history ${state.aiAssistant.marketChartLoading ? "disabled" : ""}>${state.aiAssistant.marketChartLoading ? "กำลังโหลด..." : "ดูกราฟราคา"}</button>
+          <button type="button" data-ai-company-research ${state.aiAssistant.companyResearchLoading ? "disabled" : ""}>${state.aiAssistant.companyResearchLoading ? "กำลังค้น..." : "ข้อมูลบริษัทและข่าว"}</button>
         </div>
         ${state.aiAssistant.marketChartError ? `<p class="ai-error">${escapeHtml(state.aiAssistant.marketChartError)}</p>` : ""}
+        ${state.aiAssistant.companyResearchError ? `<p class="ai-error">${escapeHtml(state.aiAssistant.companyResearchError)}</p>` : ""}
         ${state.aiAssistant.marketChart ? renderAiMarketChart(state.aiAssistant.marketChart) : ""}
+        ${state.aiAssistant.companyResearch ? renderAiCompanyResearch(state.aiAssistant.companyResearch) : ""}
       </div>
     ` : ""}
     <div class="ai-prompt-list">
@@ -2190,6 +2213,49 @@ async function loadAiMarketHistory(symbol) {
   } finally {
     state.aiAssistant.marketChartLoading = false;
     renderAiCompanion();
+  }
+}
+
+async function loadAiCompanyResearch(symbol) {
+  const normalizedSymbol = String(symbol || "").trim().toUpperCase();
+  const allowedSymbols = new Set(activeAiContextRows().map((row) => String(row.Symbol || "").trim().toUpperCase()));
+  if (!normalizedSymbol || !allowedSymbols.has(normalizedSymbol) || state.aiAssistant.companyResearchLoading) return;
+  state.aiAssistant.companyResearchLoading = true;
+  state.aiAssistant.companyResearchError = "";
+  state.aiAssistant.companyResearch = null;
+  renderAiCompanion();
+  try {
+    const response = await fetch(`/api/market/research/${encodeURIComponent(normalizedSymbol)}`);
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.message || "โหลดข้อมูลบริษัทไม่สำเร็จ");
+    state.aiAssistant.companyResearch = payload;
+  } catch (error) {
+    state.aiAssistant.companyResearchError = error.message || "โหลดข้อมูลบริษัทไม่สำเร็จ";
+  } finally {
+    state.aiAssistant.companyResearchLoading = false;
+    renderAiCompanion();
+  }
+}
+
+function renderAiCompanyResearch(data = {}) {
+  const profile = data.profile || {};
+  const news = Array.isArray(data.news) ? data.news : [];
+  return `
+    <div class="ai-company-research" data-ai-company-research-result>
+      <strong>${escapeHtml(profile.name || data.symbol || "ข้อมูลบริษัท")}</strong>
+      <p>${escapeHtml([profile.sector, profile.industry].filter(Boolean).join(" · ") || "Yahoo ไม่มีรายละเอียดกลุ่มธุรกิจเพิ่มเติม")}</p>
+      ${news.length ? `<ul>${news.map((item) => `<li><a href="${escapeHtml(safeExternalUrl(item.url))}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.title)}</a>${item.publisher ? ` <small>(${escapeHtml(item.publisher)})</small>` : ""}</li>`).join("")}</ul>` : "<p>ไม่พบข่าวล่าสุดจากผลค้นหานี้</p>"}
+      <a href="${escapeHtml(safeExternalUrl(data.sourceUrl))}" target="_blank" rel="noopener noreferrer">ตรวจแหล่งข้อมูลบน Yahoo Finance</a>
+    </div>
+  `;
+}
+
+function safeExternalUrl(value) {
+  try {
+    const url = new URL(String(value || ""));
+    return ["http:", "https:"].includes(url.protocol) ? url.toString() : "#";
+  } catch {
+    return "#";
   }
 }
 

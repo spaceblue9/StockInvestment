@@ -201,6 +201,62 @@ export async function fetchYahoo52WeekHistory(symbol, options = {}) {
   };
 }
 
+export async function fetchYahooCompanyResearch(symbol, options = {}) {
+  const normalizedSymbol = String(symbol || "").trim().toUpperCase().replace(/\.BK$/iu, "");
+  if (!/^[A-Z0-9&-]{1,15}$/u.test(normalizedSymbol)) {
+    const error = new Error("Invalid Thai stock symbol.");
+    error.statusCode = 400;
+    throw error;
+  }
+  const url = new URL("https://query1.finance.yahoo.com/v1/finance/search");
+  url.searchParams.set("q", `${normalizedSymbol}.BK`);
+  url.searchParams.set("quotesCount", "5");
+  url.searchParams.set("newsCount", "5");
+  const response = await (options.fetchImpl || fetch)(url, {
+    headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 StockFlix/1.0" },
+  });
+  if (!response.ok) {
+    const error = new Error(`Yahoo company research request failed with ${response.status}.`);
+    error.statusCode = 502;
+    throw error;
+  }
+  const payload = await response.json();
+  const expectedTicker = `${normalizedSymbol}.BK`;
+  const quote = (payload.quotes || []).find((item) => String(item.symbol || "").toUpperCase() === expectedTicker) || null;
+  if (!quote) {
+    const error = new Error("Yahoo did not return a verified company profile for this symbol.");
+    error.statusCode = 502;
+    throw error;
+  }
+  return {
+    symbol: normalizedSymbol,
+    source: "Yahoo Finance search",
+    sourceUrl: `https://finance.yahoo.com/quote/${encodeURIComponent(expectedTicker)}/profile/`,
+    fetchedAt: new Date().toISOString(),
+    profile: {
+      name: String(quote.longname || quote.shortname || normalizedSymbol).slice(0, 200),
+      exchange: String(quote.exchDisp || quote.exchange || "SET").slice(0, 80),
+      sector: String(quote.sectorDisp || quote.sector || "").slice(0, 120),
+      industry: String(quote.industryDisp || quote.industry || "").slice(0, 160),
+    },
+    news: (payload.news || []).slice(0, 5).map((item) => ({
+      title: String(item.title || "").slice(0, 300),
+      publisher: String(item.publisher || "").slice(0, 120),
+      publishedAt: item.providerPublishTime ? new Date(item.providerPublishTime * 1000).toISOString() : "",
+      url: safeHttpUrl(item.link),
+    })).filter((item) => item.title && item.url),
+  };
+}
+
+function safeHttpUrl(value) {
+  try {
+    const url = new URL(String(value || ""));
+    return ["http:", "https:"].includes(url.protocol) ? url.toString() : "";
+  } catch {
+    return "";
+  }
+}
+
 async function fetchYahooChartQuote(symbol, options = {}) {
   const chart = await fetchChart(`${symbol}.BK`, {
     interval: "1d",

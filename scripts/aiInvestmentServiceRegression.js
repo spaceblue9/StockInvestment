@@ -46,7 +46,7 @@ const response = await generateAiInvestmentExplanation(snapshot, { mode: "stock"
           decisionHeadline: "AAA น่าศึกษาต่อก่อน", decisionAction: "ตรวจงบและ RRR ของ AAA เพิ่มก่อนตัดสินใจ",
           decisionReasons: ["คะแนนรวมสูงกว่าเพื่อน"], decisionChecks: ["ตรวจงบล่าสุด"], decisionConfidence: "ปานกลาง",
           risks: ["ควรตรวจข้อมูลเพิ่ม"], nextQuestions: ["งบล่าสุดเป็นอย่างไร"],
-          dataLimitations: ["ไม่มีข้อมูลประเภทธุรกิจที่ยืนยันแล้ว"], disclaimer: "ใช้เพื่อการศึกษา",
+          dataLimitations: ["ไม่มีข้อมูลประเภทธุรกิจที่ยืนยันแล้ว"], citations: [], disclaimer: "ใช้เพื่อการศึกษา",
         }) } }],
       }),
     };
@@ -181,4 +181,20 @@ const rejectedMarketContext = buildAiInvestmentContext(snapshot, {
   marketContext: { symbol: "AAA", current: 99 },
 });
 assert.equal(rejectedMarketContext.marketContext, null);
+
+const researchContext = buildAiInvestmentContext(snapshot, {
+  contextView: "screener",
+  currentRows: [{ Symbol: "BBB" }],
+  researchContext: {
+    symbol: "BBB",
+    source: "Yahoo Finance search",
+    sourceUrl: "https://finance.yahoo.com/quote/BBB.BK/profile/",
+    profile: { name: "BBB Company", sector: "Energy", industry: "Power" },
+    news: [{ title: "BBB update", publisher: "Publisher", url: "https://example.com/bbb" }],
+    privateNote: "must not leak",
+  },
+});
+assert.equal(researchContext.researchContext.profile.name, "BBB Company");
+assert.equal(researchContext.researchContext.news.length, 1);
+assert.equal(JSON.stringify(researchContext.researchContext).includes("privateNote"), false);
 console.log("AI investment service regression passed.");

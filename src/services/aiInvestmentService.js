@@ -86,8 +86,8 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
     dataContract: {
       scoringSource: "Think2 deterministic analysis",
       aiRole: "Explain and compare only",
-      companyProfileAvailable: false,
-      priceFreshness: "Use generatedAt; do not claim real-time data",
+      companyProfileAvailable: Boolean(input.researchContext?.profile?.name),
+      priceFreshness: input.marketContext?.fetchedAt ? "Use marketContext fetchedAt; historical chart is not a real-time trade quote" : "Use generatedAt; do not claim real-time data",
     },
     portfolioSummary: contextView === "portfolio" ? sanitizeSummary(snapshot?.summary || {}) : {},
     holdings: rowsAreScoped
@@ -96,6 +96,7 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
     currentRows,
     viewContext: contextView === "simulation" ? sanitizeSimulationViewContext(input.viewContext) : null,
     marketContext: sanitizeMarketContext(input.marketContext, allRows),
+    researchContext: sanitizeResearchContext(input.researchContext, allRows),
     selectedStock,
     peers,
   };
@@ -143,7 +144,7 @@ export function buildOpenRouterRequest(context) {
           "Always provide decision support: choose the most useful next study or review action, explain why using supplied facts, list checks required before acting, and state confidence as ต่ำ, ปานกลาง, or สูง.",
           "For stock or compare mode, identify which supplied stock is most worth studying next when evidence permits. For portfolio mode, prioritize what the investor should review first. For simulation, state whether the result merits further study or should be treated cautiously.",
           "Use decision language such as น่าศึกษาต่อ, ควรตรวจ, or ควรชะลอ. Do not say the user should buy or sell.",
-          "If company business information is absent, explicitly say that a verified company profile is unavailable; never infer it from the ticker.",
+          "If company business information is absent, explicitly say that a verified company profile is unavailable; never infer it from the ticker. If researchContext is present, use its company, sector, industry, and news facts and return only supplied source URLs in citations.",
           "Treat Target_Action as an existing system output and explain it with uncertainty, not as personal financial advice.",
         ].join(" "),
       },
@@ -221,7 +222,7 @@ function aiResponseSchema() {
   return {
     type: "object",
     additionalProperties: false,
-    required: ["title", "summary", "decisionHeadline", "decisionAction", "decisionReasons", "decisionChecks", "decisionConfidence", "keyPoints", "risks", "nextQuestions", "dataLimitations", "disclaimer"],
+    required: ["title", "summary", "decisionHeadline", "decisionAction", "decisionReasons", "decisionChecks", "decisionConfidence", "keyPoints", "risks", "nextQuestions", "dataLimitations", "citations", "disclaimer"],
     properties: {
       title: { type: "string" },
       summary: { type: "string" },
@@ -234,6 +235,16 @@ function aiResponseSchema() {
       risks: { type: "array", items: { type: "string" }, maxItems: 6 },
       nextQuestions: { type: "array", items: { type: "string" }, maxItems: 5 },
       dataLimitations: { type: "array", items: { type: "string" }, maxItems: 5 },
+      citations: {
+        type: "array",
+        maxItems: 6,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["label", "url"],
+          properties: { label: { type: "string" }, url: { type: "string" } },
+        },
+      },
       disclaimer: { type: "string" },
     },
   };
@@ -300,6 +311,38 @@ function sanitizeMarketContext(input = {}, allowedRows = []) {
     high52Week: numberValue(input?.high52Week),
     pricePositionPct: numberValue(input?.pricePositionPct),
     history,
+  };
+}
+
+function sanitizeResearchContext(input = {}, allowedRows = []) {
+  const symbol = cleanSymbol(input?.symbol);
+  const allowedSymbols = new Set(allowedRows.map((row) => row.Symbol));
+  if (!symbol || !allowedSymbols.has(symbol)) return null;
+  const safeUrl = (value) => {
+    try {
+      const url = new URL(String(value || ""));
+      return ["http:", "https:"].includes(url.protocol) ? url.toString().slice(0, 1000) : "";
+    } catch {
+      return "";
+    }
+  };
+  return {
+    symbol,
+    source: String(input?.source || "").slice(0, 80),
+    sourceUrl: safeUrl(input?.sourceUrl),
+    fetchedAt: String(input?.fetchedAt || "").slice(0, 40),
+    profile: {
+      name: String(input?.profile?.name || "").slice(0, 200),
+      exchange: String(input?.profile?.exchange || "").slice(0, 80),
+      sector: String(input?.profile?.sector || "").slice(0, 120),
+      industry: String(input?.profile?.industry || "").slice(0, 160),
+    },
+    news: (Array.isArray(input?.news) ? input.news : []).slice(0, 5).map((item) => ({
+      title: String(item?.title || "").slice(0, 300),
+      publisher: String(item?.publisher || "").slice(0, 120),
+      publishedAt: String(item?.publishedAt || "").slice(0, 40),
+      url: safeUrl(item?.url),
+    })).filter((item) => item.title && item.url),
   };
 }
 
@@ -374,8 +417,21 @@ function validateAiResponse(result) {
     risks: cleanStringList(result.risks, 6),
     nextQuestions: cleanStringList(result.nextQuestions, 5),
     dataLimitations: cleanStringList(result.dataLimitations, 5),
+    citations: (Array.isArray(result.citations) ? result.citations : []).slice(0, 6).map((item) => ({
+      label: String(item?.label || "แหล่งข้อมูล").slice(0, 200),
+      url: safeCitationUrl(item?.url),
+    })).filter((item) => item.url),
     disclaimer: String(result.disclaimer || "ข้อมูลนี้ใช้เพื่อการศึกษา ไม่ใช่คำแนะนำเฉพาะบุคคล").slice(0, 500),
   };
+}
+
+function safeCitationUrl(value) {
+  try {
+    const url = new URL(String(value || ""));
+    return ["http:", "https:"].includes(url.protocol) ? url.toString().slice(0, 1000) : "";
+  } catch {
+    return "";
+  }
 }
 
 function cleanStringList(values, limit) {

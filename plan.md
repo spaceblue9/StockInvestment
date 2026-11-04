@@ -79,7 +79,9 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] แสดง Current/High/Low/Price Position พร้อม timestamp และ source
     - Done: `2026-11-04 08:29:53 +07:00`
     - Note: โปรแกรมคำนวณและวาดกราฟเองจากราคาปิด ไม่ให้ LLM สร้างตัวเลขหรือเส้นกราฟ
-  - [ ] เพิ่ม verified company profile/news research mode พร้อม citation และแยกจากคะแนน Think2
+  - [x] เพิ่ม verified company profile/news research mode พร้อม citation และแยกจากคะแนน Think2
+    - Done: `2026-11-04 08:37:28 +07:00`
+    - Note: ใช้ Yahoo Finance Search ยืนยันชื่อบริษัท, SET, sector, industry และข่าวพร้อม URL; แสดงแหล่งข้อมูลแยกจากคะแนน Think2 และส่งเฉพาะ URL ที่ระบบได้รับให้ AI อ้างอิง
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนทำงานเสมอ ห้ามลบ `plan.md`
   - ทำ T204 ระยะที่ 1 ก่อนระยะที่ 2 บน branch `codex/beginner-ai-companion-ui`
