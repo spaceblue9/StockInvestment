@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T209 - Light Theme Score Matrix Hint Contrast
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-04 13:30:50 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ปัญหาจาก Production:
@@ -61,7 +61,11 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] เพิ่ม regression test และตรวจ syntax/diff
     - Done: `2026-11-04 13:31:55 +07:00`
     - Result: ผ่าน web smoke, frontend viewport, frontend auth, Node syntax และ `git diff --check`
-  - [ ] อัปเดต Version, commit, push และ deploy Production
+  - [x] อัปเดต Version, commit, push และ deploy Production
+    - Done: `2026-11-04 13:33:37 +07:00`
+    - Release: `Think2 Readable Score Matrix v0.7.6` / build `20261104-1335`
+    - Git: commit `58e9eee` push ไปที่ `codex/beginner-ai-companion-ui` แล้ว
+    - Deploy: Vercel `dpl_H4Y9cCKkwxMXuEWvLURxxbQqonVe` สถานะ READY และ Production HTML อ้างอิง CSS/JS build `20261104-1335`
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
   - ทำ T209 บน branch `codex/beginner-ai-companion-ui`
