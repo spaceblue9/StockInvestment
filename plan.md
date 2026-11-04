@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T210 - Light Theme AI Question and Loading Contrast
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-04 13:39:47 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ปัญหาจาก Production:
@@ -62,7 +62,11 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] เพิ่ม regression และรันทดสอบ frontend ที่เกี่ยวข้อง
     - Done: `2026-11-04 13:41:08 +07:00`
     - Result: ผ่าน web smoke, frontend viewport, frontend auth, Node syntax และ `git diff --check`
-  - [ ] อัปเดต Version, commit, push และ deploy Production
+  - [x] อัปเดต Version, commit, push และ deploy Production
+    - Done: `2026-11-04 13:42:40 +07:00`
+    - Release: `Think2 Readable AI States v0.7.7` / build `20261104-1345`
+    - Git: commit `ea622dc` push ไปที่ `codex/beginner-ai-companion-ui` แล้ว
+    - Deploy: Vercel `dpl_DUm1qbuRhQeq5kDkcAZkueW6fNUN` สถานะ READY และ Production HTML อ้างอิง build `20261104-1345`
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
   - ทำ T210 บน branch `codex/beginner-ai-companion-ui`
