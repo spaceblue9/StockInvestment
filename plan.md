@@ -46,7 +46,8 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T215 - Automatic Supabase RLS and Public Grant Protection
 
-- สถานะ: In Progress (implementation and regression complete; delivery in progress)
+- สถานะ: Done
+- เสร็จเมื่อ: `2026-11-05 14:19:00 +07:00`
 - เริ่มเมื่อ: `2026-11-05 14:11:42 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ที่มา:
@@ -68,8 +69,12 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] รันทดสอบ Postgres, reference master, auth และ web flow
     - Done: `2026-11-05 14:15:18 +07:00`
     - Result: ผ่าน syntax checks, Postgres repository/importer, SQLite promotion, reference master database/migration, frontend auth/viewport และ web smoke
-  - [ ] อัปเดต Version, commit, push และ deploy Production
-    - Version prepared: `Think2 Supabase RLS Guard v0.8.3` / build `20261105-1415`
+  - [x] อัปเดต Version, commit, push และ deploy Production
+    - Done: `2026-11-05 14:19:00 +07:00`
+    - Release: `Think2 Supabase RLS Guard v0.8.3` / build `20261105-1415`
+    - Git: commit `27e3091` push ไปที่ `codex/beginner-ai-companion-ui` แล้ว
+    - Deploy: Vercel `dpl_7xFqvKPAqiJogtq9XZk5F8Ntjfso` สถานะ READY และ alias ไปที่ Production แล้ว
+    - Verification: Production HTML อ้างอิง `/styles.css?v=20261105-1415` และ `/app.js?v=20261105-1415`
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
   - ทำ T215 บน branch `codex/beginner-ai-companion-ui`
