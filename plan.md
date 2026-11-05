@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T217 - Beginner Decision Flow
 
-- สถานะ: In Progress
+- สถานะ: Implementation Done - รอ owner visual acceptance บน Portfolio ที่โหลดข้อมูลครบ
 - เริ่มเมื่อ: `2026-11-05 14:55:34 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ที่มา:
@@ -65,11 +65,18 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
     - Note: ระบุชัดว่าคำเตือนเป็นเหตุให้หยุดตรวจสอบข้อมูลก่อน และไม่เปลี่ยน Action หรือเป็นคำสั่งซื้อขายโดยอัตโนมัติ
   - [ ] ตรวจ Light/Dark theme, desktop/mobile และ interaction ที่เกี่ยวข้อง
     - Automated CSS/viewport guard ผ่าน; รอตรวจ Browser Production หลัง deploy
+    - Checked: `2026-11-05 15:02:58 +07:00`
+    - Production shell, Light theme และ responsive layout เปิดได้; `/api/health` ตอบ `ok: true` และ Vercel error log 10 นาทีล่าสุดเป็น 0 รายการ
+    - Limitation: Edge automation หลุดระหว่างรอ authenticated Portfolio จาก Supabase จึงยังไม่ยืนยันภาพ Decision Flow หลังข้อมูลโหลดครบด้วย Browser จริง
   - [x] เพิ่ม regression, อัปเดต Version และรันทดสอบ
     - Done: `2026-11-05 14:58:19 +07:00`
     - Result: ผ่าน Node syntax, `test:frontend-auth`, `test:frontend-viewport`, `test:web-smoke` และ `git diff --check`
     - Release candidate: `Think2 Beginner Decision Flow v0.9.0` / build `20261105-1457`
-  - [ ] อัปเดต `plan.md`, commit, push และ deploy Production
+  - [x] อัปเดต `plan.md`, commit, push และ deploy Production
+    - Done: `2026-11-05 15:02:58 +07:00`
+    - Git: commit `5c5f541` push ไปที่ `origin/codex/beginner-ai-companion-ui` แล้ว
+    - Deploy: Vercel `dpl_E1oDm85KPq5RxLzgrgSebkquBCD1` สถานะ READY และ alias ไปที่ Production แล้ว
+    - Verification: Production HTML อ้างอิง build `20261105-1457`; health ผ่านและไม่พบ error log ใหม่
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
   - ทำ T217 บน branch `codex/beginner-ai-companion-ui`
