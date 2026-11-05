@@ -46,7 +46,8 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T216 - Production Visual QA and Security Smoke Test
 
-- สถานะ: In Progress - implementation and automated verification complete; waiting for Git delivery and Production deployment
+- สถานะ: Done
+- เสร็จเมื่อ: `2026-11-05 14:39:43 +07:00`
 - เริ่มเมื่อ: `2026-11-05 14:28:22 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - เป้าหมาย:
@@ -77,7 +78,11 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
     - Done: `2026-11-05 14:34:31 +07:00`
     - Result: ผ่าน `test:ai-investment`, `test:frontend-auth`, `test:frontend-viewport`, `test:web-smoke` และ `git diff --check`
     - Release candidate: `Think2 Risk-First AI Review v0.8.4` / build `20261105-1434`
-  - [ ] อัปเดต `plan.md`, commit, push และ deploy Production
+  - [x] อัปเดต `plan.md`, commit, push และ deploy Production
+    - Done: `2026-11-05 14:39:43 +07:00`
+    - Git: commit `d26bd1b` push ไปที่ `origin/codex/beginner-ai-companion-ui` แล้ว
+    - Deploy: Vercel `dpl_3gEicHk1KaBV5yt3wgWsV5afx1xD` สถานะ READY และ alias ไปที่ Production แล้ว
+    - Verification: Production HTML อ้างอิง build `20261105-1434`
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
   - ทำ T216 บน branch `codex/beginner-ai-companion-ui`
