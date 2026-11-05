@@ -68,7 +68,9 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] อัปเดต Version และบันทึกผลตรวจสอบ
     - Done: `2026-11-05 10:25:00 +07:00`
     - Release: `Think2 PostgreSQL AI Reliability v0.8.2` / build `20261105-1025`
-    - Delivery: รอ commit, push และ Production deployment ในขั้นตอนถัดไป
+    - Git: commit `ff60635` push ไปที่ `codex/beginner-ai-companion-ui` แล้ว
+    - Deploy: Vercel `dpl_5otFx5xUMGTWJRKZzcCkS2wUSP3u` สถานะ READY และ alias ไปที่ Production แล้ว
+    - Verification: Production HTML อ้างอิง `/styles.css?v=20261105-1025` และ `/app.js?v=20261105-1025`
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
   - ทำ T214 บน branch `codex/beginner-ai-companion-ui`
