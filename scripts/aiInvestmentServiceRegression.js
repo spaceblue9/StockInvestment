@@ -144,6 +144,29 @@ assert.equal(JSON.stringify(filteredPortfolioContext.holdings).includes("AAA"), 
 assert.equal(filteredPortfolioContext.question, "หุ้นตัวไหนควรตรวจต่อ เพราะอะไร");
 assert.match(buildOpenRouterRequest(filteredPortfolioContext).messages[1].content, /User question:/u);
 
+const riskFirstPortfolioContext = buildAiInvestmentContext({
+  generatedAt: snapshot.generatedAt,
+  portfolioRows: [
+    { Symbol: "NSL", Total_Score: 89.7, RRR: 8.45, Conflict_Severity: "YELLOW", Target_Action: "Buy/Accumulate" },
+    { Symbol: "TRUE", Total_Score: 51, RRR: 0.7, Conflict_Severity: "ORANGE", Target_Action: "Reduce 50%", Gain_Loss_Pct: -20 },
+    { Symbol: "OR", Total_Score: 42, RRR: 0.4, Conflict_Severity: "RED", Target_Action: "Hold", Gain_Loss_Pct: -35 },
+  ],
+}, {
+  mode: "portfolio",
+  focus: "portfolio_review",
+  contextView: "portfolio",
+  currentRows: [
+    { Symbol: "NSL", Total_Score: 89.7, RRR: 8.45, Conflict_Severity: "YELLOW", Target_Action: "Buy/Accumulate" },
+    { Symbol: "TRUE", Total_Score: 51, RRR: 0.7, Conflict_Severity: "ORANGE", Target_Action: "Reduce 50%", Gain_Loss_Pct: -20 },
+    { Symbol: "OR", Total_Score: 42, RRR: 0.4, Conflict_Severity: "RED", Target_Action: "Hold", Gain_Loss_Pct: -35 },
+  ],
+});
+assert.deepEqual(riskFirstPortfolioContext.reviewQueue.map((row) => row.Symbol), ["OR", "TRUE", "NSL"]);
+assert.match(riskFirstPortfolioContext.reviewQueue[0].reasons.join(" "), /RED/u);
+const riskFirstPrompt = buildOpenRouterRequest(riskFirstPortfolioContext).messages.map((message) => message.content).join("\n");
+assert.match(riskFirstPrompt, /follow reviewQueue/iu);
+assert.match(riskFirstPrompt, /Never choose a high-score Buy\/Accumulate row/iu);
+
 const simulationContext = buildAiInvestmentContext(snapshot, {
   mode: "portfolio",
   contextView: "simulation",

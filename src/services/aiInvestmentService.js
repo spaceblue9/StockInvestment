@@ -7,7 +7,7 @@ const MAX_PEERS = 6;
 const allowedModes = new Set(["portfolio", "stock", "compare"]);
 const allowedContextViews = new Set(["portfolio", "screener", "sector", "simulation"]);
 const focusTasks = {
-  portfolio_review: "Name at least one supplied Symbol that needs review first. Cite its severity, action, score, loss, RRR, or data warning. Do not answer only with generic portfolio advice.",
+  portfolio_review: "Use reviewQueue as the risk-first order. Review the first supplied Symbol before high-score opportunities: RED severity first, then Exit/Sell/Reduce actions, ORANGE severity, data warnings, losses, and low RRR. Never choose a high-score Buy/Accumulate row while a more urgent row exists unless you clearly explain why. Cite its severity, action, loss, RRR, or data warning. Do not answer only with generic portfolio advice.",
   portfolio_warnings: "Explain the portfolio warnings and what facts the investor should verify before acting.",
   portfolio_concentration: "Explain portfolio concentration and sector exposure in beginner-friendly language.",
   screener_shortlist: "Explain why the strongest supplied screener rows passed the current quality and risk checks.",
@@ -84,6 +84,9 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
     : mode === "compare"
       ? [selectedStock, ...peers].filter(Boolean)
       : allRows;
+  const reviewQueue = mode === "portfolio" && focus === "portfolio_review"
+    ? buildPortfolioReviewQueue(modeRows)
+    : [];
 
   return {
     mode,
@@ -101,6 +104,7 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
     portfolioSummary: contextView === "portfolio" && mode === "portfolio" ? sanitizeSummary(snapshot?.summary || {}) : {},
     holdings: uniqueBySymbol(modeRows).slice(0, MAX_HOLDINGS),
     currentRows: uniqueBySymbol(modeRows).slice(0, MAX_HOLDINGS),
+    reviewQueue,
     viewContext: contextView === "simulation" ? sanitizeSimulationViewContext(input.viewContext) : null,
     marketContext: sanitizeMarketContext(input.marketContext, allRows),
     researchContext: sanitizeResearchContext(input.researchContext, allRows),
@@ -153,7 +157,7 @@ export function buildOpenRouterRequest(context) {
           "Never recommend a stock from Total Score alone. Cross-check valuation, reward versus risk, financial risk, trend/setup, liquidity, data warnings, and portfolio concentration when those facts are supplied.",
           "MACD is not supplied by this application. If asked about MACD, explicitly say it cannot be evaluated from the current data. Never invent missing metrics, company facts, news, forecasts, or price targets.",
           "For PE, never say a stock is cheap, inexpensive, or not expensive from PE alone. A supplied peer or historical comparison is required, and growth plus earnings quality must still be checked. For RSI, explain that it is momentum rather than business quality. For RRR, explain that it is a scenario estimate, not a guaranteed payoff or proof that the stock is suitable. For Volume Ratio, explain that unusual trading activity can be buying or selling pressure.",
-          "For stock or compare mode, identify which supplied stock is most worth studying next when evidence permits. For portfolio mode, prioritize what the investor should review first. For simulation, state whether the result merits further study or should be treated cautiously.",
+          "For stock or compare mode, identify which supplied stock is most worth studying next when evidence permits. For portfolio review, follow reviewQueue in its supplied risk-first order and do not replace it with a highest-score ranking. For simulation, state whether the result merits further study or should be treated cautiously.",
           "Use decision language such as น่าศึกษาต่อ, ควรตรวจ, or ควรชะลอ. Do not say the user should buy or sell.",
           "If company business information is absent, explicitly say that a verified company profile is unavailable; never infer it from the ticker. If researchContext is present, translate industry labels by business meaning: Packaged Foods means อาหารสำเร็จรูปหรืออาหารบรรจุห่อ, not ธุรกิจบรรจุภัณฑ์. Use only its company, sector, industry, and news facts and return only supplied source URLs in citations.",
           "Treat Target_Action as an existing system output and explain it with uncertainty, not as personal financial advice.",
@@ -271,6 +275,71 @@ function sanitizeStockRow(row = {}) {
     }
     return result;
   }, {});
+}
+
+function buildPortfolioReviewQueue(rows) {
+  return uniqueBySymbol(rows)
+    .map((row) => ({ row, priority: portfolioReviewPriority(row) }))
+    .filter((entry) => entry.row.Symbol)
+    .sort((left, right) => right.priority.score - left.priority.score
+      || numberValue(left.row.Total_Score) - numberValue(right.row.Total_Score)
+      || left.row.Symbol.localeCompare(right.row.Symbol))
+    .slice(0, 5)
+    .map((entry, index) => ({
+      rank: index + 1,
+      Symbol: entry.row.Symbol,
+      reasons: entry.priority.reasons,
+      Conflict_Severity: entry.row.Conflict_Severity || "",
+      Target_Action: entry.row.Effective_Target_Action || entry.row.Target_Action || "",
+      Advice: entry.row.Advice || "",
+      Gain_Loss_Pct: entry.row.Gain_Loss_Pct ?? null,
+      RRR: entry.row.RRR ?? null,
+      Total_Score: entry.row.Total_Score ?? null,
+      Data_Warnings: entry.row.Data_Warnings || "",
+    }));
+}
+
+function portfolioReviewPriority(row) {
+  const severity = String(row.Conflict_Severity || "").trim().toUpperCase();
+  const action = String(row.Effective_Target_Action || row.Target_Action || row.Advice || "").trim();
+  const warnings = [row.Data_Warnings, row.Conflict_Alerts].filter(Boolean).join(" ").trim();
+  const loss = numberValue(row.Gain_Loss_Pct);
+  const rrr = numberValue(row.RRR);
+  const reasons = [];
+  let score = 0;
+
+  if (severity === "RED") {
+    score += 100000;
+    reasons.push("สถานะ RED ต้องตรวจข้อมูลและความขัดแย้งก่อน");
+  }
+  if (/exit|sell|ขาย/iu.test(action)) {
+    score += 8000;
+    reasons.push(`ระบบเดิมให้ทบทวนการออกจากสถานะ: ${action}`);
+  } else if (/reduce|ลด/iu.test(action)) {
+    score += 7000;
+    reasons.push(`ระบบเดิมให้ลดความเสี่ยง: ${action}`);
+  }
+  if (severity === "ORANGE") {
+    score += 5000;
+    reasons.push("สถานะ ORANGE มีคำเตือนสำคัญ");
+  }
+  if (warnings) {
+    score += 2000;
+    reasons.push(`มีคำเตือนข้อมูล: ${warnings.slice(0, 180)}`);
+  }
+  if (loss < 0) {
+    score += Math.min(1000, Math.abs(loss) * 10);
+    reasons.push(`ผลตอบแทนพอร์ตติดลบ ${loss}%`);
+  }
+  if (rrr > 0 && rrr < 1) {
+    score += 500;
+    reasons.push(`RRR ${rrr} ต่ำกว่า 1 ควรตรวจความคุ้มความเสี่ยง`);
+  }
+  if (!reasons.length) {
+    reasons.push("ไม่มีสัญญาณเร่งด่วนระดับสูง ใช้เป็นรายการตรวจลำดับรอง");
+  }
+
+  return { score, reasons };
 }
 
 function sanitizeSummary(summary = {}) {

@@ -44,6 +44,48 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T216 - Production Visual QA and Security Smoke Test
+
+- สถานะ: In Progress - implementation and automated verification complete; waiting for Git delivery and Production deployment
+- เริ่มเมื่อ: `2026-11-05 14:28:22 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- เป้าหมาย:
+  - ทดลอง Production จริงหลัง T215 ในมุมผู้ใช้มือใหม่และ owner/admin
+  - ยืนยันว่า RLS และการถอน public grants ไม่ทำให้ flow สำคัญเสีย
+  - ตรวจ UX/UI บน Browser จริงก่อนเพิ่ม Feature ใหม่
+- งานที่ต้องทำ:
+  - [x] ตรวจหน้าแรก, Theme, panel และ responsive layout บน Production
+    - Done: `2026-11-05 14:34:31 +07:00`
+    - Result: anonymous state, Light theme, Show/Hide panel และ desktop layout ทำงานปกติ; upload/download ถูกล็อกก่อน login
+  - [x] ตรวจ login, logout และสถานะ package โดยไม่เปิดเผยข้อมูลลับ
+    - Done: `2026-11-05 14:34:31 +07:00`
+    - Result: owner login, Pro trialing และ logout ทำงาน; หลัง logout กลับสู่ anonymous state และปิดการใช้งาน upload ตามเดิม
+  - [x] ตรวจ Portfolio, Screener, Sector, Simulation และ Business navigation
+    - Done: `2026-11-05 14:34:31 +07:00`
+    - Result: ทุกหน้าหลักเปิดและแสดงข้อมูลได้; Business owner guard ผ่าน โดยไม่ได้สร้าง/ลบ user หรือแก้ package จริง
+  - [x] ตรวจ AI Companion และ scope ของข้อมูลในหน้าที่เปิดอยู่
+    - Done: `2026-11-05 14:34:31 +07:00`
+    - Finding: AI อ่าน Portfolio scope 25 หุ้นได้ แต่คำถามตรวจหุ้นก่อนเลือก NSL จากคะแนนสูง แทน OR สถานะ RED และ TRUE Reduce 50%
+  - [x] ตรวจ browser console/runtime errors และ API health ที่เกี่ยวข้อง
+    - Done: `2026-11-05 14:34:31 +07:00`
+    - Result: หลัง reload ไม่พบ runtime error ใหม่; log JSON parse ที่เห็นเป็นรายการเก่าก่อน reload และไม่เกิดซ้ำใน build ปัจจุบัน
+  - [x] แก้ปัญหาที่พบแบบจำกัด scope พร้อมเพิ่ม regression guard
+    - Done: `2026-11-05 14:34:31 +07:00`
+    - Result: เพิ่ม deterministic `reviewQueue` ให้ RED มาก่อน Exit/Sell/Reduce, ORANGE, data warning, loss และ RRR ต่ำ; AI ต้องใช้คิวนี้แทนการเลือกหุ้นคะแนนสูง
+    - Regression: กรณี NSL คะแนนสูง, TRUE Reduce และ OR RED ต้องเรียง `OR -> TRUE -> NSL`
+  - [x] รันทดสอบที่เกี่ยวข้องและอัปเดต Version
+    - Done: `2026-11-05 14:34:31 +07:00`
+    - Result: ผ่าน `test:ai-investment`, `test:frontend-auth`, `test:frontend-viewport`, `test:web-smoke` และ `git diff --check`
+    - Release candidate: `Think2 Risk-First AI Review v0.8.4` / build `20261105-1434`
+  - [ ] อัปเดต `plan.md`, commit, push และ deploy Production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
+  - ทำ T216 บน branch `codex/beginner-ai-companion-ui`
+  - ใช้ Production `https://thai-stock-investment-web.vercel.app` สำหรับ Browser QA
+  - ห้ามสร้าง/ลบ User จริง หรือแก้ package โดยไม่มีคำสั่งชัดเจน
+  - ห้ามเปิดเผย username, password, API key, DATABASE_URL หรือข้อมูล portfolio ส่วนตัวในหลักฐาน
+  - ถ้าพบปัญหา ให้บันทึกอาการและวิธีทำซ้ำก่อนแก้โค้ด
+
 ### T215 - Automatic Supabase RLS and Public Grant Protection
 
 - สถานะ: Done
