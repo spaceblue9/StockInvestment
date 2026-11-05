@@ -44,6 +44,39 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T217 - Beginner Decision Flow
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-05 14:55:34 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ที่มา:
+  - Production UX assessment ได้คะแนนรวม 7.6/10
+  - หน้า Portfolio มีข้อมูลครบ แต่ผู้ใช้มือใหม่ยังไม่รู้ว่าควรเริ่มอ่านจากจุดใด
+  - ต้องลดความซับซ้อนโดยไม่เปลี่ยนคะแนนหรือ logic Think2
+- งานที่ต้องทำ:
+  - [x] เพิ่ม Beginner Decision Flow ให้ตอบ `ตรวจอะไร`, `เพราะอะไร`, `ตรวจอะไรเพิ่มก่อนตัดสินใจ`
+    - Done: `2026-11-05 14:58:19 +07:00`
+    - Result: หน้า Portfolio เริ่มด้วยคำตอบ 3 ข้อและเลือกหุ้นเร่งด่วนจาก Today Review เดิม
+  - [x] ให้ข้อมูลขั้นสูงเปิดดูได้เมื่อผู้ใช้ต้องการ โดยคงตัวกรองและตารางเดิม
+    - Done: `2026-11-05 14:58:19 +07:00`
+    - Result: metric, Today Review, Safety check, Score matrix, กราฟ และ Recommended actions อยู่ใน details ที่กดเปิดได้; AI Companion ยังคงเข้าถึงได้จากหน้าหลัก
+  - [x] อธิบายสถานะเตือนที่อาจดูขัดกับ Advice/Target Action ให้มือใหม่เข้าใจ
+    - Done: `2026-11-05 14:58:19 +07:00`
+    - Note: ระบุชัดว่าคำเตือนเป็นเหตุให้หยุดตรวจสอบข้อมูลก่อน และไม่เปลี่ยน Action หรือเป็นคำสั่งซื้อขายโดยอัตโนมัติ
+  - [ ] ตรวจ Light/Dark theme, desktop/mobile และ interaction ที่เกี่ยวข้อง
+    - Automated CSS/viewport guard ผ่าน; รอตรวจ Browser Production หลัง deploy
+  - [x] เพิ่ม regression, อัปเดต Version และรันทดสอบ
+    - Done: `2026-11-05 14:58:19 +07:00`
+    - Result: ผ่าน Node syntax, `test:frontend-auth`, `test:frontend-viewport`, `test:web-smoke` และ `git diff --check`
+    - Release candidate: `Think2 Beginner Decision Flow v0.9.0` / build `20261105-1457`
+  - [ ] อัปเดต `plan.md`, commit, push และ deploy Production
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
+  - ทำ T217 บน branch `codex/beginner-ai-companion-ui`
+  - ห้ามเปลี่ยนคะแนน Think2, Target Action หรือ recommendation calculation
+  - หน้า Portfolio ต้องเริ่มจากคำตอบ 3 ข้อสำหรับมือใหม่ก่อนแสดงข้อมูลขั้นสูง
+  - ต้องคง Visual filters, AI Companion และ Recommended actions เดิมไว้
+
 ### T216 - Production Visual QA and Security Smoke Test
 
 - สถานะ: Done

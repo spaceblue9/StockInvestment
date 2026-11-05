@@ -33,9 +33,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261105-1434";
-const programVersion = "Think2 Risk-First AI Review v0.8.4";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261105-1434";
+const frontendBuildVersion = "20261105-1457";
+const programVersion = "Think2 Beginner Decision Flow v0.9.0";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261105-1457";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -1837,25 +1837,82 @@ function renderPortfolioView() {
     .sort((left, right) => numberValue(right.Market_Value) - numberValue(left.Market_Value));
 
   viewOutput.innerHTML = `
-    <div class="metric-grid">
-      ${metric("Portfolio Value", money(totalMarketValue))}
-      ${metric("Gain/Loss", `${money(totalGainLoss)} (${formatNumber(gainLossPct)}%)`)}
-      ${metric("Urgent Actions", urgentRows.length)}
-      ${metric("Avg Score", formatNumber(average(rows, "Total_Score")))}
-    </div>
-    ${renderTodayReview(rows)}
-    ${renderPortfolioDataWarning(rows)}
-    ${renderThink2SafetySummary(rows, { context: "portfolio" })}
-    ${renderScoreMatrixGuide(rows)}
-    ${renderPortfolioQuickGuidance({ gainLossPct, urgentRows, avgScore: average(rows, "Total_Score") })}
-    ${renderPortfolioVisuals(rows)}
+    ${renderBeginnerDecisionFlow(rows)}
+    <details class="portfolio-advanced-details" data-portfolio-advanced ${state.todayReviewDetailSymbol ? "open" : ""}>
+      <summary>
+        <span><strong>ดูคะแนน กราฟ และรายการหุ้นทั้งหมด</strong><small>สำหรับตรวจรายละเอียดเพิ่มเติมเมื่อพร้อม</small></span>
+        <span aria-hidden="true">+</span>
+      </summary>
+      <div class="portfolio-advanced-content">
+        <div class="metric-grid">
+          ${metric("มูลค่าพอร์ต", money(totalMarketValue))}
+          ${metric("กำไร/ขาดทุน", `${money(totalGainLoss)} (${formatNumber(gainLossPct)}%)`)}
+          ${metric("รายการเร่งด่วน", urgentRows.length)}
+          ${metric("คะแนนเฉลี่ย", formatNumber(average(rows, "Total_Score")))}
+        </div>
+        ${renderTodayReview(rows)}
+        ${renderPortfolioDataWarning(rows)}
+        ${renderThink2SafetySummary(rows, { context: "portfolio" })}
+        ${renderScoreMatrixGuide(rows)}
+        ${renderPortfolioQuickGuidance({ gainLossPct, urgentRows, avgScore: average(rows, "Total_Score") })}
+        ${renderPortfolioVisuals(rows)}
+        <h3>รายการที่ระบบแนะนำให้ทบทวน</h3>
+        ${renderRecommendedActionsControls(rows)}
+        <div id="recommendedActionsOutput" data-recommended-actions-output></div>
+      </div>
+    </details>
     ${renderAiAssistantPanel(rows)}
-    <h3>Recommended actions</h3>
-    ${renderRecommendedActionsControls(rows)}
-    <div id="recommendedActionsOutput" data-recommended-actions-output></div>
   `;
   attachRecommendedActionsControls(rows);
   attachAiAssistantControls(rows);
+}
+
+function renderBeginnerDecisionFlow(rows) {
+  const reviewItems = buildTodayReviewItems(rows);
+  const firstItem = reviewItems[0];
+  const row = rows.find((item) => item.Symbol === firstItem?.symbol);
+  const action = row?.Effective_Target_Action || row?.Target_Action || row?.Advice || "ยังไม่มี Action ที่ต้องทำทันที";
+  const severity = row?.Conflict_Severity || row?.Data_Status || "ปกติ";
+  const warning = [row?.Conflict_Alerts, row?.Data_Warnings].filter(Boolean).join(" · ");
+  const reason = firstItem?.reason || "ยังไม่พบรายการเร่งด่วน ให้ตรวจข้อมูลล่าสุดก่อนตัดสินใจเพิ่มเงิน";
+  const checks = [
+    "ยืนยันว่าราคาและงบการเงินเป็นข้อมูลล่าสุด",
+    row ? `อ่านเหตุผลของ ${row.Symbol} และตรวจ RRR ${formatNumber(row.RRR)} ว่าคุ้มความเสี่ยงหรือไม่` : "ตรวจหุ้นที่คะแนนต่ำและสัดส่วนสูงในพอร์ต",
+    warning || "เปรียบเทียบ Advice กับ Target Action หากข้อความดูขัดกัน ให้ถือคำเตือนเป็นเหตุให้หยุดตรวจสอบก่อน ไม่ใช่คำสั่งซื้อขาย",
+  ];
+
+  return `
+    <section class="beginner-decision-flow" data-beginner-decision-flow>
+      <div class="beginner-decision-heading">
+        <div>
+          <p class="eyebrow">เริ่มตรงนี้ก่อน</p>
+          <h3>สรุปเพื่อช่วยตัดสินใจวันนี้</h3>
+          <p>อ่าน 3 ข้อนี้ก่อน แล้วค่อยเปิดคะแนนและกราฟเมื่ออยากดูรายละเอียด</p>
+        </div>
+        <span class="decision-severity decision-severity-${escapeHtml(String(severity).toLowerCase())}">${escapeHtml(severity)}</span>
+      </div>
+      <div class="beginner-decision-grid">
+        <article>
+          <span>1. วันนี้ต้องตรวจอะไร</span>
+          <strong>${escapeHtml(firstItem?.title || "ตรวจความสดใหม่ของข้อมูลพอร์ต")}</strong>
+          <p>${escapeHtml(row ? `${row.Symbol} · ${action}` : "ยังไม่มีหุ้นที่ต้องดำเนินการทันที")}</p>
+        </article>
+        <article>
+          <span>2. เพราะอะไร</span>
+          <strong>${escapeHtml(reason)}</strong>
+          <p>คำเตือนอาจอยู่ร่วมกับ Advice เช่น Buy More ได้ เพราะคำเตือนกำลังบอกให้ตรวจข้อมูลก่อน ไม่ได้เปลี่ยน Action โดยอัตโนมัติ</p>
+        </article>
+        <article>
+          <span>3. ต้องตรวจอะไรเพิ่ม</span>
+          <ul>${checks.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        </article>
+      </div>
+      <div class="beginner-decision-actions">
+        ${row ? `<button type="button" data-guided-action="reason" data-guided-view="portfolio" data-guided-symbol="${escapeHtml(row.Symbol)}">ดูเหตุผลของ ${escapeHtml(row.Symbol)}</button>` : ""}
+        <span>ยังไม่ควรซื้อหรือขายจากสรุปนี้เพียงอย่างเดียว</span>
+      </div>
+    </section>
+  `;
 }
 
 function renderTodayReview(rows) {
