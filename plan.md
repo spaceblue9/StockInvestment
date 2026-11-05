@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T212 - Beginner-first AI Investment Companion
 
-- สถานะ: In Progress
+- สถานะ: Done
 - เริ่มเมื่อ: `2026-11-05 08:33:36 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - เป้าหมาย:
@@ -73,7 +73,12 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] เพิ่ม regression ครอบคลุม prompt/schema/context และ frontend rendering
     - Done: `2026-11-05 08:36:31 +07:00`
     - Result: ผ่าน AI investment, web smoke, frontend viewport, frontend auth, syntax และ diff checks
-  - [ ] อัปเดต Version, commit, push และ deploy Production
+  - [x] อัปเดต Version, commit, push และ deploy Production
+    - Done: `2026-11-05 08:37:58 +07:00`
+    - Release: `Think2 Beginner AI Companion v0.8.0` / build `20261105-0833`
+    - Git: commit `5c255d1` push ไปที่ `codex/beginner-ai-companion-ui` แล้ว
+    - Deploy: Vercel `dpl_DqvzLBUNxxEgiPYDYNdKj9vQTa8W` สถานะ READY
+    - Verification: Production HTML ใช้ build `20261105-0833`; Production app.js มี `data-ai-beginner-readout`, `beginner_stock_basics` และ version ใหม่
 - Prompt AI สำหรับทำต่อ:
   - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
   - ทำ T212 บน branch `codex/beginner-ai-companion-ui`
