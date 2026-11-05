@@ -1,5 +1,6 @@
 import { stateCollectionDefinitions } from "./stateSchemaService.js";
 import { applyStatePatch } from "./statePatchService.js";
+import { buildPostgresTableSecurityStatements } from "./postgresTableSecurityService.js";
 
 const POSTGRES_DRIVER = "pg";
 const POSTGRES_SSL_MODES = new Set(["disable", "require"]);
@@ -158,7 +159,7 @@ export function assertPostgresRepositoryConfigured() {
   postgresSslMode();
 }
 
-export function buildPostgresBootstrapSql() {
+export function buildPostgresBootstrapStatements() {
   const statements = [];
 
   for (const collection of collections) {
@@ -173,9 +174,14 @@ export function buildPostgresBootstrapSql() {
 )`);
     statements.push(`CREATE INDEX IF NOT EXISTS ${quoteIdentifier(`${collection.productionTable}_organization_id_idx`)} ON ${table} (organization_id)`);
     statements.push(`CREATE INDEX IF NOT EXISTS ${quoteIdentifier(`${collection.productionTable}_user_id_idx`)} ON ${table} (user_id)`);
+    statements.push(...buildPostgresTableSecurityStatements(collection.productionTable));
   }
 
-  return `${statements.join(";\n\n")};`;
+  return statements;
+}
+
+export function buildPostgresBootstrapSql() {
+  return `${buildPostgresBootstrapStatements().join(";\n\n")};`;
 }
 
 export async function readStateFromPostgresClient(client, options = {}) {
@@ -322,7 +328,7 @@ export async function ensurePostgresSchema(client, options = {}) {
 }
 
 async function runPostgresSchemaBootstrap(client) {
-  for (const statement of buildPostgresBootstrapSql().split(/;\s*/).map((item) => item.trim()).filter(Boolean)) {
+  for (const statement of buildPostgresBootstrapStatements()) {
     await client.query(statement);
   }
 }

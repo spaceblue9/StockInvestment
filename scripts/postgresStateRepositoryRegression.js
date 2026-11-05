@@ -18,6 +18,8 @@ class FakePostgresClient {
   constructor() {
     this.tables = {};
     this.queries = [];
+    this.rlsTables = new Set();
+    this.publicGrantProtectedTables = new Set();
   }
 
   async query(sql, params = []) {
@@ -37,6 +39,19 @@ class FakePostgresClient {
     }
 
     if (/^CREATE INDEX IF NOT EXISTS/u.test(statement)) {
+      return { rows: [] };
+    }
+
+    if (/^ALTER TABLE/u.test(statement) && statement.endsWith("ENABLE ROW LEVEL SECURITY")) {
+      this.rlsTables.add(tableNameFrom(statement));
+      return { rows: [] };
+    }
+
+    if (/^DO \$stockflix_security\$/u.test(statement)) {
+      const tableName = statement.match(/ON TABLE "([^"]+)" FROM anon/u)?.[1];
+      if (tableName) {
+        this.publicGrantProtectedTables.add(tableName);
+      }
       return { rows: [] };
     }
 
@@ -87,6 +102,9 @@ assertIncludes(bootstrapSql, [
   'CREATE TABLE IF NOT EXISTS "users"',
   'CREATE TABLE IF NOT EXISTS "audit_events"',
   "record jsonb NOT NULL",
+  'ALTER TABLE "users" ENABLE ROW LEVEL SECURITY',
+  'REVOKE ALL PRIVILEGES ON TABLE "users" FROM anon',
+  'REVOKE ALL PRIVILEGES ON TABLE "users" FROM authenticated',
 ], "Bootstrap SQL should create JSONB-backed production tables.");
 
 const client = new FakePostgresClient();
@@ -139,6 +157,8 @@ await writeStateToPostgresClient(client, {
   }],
   auditEvents: [eventOne],
 });
+assertEqual(client.rlsTables.size, stateCollectionDefinitions().length, "Postgres bootstrap should enable RLS on every state table.");
+assertEqual(client.publicGrantProtectedTables.size, stateCollectionDefinitions().length, "Postgres bootstrap should protect every state table from public API roles.");
 
 const firstRead = await readStateFromPostgresClient(client, {
   normalize: (state) => ({

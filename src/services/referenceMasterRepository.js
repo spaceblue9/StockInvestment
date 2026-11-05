@@ -7,6 +7,7 @@ import {
   REFERENCE_MASTER_VERSION,
   summarizeReferenceMaster,
 } from "./referenceMasterService.js";
+import { buildPostgresTableSecurityStatements } from "./postgresTableSecurityService.js";
 
 export const REFERENCE_MASTER_POSTGRES_TABLE = "reference_master_records";
 export const DEFAULT_REFERENCE_MASTER_FRESHNESS_REPORT_FILE = path.join(process.cwd(), "data", "reference", "reference-master-freshness-report.json");
@@ -34,7 +35,7 @@ export function referenceMasterRepositoryInfo(options = {}) {
   };
 }
 
-export function buildReferenceMasterPostgresBootstrapSql() {
+export function buildReferenceMasterPostgresBootstrapStatements() {
   const table = quoteIdentifier(REFERENCE_MASTER_POSTGRES_TABLE);
   return [
     `CREATE TABLE IF NOT EXISTS ${table} (
@@ -61,7 +62,12 @@ export function buildReferenceMasterPostgresBootstrapSql() {
     `CREATE INDEX IF NOT EXISTS ${quoteIdentifier(`${REFERENCE_MASTER_POSTGRES_TABLE}_review_status_idx`)} ON ${table} (review_status)`,
     `CREATE INDEX IF NOT EXISTS ${quoteIdentifier(`${REFERENCE_MASTER_POSTGRES_TABLE}_freshness_status_idx`)} ON ${table} (freshness_status)`,
     `CREATE INDEX IF NOT EXISTS ${quoteIdentifier(`${REFERENCE_MASTER_POSTGRES_TABLE}_last_updated_idx`)} ON ${table} (last_updated)`,
-  ].join(";\n\n") + ";";
+    ...buildPostgresTableSecurityStatements(REFERENCE_MASTER_POSTGRES_TABLE),
+  ];
+}
+
+export function buildReferenceMasterPostgresBootstrapSql() {
+  return `${buildReferenceMasterPostgresBootstrapStatements().join(";\n\n")};`;
 }
 
 export function buildReferenceMasterMigrationPlan(master, options = {}) {
@@ -80,7 +86,7 @@ export function buildReferenceMasterMigrationPlan(master, options = {}) {
     sourceVersion: master?.version || null,
     totalRows: records.length,
     operations: {
-      bootstrapStatements: buildReferenceMasterPostgresBootstrapSql().split(/;\s*/u).filter((statement) => statement.trim()).length,
+      bootstrapStatements: buildReferenceMasterPostgresBootstrapStatements().length,
       upsertRows: records.length,
       deleteBeforeImport: Boolean(options.replace),
     },
@@ -200,11 +206,7 @@ ON CONFLICT (symbol) DO UPDATE SET
 }
 
 export async function ensureReferenceMasterPostgresSchema(client) {
-  const statements = buildReferenceMasterPostgresBootstrapSql()
-    .split(/;\s*/u)
-    .map((statement) => statement.trim())
-    .filter(Boolean);
-  for (const statement of statements) {
+  for (const statement of buildReferenceMasterPostgresBootstrapStatements()) {
     await client.query(statement);
   }
 }

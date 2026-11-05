@@ -44,6 +44,39 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T215 - Automatic Supabase RLS and Public Grant Protection
+
+- สถานะ: In Progress (implementation and regression complete; delivery in progress)
+- เริ่มเมื่อ: `2026-11-05 14:11:42 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ที่มา:
+  - Supabase Security Advisor เคยแจ้ง `rls_disabled_in_public`
+  - เปิด RLS และถอนสิทธิ์ `anon/authenticated` ด้วย SQL แล้ว โดย Security Advisor ยืนยัน 0 errors และ 0 warnings
+  - ต้องทำให้ตารางที่โปรแกรมสร้างใหม่ได้รับการป้องกันแบบเดียวกันโดยอัตโนมัติ
+- งานที่ต้องทำ:
+  - [x] เพิ่ม RLS enable ใน Postgres bootstrap สำหรับทุก state collection table
+    - Done: `2026-11-05 14:15:18 +07:00`
+    - Note: bootstrap เปิด RLS อัตโนมัติครบ 12 state collection tables
+  - [x] ถอนสิทธิ์ `anon/authenticated` แบบปลอดภัยเมื่อ role มีอยู่ โดยไม่ทำให้ PostgreSQL ทั่วไปพัง
+    - Done: `2026-11-05 14:15:18 +07:00`
+    - Note: ตรวจ role ด้วย `to_regrole()` ก่อน REVOKE จึงรองรับ PostgreSQL ที่ไม่มี Supabase roles
+  - [x] ป้องกัน `reference_master_records` ด้วยมาตรฐานเดียวกัน
+    - Done: `2026-11-05 14:15:18 +07:00`
+  - [x] เพิ่ม regression ตรวจ SQL security statements และ bootstrap execution
+    - Done: `2026-11-05 14:15:18 +07:00`
+    - Note: ตรวจ RLS และ public grant protection ครบทุกตาราง โดยไม่สร้าง permissive policy
+  - [x] รันทดสอบ Postgres, reference master, auth และ web flow
+    - Done: `2026-11-05 14:15:18 +07:00`
+    - Result: ผ่าน syntax checks, Postgres repository/importer, SQLite promotion, reference master database/migration, frontend auth/viewport และ web smoke
+  - [ ] อัปเดต Version, commit, push และ deploy Production
+    - Version prepared: `Think2 Supabase RLS Guard v0.8.3` / build `20261105-1415`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
+  - ทำ T215 บน branch `codex/beginner-ai-companion-ui`
+  - ทุกตารางของ StockFlix ใน schema public ต้องเปิด RLS
+  - ห้ามสร้าง policy `USING (true)` และห้ามเปิดสิทธิ์ให้ anon/authenticated
+  - PostgreSQL ที่ไม่มี role ของ Supabase ต้อง bootstrap ได้โดยไม่ Error
+
 ### T214 - PostgreSQL AI Audit Parameter Type Fix
 
 - สถานะ: Done

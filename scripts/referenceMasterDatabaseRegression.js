@@ -36,6 +36,10 @@ class FakeReferenceMasterPostgresClient {
       return { rows: [] };
     }
 
+    if (/^ALTER TABLE/u.test(statement) || /^DO \$stockflix_security\$/u.test(statement)) {
+      return { rows: [] };
+    }
+
     if (/^DELETE FROM/u.test(statement)) {
       this.tables[tableNameFrom(statement)] = new Map();
       return { rows: [] };
@@ -99,6 +103,9 @@ assertIncludes(bootstrapSql, [
   "record jsonb NOT NULL",
   "review_status text",
   "last_updated timestamptz",
+  'ALTER TABLE "reference_master_records" ENABLE ROW LEVEL SECURITY',
+  'REVOKE ALL PRIVILEGES ON TABLE "reference_master_records" FROM anon',
+  'REVOKE ALL PRIVILEGES ON TABLE "reference_master_records" FROM authenticated',
 ], "Bootstrap SQL should define the reference master table.");
 
 const info = referenceMasterRepositoryInfo({ adapter: "local_file", staleAfterDays: 14 });

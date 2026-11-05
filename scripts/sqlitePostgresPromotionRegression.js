@@ -28,6 +28,10 @@ class FakePostgresClient {
       return { rows: [] };
     }
 
+    if (/^ALTER TABLE/u.test(statement) || /^DO \$stockflix_security\$/u.test(statement)) {
+      return { rows: [] };
+    }
+
     if (/^DELETE FROM/u.test(statement)) {
       this.tables[tableNameFrom(statement)] = new Map();
       return { rows: [] };

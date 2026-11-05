@@ -22,6 +22,10 @@ FakePostgresClient.prototype.query = async function query(sql, params = []) {
     return { rows: [] };
   }
 
+  if (/^ALTER TABLE/u.test(statement) || /^DO \$stockflix_security\$/u.test(statement)) {
+    return { rows: [] };
+  }
+
   if (/^DELETE FROM/u.test(statement)) {
     this.tables[tableNameFrom(statement)] = new Map();
     return { rows: [] };
