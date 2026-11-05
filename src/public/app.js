@@ -33,9 +33,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261104-1415";
-const programVersion = "Think2 Reliable Sign Out v0.7.8";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261104-1415";
+const frontendBuildVersion = "20261105-0833";
+const programVersion = "Think2 Beginner AI Companion v0.8.0";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261105-0833";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -525,12 +525,7 @@ document.addEventListener("click", (event) => {
   const aiPromptButton = event.target.closest("[data-ai-companion-prompt]");
   if (aiPromptButton) {
     if (aiPromptButton.disabled) return;
-    state.aiAssistant.focus = aiPromptButton.dataset.aiCompanionPrompt || "";
-    state.aiAssistant.question = "";
-    state.aiAssistant.mode = aiPromptButton.dataset.aiMode || "portfolio";
-    state.aiAssistant.symbol = aiPromptButton.dataset.aiSymbol || bestContextSymbol();
-    state.aiAssistant.drawerOpen = true;
-    runAiInvestmentExplanation({ drawer: true });
+    runAiPreparedPrompt(aiPromptButton);
     return;
   }
 
@@ -2004,6 +1999,11 @@ function renderAiAssistantResult(result) {
     <article class="ai-result" aria-live="polite">
       <h4>${escapeHtml(result.title || "ผลคำอธิบาย")}</h4>
       <p>${escapeHtml(result.summary || "")}</p>
+      <section class="ai-beginner-readout" data-ai-beginner-readout>
+        <span>อ่านแบบมือใหม่</span>
+        <strong>${escapeHtml(result.beginnerConclusion || "ยังไม่ควรตัดสินใจจากตัวเลขเดียว")}</strong>
+        ${list("ตัวเลขที่ AI ใช้และความหมาย", result.beginnerMetrics)}
+      </section>
       <section class="ai-decision-card" data-ai-decision-support>
         <div class="ai-decision-heading">
           <div>
@@ -2160,7 +2160,7 @@ function renderAiCompanion() {
     ` : ""}
     <div class="ai-prompt-list">
       ${prompts.map((prompt) => `
-        <button type="button" data-ai-companion-prompt="${escapeHtml(prompt.id)}" data-ai-mode="${escapeHtml(prompt.mode)}" data-ai-symbol="${escapeHtml(prompt.symbol || "")}" ${state.aiAssistant.loading || !canAsk ? "disabled" : ""}>
+        <button type="button" data-ai-companion-prompt="${escapeHtml(prompt.id)}" data-ai-mode="${escapeHtml(prompt.mode)}" data-ai-symbol="${escapeHtml(prompt.symbol || "")}" data-ai-requires-research="${String(Boolean(prompt.requiresResearch))}" ${state.aiAssistant.loading || !canAsk ? "disabled" : ""}>
           ${escapeHtml(prompt.label)}
         </button>
       `).join("")}
@@ -2185,18 +2185,21 @@ function aiCompanionPrompts(view) {
   const prompts = {
     portfolio: [
       { id: "portfolio_review", mode: "portfolio", label: "วันนี้ควรตรวจหุ้นตัวไหนก่อน" },
-      { id: "portfolio_warnings", mode: "portfolio", label: "อธิบายคำเตือนในพอร์ตให้เข้าใจง่าย" },
-      { id: "portfolio_concentration", mode: "portfolio", label: "พอร์ตกระจุกตัวตรงไหน" },
+      { id: "beginner_wait_reasons", mode: "portfolio", label: "ถ้าจะเพิ่มเงิน มีเหตุผลอะไรที่ควรชะลอก่อน" },
+      { id: "beginner_metrics", mode: "portfolio", label: "แปล Score, PE, RSI, RRR และ Volume ในพอร์ตนี้" },
+      { id: "portfolio_concentration", mode: "portfolio", label: "พอร์ตกระจุกตัวตรงไหนและเสี่ยงอย่างไร" },
     ],
     screener: [
-      { id: "screener_shortlist", mode: "stock", symbol, label: "ทำไมหุ้นเด่นตัวแรกจึงน่าศึกษา" },
-      { id: "screener_risks", mode: "stock", symbol, label: "หุ้นเด่นมีความเสี่ยงซ่อนอยู่หรือไม่" },
-      { id: "portfolio_warnings", mode: "portfolio", label: "ตัวเลขใดที่มือใหม่ควรระวัง" },
+      { id: "beginner_stock_basics", mode: "stock", symbol, requiresResearch: true, label: `${symbol || "หุ้นเด่น"} ทำธุรกิจอะไร และตัวเลขบอกอะไร` },
+      { id: "screener_shortlist", mode: "stock", symbol, label: "ทำไมหุ้นเด่นจึงน่าศึกษา และยังขาดอะไร" },
+      { id: "beginner_wait_reasons", mode: "stock", symbol, label: "มีเหตุผลอะไรที่ยังไม่ควรลงทุนในหุ้นเด่น" },
+      { id: "beginner_metrics", mode: "stock", symbol, label: "แปล PE, RSI, RRR และ Volume ของหุ้นเด่น" },
     ],
     sector: [
-      { id: "sector_explain", mode: "compare", symbol, label: "อธิบายหุ้นผู้นำและคู่แข่งในกลุ่ม" },
+      { id: "sector_explain", mode: "compare", symbol, label: "หุ้นผู้นำต่างจากคู่แข่งอย่างไรจากตัวเลขจริง" },
       { id: "sector_concentration", mode: "portfolio", label: "Sector ที่เลือกกระจุกตัวในหุ้นใด" },
-      { id: "screener_risks", mode: "stock", symbol, label: "ความเสี่ยงร่วมของหุ้นกลุ่มนี้คืออะไร" },
+      { id: "beginner_metrics", mode: "compare", symbol, label: "แปลตัวเลขสำคัญของหุ้นในกลุ่มนี้" },
+      { id: "beginner_wait_reasons", mode: "compare", symbol, label: "อะไรทำให้ยังไม่ควรรีบเลือกหุ้นกลุ่มนี้" },
     ],
     simulation: [
       { id: "simulation_interpretation", mode: "portfolio", label: "ควรอ่านผล Simulation อย่างไร" },
@@ -2204,6 +2207,18 @@ function aiCompanionPrompts(view) {
     ],
   };
   return prompts[view] || prompts.portfolio;
+}
+
+async function runAiPreparedPrompt(button) {
+  state.aiAssistant.focus = button.dataset.aiCompanionPrompt || "";
+  state.aiAssistant.question = "";
+  state.aiAssistant.mode = button.dataset.aiMode || "portfolio";
+  state.aiAssistant.symbol = button.dataset.aiSymbol || bestContextSymbol();
+  state.aiAssistant.drawerOpen = true;
+  if (button.dataset.aiRequiresResearch === "true" && state.aiAssistant.symbol) {
+    await loadAiCompanyResearch(state.aiAssistant.symbol);
+  }
+  await runAiInvestmentExplanation({ drawer: true });
 }
 
 function bestContextSymbol() {
@@ -2341,7 +2356,7 @@ function currentAiContextRows() {
   const allowedFields = [
     "Symbol", "Sector", "Price", "Total_Score", "Quality_Score", "Valuation_Score",
     "Setup_Score", "Balance_Risk_Score", "Liquidity_Score", "Composite_Score_v2",
-    "PE", "ROE", "DE", "Yield", "RSI", "RRR", "Technical_RRR", "Upside_Pct",
+    "PE", "ROE", "DE", "Yield", "RSI", "RRR", "Technical_RRR", "Upside_Pct", "Volume_Ratio",
     "Gain_Loss_Pct", "Market_Value", "Portfolio_Weight_Pct", "Trend_Status",
     "Advice", "Target_Action", "Effective_Target_Action", "Conflict_Severity",
     "Data_Status", "Data_Warnings", "Conflict_Alerts", "Rationale",

@@ -43,6 +43,8 @@ const response = await generateAiInvestmentExplanation(snapshot, { mode: "stock"
         usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150, cost: 0.001 },
         choices: [{ message: { content: JSON.stringify({
           title: "คำอธิบาย AAA", summary: "สรุปจากข้อมูล Think2", keyPoints: ["คะแนน 72"],
+          beginnerConclusion: "AAA น่าศึกษาต่อ แต่ยังไม่ควรตัดสินใจจากคะแนนอย่างเดียว",
+          beginnerMetrics: ["RRR 1.8: ผลตอบแทนคาดหวังเริ่มคุ้มความเสี่ยง แต่ไม่ใช่การรับประกัน"],
           decisionHeadline: "AAA น่าศึกษาต่อก่อน", decisionAction: "ตรวจงบและ RRR ของ AAA เพิ่มก่อนตัดสินใจ",
           decisionReasons: ["คะแนนรวมสูงกว่าเพื่อน"], decisionChecks: ["ตรวจงบล่าสุด"], decisionConfidence: "ปานกลาง",
           risks: ["ควรตรวจข้อมูลเพิ่ม"], nextQuestions: ["งบล่าสุดเป็นอย่างไร"],
@@ -55,12 +57,17 @@ const response = await generateAiInvestmentExplanation(snapshot, { mode: "stock"
 
 assert.equal(response.result.title, "คำอธิบาย AAA");
 assert.equal(response.result.decisionHeadline, "AAA น่าศึกษาต่อก่อน");
+assert.match(response.result.beginnerConclusion, /ยังไม่ควรตัดสินใจ/u);
+assert.equal(response.result.beginnerMetrics.length, 1);
 assert.equal(response.result.decisionConfidence, "ปานกลาง");
 assert.deepEqual(response.result.citations, []);
 assert.equal(response.usage.totalTokens, 150);
 assert.equal(sentRequest.provider.zdr, true);
 assert.match(sentRequest.messages[0].content, /Always provide decision support/u);
+assert.match(sentRequest.messages[0].content, /MACD is not supplied/u);
+assert.match(sentRequest.messages[0].content, /Never recommend a stock from Total Score alone/u);
 assert(sentRequest.response_format.json_schema.schema.required.includes("decisionAction"));
+assert(sentRequest.response_format.json_schema.schema.required.includes("beginnerMetrics"));
 
 const staleSnapshotContext = buildAiInvestmentContext({
   generatedAt: snapshot.generatedAt,
@@ -224,6 +231,15 @@ const orSingleStockPrompt = buildOpenRouterRequest(orSingleStockContext).message
 assert.match(orSingleStockPrompt, /Explain only the selected stock/u);
 assert.equal(orSingleStockPrompt.includes("CPALL"), false);
 assert.equal(orSingleStockPrompt.includes('"PTT"'), false);
+
+const beginnerMetricContext = buildAiInvestmentContext(snapshot, {
+  mode: "stock",
+  symbol: "AAA",
+  focus: "beginner_metrics",
+  currentRows: [{ Symbol: "AAA", PE: 14, RSI: 62, RRR: 1.8, Volume_Ratio: 1.6 }],
+});
+assert.equal(beginnerMetricContext.selectedStock.Volume_Ratio, 1.6);
+assert.match(buildOpenRouterRequest(beginnerMetricContext).messages[1].content, /actual values/u);
 
 const orCompareContext = buildAiInvestmentContext({ portfolioRows: [] }, {
   mode: "compare",
