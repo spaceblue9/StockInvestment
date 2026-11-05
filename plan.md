@@ -44,6 +44,70 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T214 - PostgreSQL AI Audit Parameter Type Fix
+
+- สถานะ: Done
+- เริ่มเมื่อ: `2026-11-05 10:18:24 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ปัญหาจาก Production:
+  - เปลี่ยนไปใช้ User อื่นแล้วกด `ให้ AI ช่วยอธิบาย` ระบบแสดง `could not determine data type of parameter $1`
+  - ข้อความมาจาก PostgreSQL และมีแนวโน้มเกิดในขั้นตอนนับโควตาหรือบันทึก AI audit event หลังสร้างคำตอบ
+- งานที่ต้องทำ:
+  - [x] ตรวจ Production log และระบุ SQL/ขั้นตอนที่เกิด Error ให้ชัด
+    - Done: `2026-11-05 10:25:00 +07:00`
+    - Evidence: Vercel log ชี้ไปที่ `readStateFromPostgresClient`; User ไม่มี organizationId ทำให้ query ตาราง organizations เป็น `WHERE FALSE` แต่ยังส่ง parameter `$1` ที่ไม่ได้ใช้งาน
+  - [x] กำหนดชนิด parameter ใน PostgreSQL query ให้แน่นอน โดยรองรับ User ที่ organization/user field บางค่าเป็นค่าว่าง
+    - Done: `2026-11-05 10:25:00 +07:00`
+    - Note: เปลี่ยน tenant parameter เป็น lazy binding จึงไม่มี parameter ที่ไม่ถูกอ้างใน SQL และป้องกัน audit organization lookup เมื่อ state ไม่มี organizations array
+  - [x] เพิ่ม regression สำหรับ AI audit event ของ User ต่างบัญชีบน PostgreSQL
+    - Done: `2026-11-05 10:25:00 +07:00`
+    - Note: เพิ่มกรณี restricted scope ของ User ที่ไม่มี organization พร้อมตรวจว่าจำนวน `$n` ใน SQL ตรงกับ params ทุก collection
+  - [x] รันทดสอบ PostgreSQL, AI, auth และ web flow ที่เกี่ยวข้อง
+    - Done: `2026-11-05 10:25:00 +07:00`
+    - Result: ผ่าน `test:postgres-repository`, `test:ai-investment`, `test:frontend-auth`, `test:frontend-viewport`, `test:web-smoke`, Node syntax และ `git diff --check`
+  - [x] อัปเดต Version และบันทึกผลตรวจสอบ
+    - Done: `2026-11-05 10:25:00 +07:00`
+    - Release: `Think2 PostgreSQL AI Reliability v0.8.2` / build `20261105-1025`
+    - Delivery: รอ commit, push และ Production deployment ในขั้นตอนถัดไป
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
+  - ทำ T214 บน branch `codex/beginner-ai-companion-ui`
+  - ห้ามแก้ด้วยการซ่อน Error อย่างเดียว ต้องแก้ parameter typing ที่ query ต้นเหตุ
+  - ต้องทดสอบ User ที่มีและไม่มี organizationId รวมถึง audit event ของ AI
+
+### T213 - Beginner Safety: Loading, Snapshot Freshness, and AI Wording
+
+- สถานะ: Done
+- เริ่มเมื่อ: `2026-11-05 08:46:54 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ที่มา:
+  - ทดลอง Production แบบผู้ใช้มือใหม่แล้วพบว่าหน้าเว็บแสดงสถานะเหมือนยังไม่ login ชั่วคราวระหว่างโหลดบัญชี
+  - Snapshot ล่าสุดอาจเก่าหลายเดือน แต่ยังไม่มีคำเตือนเด่นก่อนนำข้อมูลไปตัดสินใจ
+  - AI อธิบายตัวเลขได้ดีขึ้น แต่ยังอาจสรุป PE จากค่าตัวเดียวแรงเกินไป และแปล `Packaged Foods` คลาดเคลื่อนเป็นธุรกิจบรรจุภัณฑ์
+- งานที่ต้องทำ:
+  - [x] แสดงสถานะกำลังโหลดบัญชี/พอร์ตแทนข้อความ Sign in หรือ No portfolio ชั่วคราว
+    - Done: `2026-11-05 08:49:53 +07:00`
+    - Note: เพิ่ม `authLoading`; ซ่อนฟอร์มสมัครระหว่างตรวจ session และแสดงข้อความกำลังโหลดใน Snapshot, analysis panel และ diagnostics
+  - [x] คำนวณอายุ Snapshot และเตือนชัดเมื่อข้อมูลเกิน 7 วัน พร้อมบอกให้วิเคราะห์ใหม่
+    - Done: `2026-11-05 08:49:53 +07:00`
+    - Note: Snapshot เกิน 7 วันแสดงจำนวนวันที่เก่า กรอบเตือน และคำแนะนำให้อัปโหลด/วิเคราะห์ใหม่ ทั้ง Light และ Dark theme
+  - [x] เสริมกติกา AI ไม่ให้ใช้ PE/RRR เดี่ยวตัดสิน และแปลประเภทธุรกิจตามความหมาย
+    - Done: `2026-11-05 08:49:53 +07:00`
+    - Note: ห้ามสรุปว่าถูกจาก PE ค่าเดียว, ย้ำ RRR เป็น scenario estimate และกำหนด `Packaged Foods` เป็นอาหารสำเร็จรูปหรืออาหารบรรจุห่อ
+  - [x] เพิ่ม regression test และรันทดสอบส่วน frontend/AI ที่เกี่ยวข้อง
+    - Done: `2026-11-05 08:49:53 +07:00`
+    - Result: ผ่าน `test:ai-investment`, `test:frontend-viewport`, `test:frontend-auth`, `test:web-smoke`, Node syntax และ `git diff --check`
+  - [x] อัปเดต Version และบันทึกผลตรวจสอบ
+    - Done: `2026-11-05 08:49:53 +07:00`
+    - Release candidate: `Think2 Freshness Safety v0.8.1` / build `20261105-0850`
+    - Note: แก้ใน working tree แล้ว ยังไม่ได้ commit, push หรือ deploy ใน Task นี้
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอ ห้ามลบไฟล์นี้
+  - ทำ T213 บน branch `codex/beginner-ai-companion-ui`
+  - ระหว่างตรวจ session ห้ามแสดงข้อความที่ทำให้เข้าใจผิดว่ายังไม่ได้ login หรือไม่มีพอร์ต
+  - Snapshot เกิน 7 วันต้องมีคำเตือนที่มองเห็นและอ่านได้ทั้ง Light/Dark theme
+  - AI ห้ามบอกว่าหุ้นถูกจาก PE ตัวเดียว และต้องแยกธุรกิจอาหารบรรจุห่อออกจากธุรกิจบรรจุภัณฑ์
+
 ### T212 - Beginner-first AI Investment Companion
 
 - สถานะ: Done

@@ -545,26 +545,38 @@ function normalizeTenantScope(rawTenantScope) {
 }
 
 function tenantScopeWhereSql(collection, tenantScope, params) {
-  const organizationParam = textArrayParam(tenantScope.organizationIds, params);
-  const userParam = textArrayParam(tenantScope.userIds, params);
+  let organizationParam;
+  let userParam;
+  const organizationParamSql = () => {
+    if (organizationParam === undefined) {
+      organizationParam = textArrayParam(tenantScope.organizationIds, params);
+    }
+    return organizationParam;
+  };
+  const userParamSql = () => {
+    if (userParam === undefined) {
+      userParam = textArrayParam(tenantScope.userIds, params);
+    }
+    return userParam;
+  };
   const conditions = [];
 
   if (collection.name === "organizations") {
-    pushAnyCondition(conditions, "record_id", organizationParam);
+    pushAnyCondition(conditions, "record_id", organizationParamSql());
   } else if (collection.name === "users") {
-    pushAnyCondition(conditions, "record_id", userParam);
-    pushAnyCondition(conditions, "organization_id", organizationParam);
+    pushAnyCondition(conditions, "record_id", userParamSql());
+    pushAnyCondition(conditions, "organization_id", organizationParamSql());
   } else if (collection.name === "sessions") {
-    pushAnyCondition(conditions, "user_id", userParam);
+    pushAnyCondition(conditions, "user_id", userParamSql());
   } else if (collection.name === "advisorAssignments") {
-    pushAnyCondition(conditions, "user_id", userParam);
-    pushAnyCondition(conditions, "record->>'advisorId'", userParam);
-    pushAnyCondition(conditions, "record->>'assignedBy'", userParam);
+    pushAnyCondition(conditions, "user_id", userParamSql());
+    pushAnyCondition(conditions, "record->>'advisorId'", userParamSql());
+    pushAnyCondition(conditions, "record->>'assignedBy'", userParamSql());
   } else if (collection.tenantScoped) {
-    pushAnyCondition(conditions, "organization_id", organizationParam);
-    pushAnyCondition(conditions, "user_id", userParam);
+    pushAnyCondition(conditions, "organization_id", organizationParamSql());
+    pushAnyCondition(conditions, "user_id", userParamSql());
   } else {
-    pushAnyCondition(conditions, "user_id", userParam);
+    pushAnyCondition(conditions, "user_id", userParamSql());
   }
 
   return conditions.length ? `(${conditions.join(" OR ")})` : "FALSE";

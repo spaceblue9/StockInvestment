@@ -186,6 +186,34 @@ h3 {
   line-height: 1.35;
 }
 
+.snapshot-card.stale {
+  border-color: #f59e0b;
+}
+
+.snapshot-freshness-warning {
+  background: rgba(245, 158, 11, 0.13);
+  border: 1px solid rgba(245, 158, 11, 0.58);
+  border-radius: 6px;
+  color: #ffd58a;
+  display: grid;
+  gap: 4px;
+  margin: 14px 0 0;
+  padding: 10px;
+}
+
+.snapshot-freshness-warning strong,
+.snapshot-freshness-warning span {
+  color: inherit;
+  font-size: 12px;
+  margin: 0;
+}
+
+html[data-theme="light"] .snapshot-freshness-warning {
+  background: #fff4d6;
+  border-color: #d99400;
+  color: #714600;
+}
+
 form,
 .small-stack,
 .plans-list {

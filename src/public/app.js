@@ -33,9 +33,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261105-0833";
-const programVersion = "Think2 Beginner AI Companion v0.8.0";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261105-0833";
+const frontendBuildVersion = "20261105-1025";
+const programVersion = "Think2 PostgreSQL AI Reliability v0.8.2";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261105-1025";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -43,6 +43,7 @@ let tableTooltipCounter = 0;
 
 const state = {
   user: null,
+  authLoading: true,
   authMode: "register",
   selectedSignupPlanId: "starter",
   recommendations: [],
@@ -590,8 +591,11 @@ await initialize();
 async function initialize() {
   applyTheme(document.documentElement.dataset.theme || readStoredTheme());
   applyLeftRailState(readLeftRailCollapsed());
+  renderAuthState();
+  renderSnapshot();
   updateFrontendDiagnostics();
-  await Promise.all([checkHealth(), loadPlans(), loadCurrentUser()]);
+  await Promise.allSettled([checkHealth(), loadPlans(), loadCurrentUser()]);
+  state.authLoading = false;
   renderAuthState();
   renderAiCompanion();
   renderPlans();
@@ -998,7 +1002,7 @@ function setAuthMode(mode) {
 
 function renderAuthState() {
   const signedIn = Boolean(state.user);
-  authPanel.hidden = signedIn;
+  authPanel.hidden = signedIn || state.authLoading;
   accountPanel.hidden = !signedIn;
   logoutButton.hidden = !signedIn;
   if (!signedIn && !state.signingOut) {
@@ -1018,6 +1022,10 @@ function renderAuthState() {
   });
   renderSignupPlanChoices();
   syncAnalysisAccess();
+
+  if (state.authLoading) {
+    return;
+  }
 
   if (!signedIn) {
     return;
@@ -1515,7 +1523,9 @@ function setAnalysisButtonLoading(isLoading) {
   const signedIn = Boolean(state.user);
   const canAnalyze = canRunPortfolioAnalysis();
   analysisSubmitButton.disabled = isLoading || !signedIn || !canAnalyze;
-  analysisSubmitButton.textContent = !signedIn
+  analysisSubmitButton.textContent = state.authLoading
+    ? "กำลังโหลดบัญชี..."
+    : !signedIn
     ? "Sign in to analyze"
     : !canAnalyze
       ? "Package required"
@@ -1553,6 +1563,16 @@ function syncAnalysisAccess() {
   templatePanel?.classList.toggle("locked", !signedIn || !canAnalyze);
   setAnalysisButtonLoading(state.analysisRunning);
   updateFrontendDiagnostics();
+
+  if (state.authLoading) {
+    showAnalysisStatus("loading", {
+      title: "กำลังตรวจสอบบัญชี",
+      text: "ระบบกำลังโหลดสิทธิ์และข้อมูลพอร์ตล่าสุด กรุณารอสักครู่",
+      activeStep: null,
+    });
+    runMessage.textContent = "กำลังตรวจสอบบัญชีและสิทธิ์การใช้งาน...";
+    return;
+  }
 
   if (!signedIn) {
     showAnalysisStatus("error", {
@@ -1594,13 +1614,17 @@ function updateFrontendDiagnostics() {
   }
 
   const selectedCount = getAnalysisSelectedFiles().length;
-  const buttonState = !state.user
+  const buttonState = state.authLoading
+    ? "loading account"
+    : !state.user
     ? "sign-in required"
     : canRunPortfolioAnalysis()
       ? (analysisSubmitButton?.disabled ? "disabled" : "ready")
       : "package required";
-  const signedInState = state.user ? "signed in" : "not signed in";
-  frontendVersion.textContent = state.analysisRunning
+  const signedInState = state.authLoading ? "loading account" : state.user ? "signed in" : "not signed in";
+  frontendVersion.textContent = state.authLoading
+    ? "กำลังโหลดบัญชีและข้อมูลพอร์ต..."
+    : state.analysisRunning
     ? "Analysis is running..."
     : `Ready · ${signedInState} · ${selectedCount} file(s) selected`;
   frontendVersion.title = `Frontend version ${frontendBuildVersion} · Analyze button ${buttonState} · Analyze clicks ${state.analysisClickCount}`;
@@ -1681,8 +1705,18 @@ function clearAnalysisProgressTimers(timers) {
 }
 
 function renderSnapshot() {
+  if (state.authLoading) {
+    customerSnapshot.classList.remove("stale");
+    customerSnapshot.innerHTML = `
+      <span>กำลังโหลดข้อมูลพอร์ต</span>
+      <strong>กรุณารอสักครู่...</strong>
+    `;
+    return;
+  }
+
   const snapshot = state.savedSnapshot || buildVisiblePortfolioSnapshot();
   if (!snapshot) {
+    customerSnapshot.classList.remove("stale");
     customerSnapshot.innerHTML = `
       <span>No portfolio saved yet</span>
       <strong>Run analysis to create your first snapshot.</strong>
@@ -1691,11 +1725,21 @@ function renderSnapshot() {
   }
 
   const summary = snapshot.summary || {};
+  const ageDays = snapshot.visibleOnly ? 0 : snapshotAgeDays(snapshot.generatedAt);
+  const isStale = Number.isFinite(ageDays) && ageDays > 7;
+  customerSnapshot.classList.toggle("stale", isStale);
   customerSnapshot.innerHTML = `
     <span>${snapshot.visibleOnly ? "Latest analysis on screen" : `Last saved: ${formatDate(snapshot.generatedAt)}`}</span>
     <strong>${money(summary.marketValue || 0)} · ${formatNumber(summary.gainLossPct || 0)}% P/L</strong>
     <p class="muted">${summary.holdings || 0} holdings · ${summary.urgentActions || 0} urgent actions · Avg score ${formatNumber(summary.avgScore || 0)}</p>
+    ${isStale ? `<p class="snapshot-freshness-warning" role="alert"><strong>ข้อมูลนี้เก่า ${ageDays} วัน</strong><span>กรุณาอัปโหลดไฟล์และวิเคราะห์ใหม่ก่อนใช้ตัดสินใจลงทุน</span></p>` : ""}
   `;
+}
+
+function snapshotAgeDays(generatedAt) {
+  const generatedTime = new Date(generatedAt).getTime();
+  if (!Number.isFinite(generatedTime)) return Number.NaN;
+  return Math.max(0, Math.floor((Date.now() - generatedTime) / 86400000));
 }
 
 function buildVisiblePortfolioSnapshot() {

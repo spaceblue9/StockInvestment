@@ -66,6 +66,8 @@ assert.equal(sentRequest.provider.zdr, true);
 assert.match(sentRequest.messages[0].content, /Always provide decision support/u);
 assert.match(sentRequest.messages[0].content, /MACD is not supplied/u);
 assert.match(sentRequest.messages[0].content, /Never recommend a stock from Total Score alone/u);
+assert.match(sentRequest.messages[0].content, /never say a stock is cheap, inexpensive, or not expensive from PE alone/iu);
+assert.match(sentRequest.messages[0].content, /Packaged Foods means อาหารสำเร็จรูปหรืออาหารบรรจุห่อ/u);
 assert(sentRequest.response_format.json_schema.schema.required.includes("decisionAction"));
 assert(sentRequest.response_format.json_schema.schema.required.includes("beginnerMetrics"));
 

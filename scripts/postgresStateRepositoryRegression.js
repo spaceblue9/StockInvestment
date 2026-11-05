@@ -1,4 +1,5 @@
 import {
+  buildPostgresSelectQuery,
   buildPostgresBootstrapSql,
   deletePostgresSessionRecordFromClient,
   ensurePostgresSchema,
@@ -11,6 +12,7 @@ import {
   readStateFromPostgresClient,
   writeStateToPostgresClient,
 } from "../src/services/postgresStateRepository.js";
+import { stateCollectionDefinitions } from "../src/services/stateSchemaService.js";
 
 class FakePostgresClient {
   constructor() {
@@ -348,6 +350,24 @@ const platformRead = await readScopedStateFromPostgresClient(scopedClient, postg
 assertEqual(platformRead.users.length, 3, "Platform scoped read should preserve full-state visibility.");
 assertEqual(platformRead.portfolioSnapshots.length, 2, "Platform scoped read should include all tenant-scoped records.");
 
+const unassignedUserScope = postgresRestrictedTenantScope({
+  reason: "unassigned_ai_user",
+  userIds: ["user_without_organization"],
+  organizationIds: [],
+});
+const unassignedOrganizationQuery = buildPostgresSelectQuery(
+  stateCollectionDefinitions().find((collection) => collection.name === "organizations"),
+  unassignedUserScope,
+);
+assertEqual(unassignedOrganizationQuery.sql.includes("$1"), false, "Organization query without organization ids must not reference a parameter.");
+assertEqual(unassignedOrganizationQuery.params.length, 0, "Organization query without organization ids must not send an unused Postgres parameter.");
+assert(unassignedOrganizationQuery.sql.includes("WHERE FALSE"), "Unassigned user organization query should safely return no rows.");
+
+for (const collection of stateCollectionDefinitions()) {
+  const query = buildPostgresSelectQuery(collection, unassignedUserScope);
+  assertEqual(highestParameterIndex(query.sql), query.params.length, `${collection.name} query must bind every Postgres parameter it sends.`);
+}
+
 const authFastPathQueryStart = scopedClient.queries.length;
 const sessionLookup = await readPostgresSessionUserFromClient(scopedClient, "session_a");
 const authFastPathQueries = scopedClient.queries.slice(authFastPathQueryStart).filter((query) => query.startsWith("SELECT record FROM"));
@@ -425,6 +445,11 @@ console.log(JSON.stringify({
 
 function tableNameFrom(statement) {
   return statement.match(/"([a-z][a-z0-9_]*)"/u)?.[1] || "";
+}
+
+function highestParameterIndex(sql) {
+  return [...String(sql).matchAll(/\$(\d+)/gu)]
+    .reduce((highest, match) => Math.max(highest, Number(match[1])), 0);
 }
 
 function matchesScopedSelect(statement, row, params) {

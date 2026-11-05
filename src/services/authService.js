@@ -3272,12 +3272,13 @@ function stableStringify(value) {
 }
 
 function resolveAuditOrganizationId(state, event) {
+  const organizations = Array.isArray(state?.organizations) ? state.organizations : [];
   const candidates = [
     event.organizationId,
     event.details?.organizationId,
   ].filter(Boolean).map(String);
 
-  return candidates.find((organizationId) => state.organizations.some((organization) => organization.id === organizationId)) || "";
+  return candidates.find((organizationId) => organizations.some((organization) => organization.id === organizationId)) || "";
 }
 
 function buildWorkspaceUsers(users, state) {
