@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T219 - AI and On-Screen Portfolio Summary Consistency
 
-- สถานะ: Implementation Done - รอ commit/push และ Production deployment
+- สถานะ: Implementation Done - push แล้ว รอ Vercel authentication, Production deployment และ owner acceptance
 - เริ่มเมื่อ: `2026-11-23 20:10:18 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ที่มา:
@@ -75,7 +75,11 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
     - Done: `2026-11-23 20:23:13 +07:00`
     - Result: `npm run test-regression` ผ่านทั้งชุด รวม database/auth/portfolio/frontend/web smoke/Python parity; targeted AI, viewport และ web smoke ผ่านซ้ำหลังตรวจทานรอบสุดท้าย; `git diff --check` ผ่าน
     - Release candidate: `Think2 Portfolio Sync v1.0.1` / build `20261123-2017`
-  - [ ] Commit, push และบันทึกสถานะ Production deployment
+  - [x] Commit, push และบันทึกสถานะ Production deployment
+    - Done: `2026-11-23 20:25:11 +07:00`
+    - GitHub: commit `5bab403` push ไปที่ `origin/codex/beginner-ai-companion-ui` สำเร็จแล้ว
+    - Vercel CLI: `npx vercel whoami` รายงาน `Logged out` จึงยังไม่ deploy และไม่อ้างว่า Production แก้แล้ว
+    - Next: owner login Vercel แล้ว deploy build `20261123-2017`; จากนั้นรัน Analyze หนึ่งครั้งและเทียบ header กับ AI summary ใน Scope เดียวกัน
 - เกณฑ์ผ่าน:
   - เมื่อไม่มี filter ตัวเลขจำนวนหุ้น มูลค่าตลาด ต้นทุน กำไร/ขาดทุน และคะแนนเฉลี่ยที่ AI ใช้ต้องตรงกับหัวหน้า Portfolio
   - เมื่อมี filter AI ต้องบอกชัดว่าเป็นสรุปเฉพาะ Scope ที่กรอง ไม่ทำให้ผู้ใช้เข้าใจว่าเป็นทั้งพอร์ต
