@@ -27,7 +27,7 @@ const stockFields = [
   "Symbol", "Sector", "Price", "Total_Score", "Quality_Score", "Valuation_Score",
   "Setup_Score", "Balance_Risk_Score", "Liquidity_Score", "Composite_Score_v2",
   "PE", "ROE", "DE", "Yield", "RSI", "RRR", "Technical_RRR", "Upside_Pct", "Volume_Ratio",
-  "Gain_Loss_Pct", "Market_Value", "Portfolio_Weight_Pct", "Trend_Status",
+  "Gain_Loss_Pct", "Gain_Loss_Value", "Market_Value", "Cost_Value", "Portfolio_Weight_Pct", "Trend_Status",
   "Advice", "Target_Action", "Effective_Target_Action", "Conflict_Severity",
   "Data_Status", "Data_Warnings", "Conflict_Alerts", "Rationale",
 ];
@@ -109,12 +109,25 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
   const contextNeeds = inferAiContextNeeds({ mode, focus, question, contextView });
   const effectiveScopeRows = mode === "portfolio" ? scopedRows : uniqueBySymbol(modeRows);
   const scopeSummary = summarizeScope(effectiveScopeRows, filterSummary);
+  const hasCurrentPortfolioScope = contextView === "portfolio"
+    && mode === "portfolio"
+    && hasExplicitContextView
+    && effectiveScopeRows.length > 0;
+  const portfolioSummarySource = contextView === "portfolio" && mode === "portfolio"
+    ? (hasCurrentPortfolioScope ? "current_screen_scope" : "saved_snapshot")
+    : "not_applicable";
+  const portfolioSummary = contextView === "portfolio" && mode === "portfolio"
+    ? (hasCurrentPortfolioScope
+      ? summarizePortfolio(effectiveScopeRows)
+      : sanitizeSummary(snapshot?.summary || {}))
+    : {};
   const contextSelection = {
     scopeRowCount: effectiveScopeRows.length,
     includedRowCount: uniqueBySymbol(modeRows).length,
     omittedRowCount: Math.max(0, effectiveScopeRows.length - uniqueBySymbol(modeRows).length),
     includedSymbols: uniqueBySymbol(modeRows).map((row) => row.Symbol),
     selectionReason: rowSelection.reason,
+    summarySource: portfolioSummarySource,
   };
   const dataQuality = buildDataQuality({
     generatedAt: snapshot?.generatedAt,
@@ -139,8 +152,9 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
       aiRole: "Decision support with deterministic verification; never replace Think2 outputs",
       companyProfileAvailable: Boolean(researchContext?.profile?.name),
       priceFreshness: marketContext?.fetchedAt ? "Use marketContext fetchedAt; historical chart is not a real-time trade quote" : "Use generatedAt; do not claim real-time data",
+      portfolioSummarySource,
     },
-    portfolioSummary: contextView === "portfolio" && mode === "portfolio" ? sanitizeSummary(snapshot?.summary || {}) : {},
+    portfolioSummary,
     holdings: uniqueBySymbol(modeRows).slice(0, MAX_HOLDINGS),
     currentRows: uniqueBySymbol(modeRows).slice(0, MAX_HOLDINGS),
     reviewQueue,
@@ -334,6 +348,7 @@ export function buildOpenRouterRequest(context) {
         content: [
           "You are StockFlix AI Decision Companion for beginner Thai investors.",
           "Reply in concise, plain Thai. Use only the supplied JSON facts and stay inside scopeSummary.",
+          "For portfolio mode, portfolioSummary and scopeSummary cover the full active screen scope. currentRows can be a selected detail subset, so never recount holdings or totals from currentRows; use portfolioSummary for portfolio totals and contextSelection for disclosed row counts.",
           "Never calculate or replace Think2 scores or actions. Never issue a direct buy/sell order, guaranteed return, target price, or suitability claim.",
           "Return five useful parts: a short conclusion, one decision stance, evidence-backed reasons, missing data, and exactly one practical next action.",
           "Every reason must cite one supplied Symbol and field with the exact supplied value. Use an empty Symbol only for supplied portfolioSummary or scopeRowCount evidence.",
@@ -561,6 +576,30 @@ function sanitizeSummary(summary = {}) {
       }
       return result;
     }, {});
+}
+
+function summarizePortfolio(rows = []) {
+  const uniqueRows = uniqueBySymbol(rows);
+  const marketValue = sumPresent(uniqueRows, "Market_Value");
+  const costValue = sumPresent(uniqueRows, "Cost_Value");
+  const suppliedGainLoss = sumPresent(uniqueRows, "Gain_Loss_Value");
+  const gainLoss = suppliedGainLoss ?? (
+    marketValue !== null && costValue !== null
+      ? Math.round((marketValue - costValue) * 100) / 100
+      : null
+  );
+  const summary = {
+    holdings: uniqueRows.length,
+    marketValue,
+    costValue,
+    gainLoss,
+    gainLossPct: costValue ? Math.round(((gainLoss || 0) / costValue) * 10000) / 100 : 0,
+    avgScore: averagePresent(uniqueRows, "Total_Score"),
+    urgentActions: uniqueRows.filter((row) => /Exit|Reduce|Sell/iu.test(String(
+      row.Effective_Target_Action || row.Target_Action || row.Advice || "",
+    ))).length,
+  };
+  return Object.fromEntries(Object.entries(summary).filter(([, value]) => value !== null));
 }
 
 function sanitizeSimulationViewContext(input = {}) {

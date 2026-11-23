@@ -33,9 +33,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261123-1945";
-const programVersion = "Think2 AI Decision Companion v1.0.0";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261123-1945";
+const frontendBuildVersion = "20261123-2017";
+const programVersion = "Think2 Portfolio Sync v1.0.1";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261123-2017";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -1755,8 +1755,10 @@ function buildVisiblePortfolioSnapshot() {
     summary: {
       holdings: state.portfolioRows.length,
       marketValue,
+      costValue,
+      gainLoss,
       gainLossPct: costValue ? (gainLoss / costValue) * 100 : 0,
-      urgentActions: state.portfolioRows.filter((row) => /Exit|Reduce|Sell/i.test(String(row.Target_Action || row.Advice || ""))).length,
+      urgentActions: state.portfolioRows.filter((row) => /Exit|Reduce|Sell/i.test(String(row.Effective_Target_Action || row.Target_Action || row.Advice || ""))).length,
       avgScore: average(state.portfolioRows, "Total_Score"),
     },
   };
@@ -1833,7 +1835,7 @@ function renderPortfolioView() {
   const totalCostValue = sum(state.portfolioRows, "Cost_Value");
   const totalGainLoss = sum(state.portfolioRows, "Gain_Loss_Value");
   const gainLossPct = totalCostValue ? (totalGainLoss / totalCostValue) * 100 : 0;
-  const urgentRows = state.portfolioRows.filter((row) => /Exit|Reduce|Sell/i.test(String(row.Target_Action || row.Advice || "")));
+  const urgentRows = state.portfolioRows.filter((row) => /Exit|Reduce|Sell/i.test(String(row.Effective_Target_Action || row.Target_Action || row.Advice || "")));
   const rows = state.portfolioRows
     .slice()
     .sort((left, right) => numberValue(right.Market_Value) - numberValue(left.Market_Value));
@@ -2138,9 +2140,14 @@ function renderAiContextQuality(context = {}, verification = {}) {
   const selection = context.contextSelection || {};
   const freshnessLabels = { fresh: "ใหม่ไม่เกิน 24 ชม.", aging: "เริ่มเก่า", stale: "ข้อมูลเก่า", unknown: "ไม่ทราบเวลา" };
   const verificationPassed = verification?.passed !== false;
+  const summarySourceLabel = selection.summarySource === "current_screen_scope"
+    ? "ยอดสรุปจาก Scope บนหน้าจอ"
+    : selection.summarySource === "saved_snapshot"
+      ? "ยอดสรุปจาก snapshot ที่บันทึกไว้"
+      : "";
   return `
     <section class="ai-context-quality ${verificationPassed ? "is-verified" : "has-warning"}" data-ai-context-quality>
-      <div><span>Scope ที่อ่าน</span><strong>${formatNumber(selection.scopeRowCount || 0)} หุ้น</strong><small>ส่งรายละเอียด ${formatNumber(selection.includedRowCount || 0)} หุ้น${selection.omittedRowCount ? ` · สรุปอีก ${formatNumber(selection.omittedRowCount)} หุ้นไว้ในภาพรวม` : ""}</small></div>
+      <div><span>Scope ที่อ่าน</span><strong>${formatNumber(selection.scopeRowCount || 0)} หุ้น</strong><small>${summarySourceLabel ? `${escapeHtml(summarySourceLabel)} · ` : ""}ส่งรายละเอียด ${formatNumber(selection.includedRowCount || 0)} หุ้น${selection.omittedRowCount ? ` · รวมอีก ${formatNumber(selection.omittedRowCount)} หุ้นในยอดสรุป` : ""}</small></div>
       <div><span>อายุผล Think2</span><strong>${escapeHtml(freshnessLabels[quality.snapshot?.status] || "ไม่ทราบเวลา")}</strong><small>${quality.snapshot?.ageDays != null ? `${formatNumber(quality.snapshot.ageDays)} วัน` : "ควรรัน Analyze ใหม่"}</small></div>
       <div><span>ความครบของตัวเลข</span><strong>${formatNumber(quality.completenessPct || 0)}%</strong><small>${quality.missingFields?.length ? `ขาด ${escapeHtml(quality.missingFields.slice(0, 3).join(", "))}` : "ข้อมูลหลักครบ"}</small></div>
       <div><span>ตรวจคำตอบ</span><strong>${verificationPassed ? "ผ่าน" : "พบข้อควรระวัง"}</strong><small>${verificationPassed ? "Symbol และตัวเลขตรงกับ Scope" : "ระบบลดความมั่นใจแล้ว"}</small></div>
@@ -2512,7 +2519,7 @@ function currentAiContextRows() {
     "Symbol", "Sector", "Price", "Total_Score", "Quality_Score", "Valuation_Score",
     "Setup_Score", "Balance_Risk_Score", "Liquidity_Score", "Composite_Score_v2",
     "PE", "ROE", "DE", "Yield", "RSI", "RRR", "Technical_RRR", "Upside_Pct", "Volume_Ratio",
-    "Gain_Loss_Pct", "Market_Value", "Portfolio_Weight_Pct", "Trend_Status",
+    "Gain_Loss_Pct", "Gain_Loss_Value", "Market_Value", "Cost_Value", "Portfolio_Weight_Pct", "Trend_Status",
     "Advice", "Target_Action", "Effective_Target_Action", "Conflict_Severity",
     "Data_Status", "Data_Warnings", "Conflict_Alerts", "Rationale",
   ];
@@ -2520,7 +2527,7 @@ function currentAiContextRows() {
   return rows
     .slice()
     .sort((left, right) => numberValue(right.Total_Score) - numberValue(left.Total_Score))
-    .slice(0, 25)
+    .slice(0, 200)
     .map((row) => allowedFields.reduce((safeRow, field) => {
       if (row[field] !== undefined && row[field] !== null && row[field] !== "") safeRow[field] = row[field];
       return safeRow;

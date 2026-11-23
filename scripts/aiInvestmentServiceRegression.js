@@ -80,6 +80,7 @@ assert.deepEqual(response.result.citations, []);
 assert.equal(response.usage.totalTokens, 150);
 assert.equal(sentRequest.provider.zdr, true);
 assert.match(sentRequest.messages[0].content, /five useful parts/u);
+assert.match(sentRequest.messages[0].content, /portfolioSummary and scopeSummary cover the full active screen scope/u);
 assert.match(sentRequest.messages[0].content, /MACD is not supplied/u);
 assert.match(sentRequest.messages[0].content, /Never recommend a stock from Total Score alone/u);
 assert.match(sentRequest.messages[0].content, /never say a stock is cheap, inexpensive, or not expensive from PE alone/iu);
@@ -330,6 +331,46 @@ assert.equal(oversizedContext.contextSelection.omittedRowCount, 5);
 assert.equal(oversizedContext.contextSelection.includedSymbols.includes("S30"), true);
 assert.equal(oversizedContext.scopeSummary.symbols.includes("S01"), true);
 assert.equal(oversizedContext.dataQuality.snapshot.status, "stale");
+
+const latestScreenRows = Array.from({ length: 28 }, (_value, index) => ({
+  Symbol: `P${String(index + 1).padStart(2, "0")}`,
+  Sector: index % 2 ? "Energy" : "Commerce",
+  Total_Score: 50 + index,
+  Market_Value: 10000 + index,
+  Cost_Value: 11000 + index,
+  Gain_Loss_Value: -1000,
+  Target_Action: index === 27 ? "Reduce 50%" : "Hold",
+}));
+const currentScreenPortfolioContext = buildAiInvestmentContext({
+  generatedAt: "2026-11-01T00:00:00.000Z",
+  summary: {
+    holdings: 25,
+    marketValue: 297206.5,
+    costValue: 331915.78,
+    gainLoss: -34709.28,
+    gainLossPct: -10.46,
+    avgScore: 62.47,
+  },
+  portfolioRows: latestScreenRows.slice(0, 25),
+}, {
+  mode: "portfolio",
+  contextView: "portfolio",
+  currentRows: latestScreenRows,
+  filterSummary: "all 28 current holdings",
+});
+assert.equal(currentScreenPortfolioContext.contextSelection.summarySource, "current_screen_scope");
+assert.equal(currentScreenPortfolioContext.contextSelection.scopeRowCount, 28);
+assert.equal(currentScreenPortfolioContext.contextSelection.includedRowCount, 25);
+assert.equal(currentScreenPortfolioContext.contextSelection.omittedRowCount, 3);
+assert.equal(currentScreenPortfolioContext.portfolioSummary.holdings, 28);
+assert.equal(currentScreenPortfolioContext.portfolioSummary.marketValue, 280378);
+assert.equal(currentScreenPortfolioContext.portfolioSummary.costValue, 308378);
+assert.equal(currentScreenPortfolioContext.portfolioSummary.gainLoss, -28000);
+assert.equal(currentScreenPortfolioContext.portfolioSummary.gainLossPct, -9.08);
+assert.equal(currentScreenPortfolioContext.portfolioSummary.avgScore, 63.5);
+assert.equal(currentScreenPortfolioContext.portfolioSummary.urgentActions, 1);
+assert.equal(currentScreenPortfolioContext.currentRows.some((row) => row.Cost_Value > 0), true);
+assert.notEqual(currentScreenPortfolioContext.portfolioSummary.marketValue, 297206.5);
 
 assert.deepEqual(inferAiContextNeeds({ mode: "stock", question: "PTT ทำธุรกิจอะไรและราคา 52 สัปดาห์อยู่ตรงไหน" }), {
   market: true,

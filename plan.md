@@ -44,6 +44,49 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T219 - AI and On-Screen Portfolio Summary Consistency
+
+- สถานะ: Implementation Done - รอ commit/push และ Production deployment
+- เริ่มเมื่อ: `2026-11-23 20:10:18 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ที่มา:
+  - หัวหน้า Portfolio แสดงผลวิเคราะห์ล่าสุดบนหน้าจอ 28 หุ้น แต่มุม AI สรุป 25 หุ้นและตัวเลขมูลค่า/กำไรขาดทุน/คะแนนเฉลี่ยไม่ตรงกัน
+  - สาเหตุเบื้องต้นคือหัวหน้าเว็บคำนวณจาก `state.portfolioRows` ชุดล่าสุด ขณะที่ AI ยังอ่าน `snapshot.summary` ที่บันทึกในฐานข้อมูล และส่งรายละเอียดเข้าโมเดลสูงสุด 25 หุ้น
+  - ใน Vercel trial บางคำขออาจข้ามการบันทึก snapshot ทำให้ข้อมูลบนหน้าจอใหม่กว่า snapshot ที่ AI อ่าน
+- ขอบเขตและกฎ:
+  - ห้ามเปลี่ยนคะแนน Think2, Target Action, recommendation calculation หรือข้อมูลพอร์ตต้นฉบับ
+  - เมื่อหน้า Portfolio ส่งข้อมูลบนหน้าจอมาให้ AI ต้องคำนวณยอดสรุปจาก Scope ชุดเดียวกันทั้งหมด ไม่ใช้ยอดจาก snapshot เก่าปะปน
+  - การจำกัดรายละเอียดที่ส่งเข้าโมเดลต้องไม่เปลี่ยนจำนวนหุ้นหรือยอดรวมของ Scope และต้องเปิดเผยจำนวนที่ส่ง/ไม่ได้ส่ง
+- งานที่ต้องทำ:
+  - [x] ยืนยันสาเหตุจากเส้นทางข้อมูลของหัวหน้า Portfolio และ AI
+    - Done: `2026-11-23 20:10:18 +07:00`
+    - Result: หัวหน้าเว็บคำนวณจาก `state.portfolioRows`; API AI โหลด saved snapshot และ service ใช้ `snapshot.summary` แม้ได้รับ `currentRows` จากหน้าจอ จึงสามารถผสมข้อมูลคนละรอบได้
+  - [x] คำนวณ AI portfolio summary จาก current on-screen Scope ให้ครบทุกหุ้น
+    - Done: `2026-11-23 20:15:50 +07:00`
+    - Result: หน้าเว็บส่ง Scope ได้สูงสุด 200 หุ้นพร้อม Market/Cost/Gain-Loss; service คำนวณ holdings, market value, cost, P/L, avg score และ urgent actions จาก Scope ครบชุดก่อนจำกัดรายละเอียดเข้าโมเดล 25 หุ้น
+  - [x] แสดงแหล่งที่มาของ summary และจำนวน Scope/รายละเอียดที่โมเดลได้รับให้ผู้ใช้เข้าใจง่าย
+    - Done: `2026-11-23 20:15:50 +07:00`
+    - Result: เพิ่ม `summarySource` และข้อความ `ยอดสรุปจาก Scope บนหน้าจอ` หรือ `ยอดสรุปจาก snapshot ที่บันทึกไว้`; ถ้าตัดรายละเอียดจะบอกจำนวนหุ้นที่ยังรวมอยู่ในยอดสรุป
+  - [x] เพิ่ม regression กรณี saved snapshot 25 หุ้น แต่หน้าจอล่าสุด 28 หุ้น
+    - Done: `2026-11-23 20:17:20 +07:00`
+    - Result: ทดสอบยืนยันว่า AI ใช้ 28 holdings และยอดจาก current screen, ไม่ใช้ market value เก่าจาก saved snapshot; รายละเอียด 25 หุ้นและ omitted 3 หุ้นยังถูกเปิดเผยถูกต้อง
+    - Verification: Node syntax ของ service/frontend และ `npm run test:ai-investment` ผ่าน
+  - [x] รันทดสอบที่เกี่ยวข้อง อัปเดต Version และบันทึกผลใน `plan.md`
+    - Done: `2026-11-23 20:23:13 +07:00`
+    - Result: `npm run test-regression` ผ่านทั้งชุด รวม database/auth/portfolio/frontend/web smoke/Python parity; targeted AI, viewport และ web smoke ผ่านซ้ำหลังตรวจทานรอบสุดท้าย; `git diff --check` ผ่าน
+    - Release candidate: `Think2 Portfolio Sync v1.0.1` / build `20261123-2017`
+  - [ ] Commit, push และบันทึกสถานะ Production deployment
+- เกณฑ์ผ่าน:
+  - เมื่อไม่มี filter ตัวเลขจำนวนหุ้น มูลค่าตลาด ต้นทุน กำไร/ขาดทุน และคะแนนเฉลี่ยที่ AI ใช้ต้องตรงกับหัวหน้า Portfolio
+  - เมื่อมี filter AI ต้องบอกชัดว่าเป็นสรุปเฉพาะ Scope ที่กรอง ไม่ทำให้ผู้ใช้เข้าใจว่าเป็นทั้งพอร์ต
+  - Scope 28 หุ้นยังต้องสรุปเป็น 28 หุ้น แม้ส่งรายละเอียดหุ้นเข้าโมเดลเพียง 25 แถว
+  - Regression เดิมทั้งหมดต้องผ่าน
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอและห้ามลบไฟล์นี้
+  - ทำ T219 บน branch `codex/beginner-ai-companion-ui`
+  - เริ่มจาก task ที่ยังไม่ทำข้อแรก แล้วอัปเดตวันเวลาเมื่อแต่ละ task เสร็จ
+  - ห้ามเปลี่ยน Think2 scoring/action logic; แก้เฉพาะ AI context summary, source disclosure, UX และ tests
+
 ### T218 - AI Decision Companion v2
 
 - สถานะ: Implementation Done - รอ Vercel authentication เพื่อ deploy และ owner visual acceptance
