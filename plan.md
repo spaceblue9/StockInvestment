@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T218 - AI Decision Companion v2
 
-- สถานะ: Ready to Deploy
+- สถานะ: Implementation Done - รอ Vercel authentication เพื่อ deploy และ owner visual acceptance
 - เริ่มเมื่อ: `2026-11-23 19:33:06 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ที่มา:
@@ -84,6 +84,12 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
     - Result: `npm run test-regression` ผ่านทั้งชุด; Python parity numeric/text/sector mismatch = 0 และ `git diff --check` ผ่าน
     - Test maintenance: ปรับ Reference Master admin fixture ให้ใช้เวลาปัจจุบัน เพื่อไม่ให้ regression ล้มเพราะ fixture เก่ากว่า freshness window 30 วัน
     - Release candidate: `Think2 AI Decision Companion v1.0.0` / build `20261123-1945`
+  - [ ] Deploy Production และตรวจ authenticated AI response บน Browser จริง
+    - Blocked: `2026-11-23 19:53:18 +07:00`
+    - GitHub: commit `62019b2` push ไปที่ `origin/codex/beginner-ai-companion-ui` สำเร็จแล้ว
+    - Vercel CLI: หยุดที่ `Missing authentication token`; ไม่ขอหรือเปิดเผย token ของ owner
+    - Production check: alias ปัจจุบันยังโหลด `app.js?v=20261105-1457` จึงยังไม่ใช่ build ใหม่
+    - Next: owner login Vercel แล้วแจ้ง Codex เพื่อ deploy; หลัง READY ต้องตรวจ build `20261123-1945`, health, AI stock question, filtered scope และ verifier badge
 - เกณฑ์ผ่าน:
   - คำถามหุ้นรายตัวต้องไม่สรุปภาพรวมพอร์ตหรือกล่าวถึงหุ้นอื่น
   - คำถามจาก Screener/Sector ต้องใช้เฉพาะผลที่กรองอยู่และบอกจำนวน Scope ที่อ่าน
