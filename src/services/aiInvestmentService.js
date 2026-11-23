@@ -2,7 +2,11 @@ const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_MODEL = "openai/gpt-4o-mini";
 const DEFAULT_TIMEOUT_MS = 25000;
 const MAX_HOLDINGS = 25;
+const MAX_SCOPE_ROWS = 200;
+const MAX_SCOPE_SYMBOLS = 120;
 const MAX_PEERS = 6;
+const FRESH_HOURS = 24;
+const AGING_HOURS = 72;
 
 const allowedModes = new Set(["portfolio", "stock", "compare"]);
 const allowedContextViews = new Set(["portfolio", "screener", "sector", "simulation"]);
@@ -27,6 +31,9 @@ const stockFields = [
   "Advice", "Target_Action", "Effective_Target_Action", "Conflict_Severity",
   "Data_Status", "Data_Warnings", "Conflict_Alerts", "Rationale",
 ];
+const completenessFields = ["Price", "Total_Score", "RRR", "PE", "ROE", "DE", "RSI", "Volume_Ratio", "Trend_Status", "Data_Status"];
+const evidenceFields = [...stockFields, "scopeRowCount", "marketValue", "gainLossPct", "avgScore", "urgentActions"];
+const decisionStances = ["ควรตรวจเร่งด่วน", "ควรชะลอ", "น่าศึกษาต่อ", "ข้อมูลไม่พอ"];
 
 export function openRouterAiInfo() {
   return {
@@ -54,20 +61,20 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
   const question = String(input.question || "").trim().slice(0, 600);
   const focus = Object.hasOwn(focusTasks, input.focus) ? input.focus : "";
   const currentRows = (Array.isArray(input.currentRows) ? input.currentRows : [])
-    .slice(0, MAX_HOLDINGS)
+    .slice(0, MAX_SCOPE_ROWS)
     .map(sanitizeStockRow)
     .filter((row) => row.Symbol);
   const portfolioRows = (snapshot?.portfolioRows || []).map(sanitizeStockRow).filter((row) => row.Symbol);
   const recommendations = (snapshot?.recommendations || []).map(sanitizeStockRow).filter((row) => row.Symbol);
   const symbol = cleanSymbol(input.symbol);
   const rowsAreScoped = hasExplicitContextView;
-  const allRows = rowsAreScoped
+  const scopedRows = rowsAreScoped
     ? uniqueBySymbol(currentRows)
     : uniqueBySymbol([...currentRows, ...portfolioRows, ...recommendations]);
-  const selectedStock = symbol ? allRows.find((row) => row.Symbol === symbol) || null : null;
+  const selectedStock = symbol ? scopedRows.find((row) => row.Symbol === symbol) || null : null;
   const sector = selectedStock?.Sector || "";
   const peers = selectedStock
-    ? allRows
+    ? scopedRows
       .filter((row) => row.Symbol !== selectedStock.Symbol && row.Sector === sector)
       .sort((left, right) => numberValue(right.Total_Score) - numberValue(left.Total_Score))
       .slice(0, MAX_PEERS)
@@ -79,14 +86,46 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
     throw error;
   }
 
+  const reviewQueue = mode === "portfolio" && focus === "portfolio_review"
+    ? buildPortfolioReviewQueue(scopedRows)
+    : [];
+  const rowSelection = selectContextRows(scopedRows, {
+    mode,
+    contextView,
+    focus,
+    question,
+    selectedStock,
+    peers,
+    reviewQueue,
+  });
   const modeRows = mode === "stock"
     ? [selectedStock].filter(Boolean)
     : mode === "compare"
       ? [selectedStock, ...peers].filter(Boolean)
-      : allRows;
-  const reviewQueue = mode === "portfolio" && focus === "portfolio_review"
-    ? buildPortfolioReviewQueue(modeRows)
-    : [];
+      : rowSelection.rows;
+  const allowedSupportingRows = mode === "portfolio" ? scopedRows : uniqueBySymbol(modeRows);
+  const marketContext = sanitizeMarketContext(input.marketContext, allowedSupportingRows);
+  const researchContext = sanitizeResearchContext(input.researchContext, allowedSupportingRows);
+  const contextNeeds = inferAiContextNeeds({ mode, focus, question, contextView });
+  const effectiveScopeRows = mode === "portfolio" ? scopedRows : uniqueBySymbol(modeRows);
+  const scopeSummary = summarizeScope(effectiveScopeRows, filterSummary);
+  const contextSelection = {
+    scopeRowCount: effectiveScopeRows.length,
+    includedRowCount: uniqueBySymbol(modeRows).length,
+    omittedRowCount: Math.max(0, effectiveScopeRows.length - uniqueBySymbol(modeRows).length),
+    includedSymbols: uniqueBySymbol(modeRows).map((row) => row.Symbol),
+    selectionReason: rowSelection.reason,
+  };
+  const dataQuality = buildDataQuality({
+    generatedAt: snapshot?.generatedAt,
+    rows: uniqueBySymbol(modeRows),
+    scopeRowCount: effectiveScopeRows.length,
+    marketContext,
+    researchContext,
+    contextNeeds,
+    contextView,
+    viewContext: input.viewContext,
+  });
 
   return {
     mode,
@@ -97,20 +136,165 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
     generatedAt: snapshot?.generatedAt || "",
     dataContract: {
       scoringSource: "Think2 deterministic analysis",
-      aiRole: "Explain and compare only",
-      companyProfileAvailable: Boolean(input.researchContext?.profile?.name),
-      priceFreshness: input.marketContext?.fetchedAt ? "Use marketContext fetchedAt; historical chart is not a real-time trade quote" : "Use generatedAt; do not claim real-time data",
+      aiRole: "Decision support with deterministic verification; never replace Think2 outputs",
+      companyProfileAvailable: Boolean(researchContext?.profile?.name),
+      priceFreshness: marketContext?.fetchedAt ? "Use marketContext fetchedAt; historical chart is not a real-time trade quote" : "Use generatedAt; do not claim real-time data",
     },
     portfolioSummary: contextView === "portfolio" && mode === "portfolio" ? sanitizeSummary(snapshot?.summary || {}) : {},
     holdings: uniqueBySymbol(modeRows).slice(0, MAX_HOLDINGS),
     currentRows: uniqueBySymbol(modeRows).slice(0, MAX_HOLDINGS),
     reviewQueue,
+    scopeSummary,
+    contextSelection,
+    contextNeeds,
+    dataQuality,
     viewContext: contextView === "simulation" ? sanitizeSimulationViewContext(input.viewContext) : null,
-    marketContext: sanitizeMarketContext(input.marketContext, allRows),
-    researchContext: sanitizeResearchContext(input.researchContext, allRows),
+    marketContext,
+    researchContext,
     selectedStock,
     peers: mode === "compare" ? peers : [],
   };
+}
+
+export function inferAiContextNeeds(input = {}) {
+  const text = [input.question, input.focus, input.mode, input.contextView].filter(Boolean).join(" ").toLowerCase();
+  const research = input.focus === "beginner_stock_basics"
+    || /(ทำธุรกิจ|บริษัท|อุตสาหกรรม|คู่แข่ง|ข่าว|งบ|รายได้|กำไร|business|company|industry|competitor|news|earnings)/iu.test(text);
+  const market = ["stock", "compare"].includes(input.mode)
+    || /(ราคา|กราฟ|52\s*สัปดาห์|แนวโน้ม|volume|rsi|macd|rrr|ตอนนี้|น่าลงทุน|price|chart|week|trend)/iu.test(text);
+  return {
+    market,
+    research,
+    reasons: [
+      ...(market ? ["คำถามต้องใช้บริบทราคา/แนวโน้ม"] : []),
+      ...(research ? ["คำถามต้องใช้ข้อมูลบริษัทหรือข่าวที่ยืนยันแหล่งที่มา"] : []),
+    ],
+  };
+}
+
+function selectContextRows(rows, options = {}) {
+  if (options.mode === "stock") return { rows: [options.selectedStock].filter(Boolean), reason: "selected stock only" };
+  if (options.mode === "compare") return { rows: [options.selectedStock, ...(options.peers || [])].filter(Boolean), reason: "selected stock and same-sector peers" };
+  if (rows.length <= MAX_HOLDINGS) return { rows, reason: "all rows in the active scope" };
+
+  const mentionedSymbols = findMentionedSymbols(options.question, rows.map((row) => row.Symbol));
+  const urgentSymbols = new Set((options.reviewQueue || []).map((row) => row.Symbol));
+  const ranked = rows.slice().sort((left, right) => {
+    const mentionedDelta = Number(mentionedSymbols.has(right.Symbol)) - Number(mentionedSymbols.has(left.Symbol));
+    if (mentionedDelta) return mentionedDelta;
+    const urgentDelta = Number(urgentSymbols.has(right.Symbol)) - Number(urgentSymbols.has(left.Symbol));
+    if (urgentDelta) return urgentDelta;
+    const riskDelta = portfolioReviewPriority(right).score - portfolioReviewPriority(left).score;
+    if (riskDelta) return riskDelta;
+    const marketValueDelta = numberValue(right.Market_Value) - numberValue(left.Market_Value);
+    if (marketValueDelta) return marketValueDelta;
+    return numberValue(right.Total_Score) - numberValue(left.Total_Score);
+  });
+  return {
+    rows: ranked.slice(0, MAX_HOLDINGS),
+    reason: mentionedSymbols.size
+      ? "question symbols first, then urgent risk and portfolio relevance"
+      : "urgent risk, portfolio weight, and score relevance",
+  };
+}
+
+function findMentionedSymbols(question, symbols) {
+  const normalized = String(question || "").toUpperCase();
+  return new Set(symbols.filter((symbol) => new RegExp(`(^|[^A-Z0-9])${escapeRegExp(symbol)}([^A-Z0-9]|$)`, "u").test(normalized)));
+}
+
+function summarizeScope(rows, filterSummary) {
+  const symbols = rows.map((row) => row.Symbol).filter(Boolean);
+  return {
+    filterSummary,
+    rowCount: rows.length,
+    symbolCount: new Set(symbols).size,
+    symbols: symbols.slice(0, MAX_SCOPE_SYMBOLS),
+    symbolsOmitted: Math.max(0, symbols.length - MAX_SCOPE_SYMBOLS),
+    sectors: countValues(rows.map((row) => row.Sector || "Unknown"), 12),
+    severities: countValues(rows.map((row) => String(row.Conflict_Severity || "NONE").toUpperCase()), 6),
+    actions: countValues(rows.map((row) => row.Effective_Target_Action || row.Target_Action || row.Advice || "Unknown"), 10),
+    metrics: {
+      avgScore: averagePresent(rows, "Total_Score"),
+      avgRrr: averagePresent(rows, "RRR"),
+      totalMarketValue: sumPresent(rows, "Market_Value"),
+    },
+  };
+}
+
+function buildDataQuality({ generatedAt, rows, scopeRowCount, marketContext, researchContext, contextNeeds, contextView, viewContext }) {
+  const snapshotFreshness = freshnessDetails(generatedAt);
+  const marketFreshness = freshnessDetails(marketContext?.fetchedAt);
+  const researchFreshness = freshnessDetails(researchContext?.fetchedAt);
+  const isSimulation = contextView === "simulation";
+  const checkedFields = isSimulation
+    ? ["initialCapital", "finalValue", "roi", "buyHoldValue", "buyHoldRoi", "totalTrades"]
+    : completenessFields;
+  const checkedRows = isSimulation ? [viewContext?.summary || {}] : rows;
+  const totalCells = Math.max(1, checkedRows.length * checkedFields.length);
+  const presentCells = checkedRows.reduce((count, row) => count + checkedFields.filter((field) => hasMeaningfulValue(row[field])).length, 0);
+  const coverageByField = Object.fromEntries(checkedFields.map((field) => [
+    field,
+    checkedRows.length ? Math.round((checkedRows.filter((row) => hasMeaningfulValue(row[field])).length / checkedRows.length) * 100) : 0,
+  ]));
+  const missingFields = checkedFields.filter((field) => coverageByField[field] < 60);
+  const warnings = [];
+  if (snapshotFreshness.status === "stale") warnings.push(`ผล Think2 เก่าประมาณ ${snapshotFreshness.ageDays} วัน ควรรัน Analyze ใหม่ก่อนใช้ตัดสินใจ`);
+  if (snapshotFreshness.status === "unknown") warnings.push("ไม่พบเวลาที่สร้างผล Think2 จึงยืนยันความสดของข้อมูลไม่ได้");
+  if (contextNeeds.market && !marketContext) warnings.push("คำถามนี้ต้องใช้ข้อมูลราคา/แนวโน้ม แต่ยังไม่มี Yahoo market context");
+  if (contextNeeds.research && !researchContext) warnings.push("คำถามนี้ต้องใช้ข้อมูลบริษัท/ข่าว แต่ยังไม่มี research context ที่ยืนยันแหล่งที่มา");
+  if (missingFields.length) warnings.push(`ข้อมูลตัวเลขยังไม่ครบ: ${missingFields.join(", ")}`);
+  return {
+    snapshot: snapshotFreshness,
+    market: marketFreshness,
+    research: researchFreshness,
+    completenessPct: Math.round((presentCells / totalCells) * 100),
+    coverageByField,
+    missingFields,
+    warnings,
+    scopeRowCount,
+    sources: [
+      isSimulation ? "Think2 simulation result" : "Think2 deterministic snapshot",
+      ...(marketContext ? [marketContext.source || "Yahoo Finance chart"] : []),
+      ...(researchContext ? [researchContext.source || "Yahoo Finance research"] : []),
+    ],
+  };
+}
+
+function freshnessDetails(value) {
+  const timestamp = new Date(value || "").getTime();
+  if (!Number.isFinite(timestamp)) return { fetchedAt: "", ageHours: null, ageDays: null, status: "unknown" };
+  const ageHours = Math.max(0, (Date.now() - timestamp) / 3600000);
+  return {
+    fetchedAt: new Date(timestamp).toISOString(),
+    ageHours: Math.round(ageHours * 10) / 10,
+    ageDays: Math.round((ageHours / 24) * 10) / 10,
+    status: ageHours <= FRESH_HOURS ? "fresh" : ageHours <= AGING_HOURS ? "aging" : "stale",
+  };
+}
+
+function countValues(values, limit) {
+  const counts = new Map();
+  values.filter(Boolean).forEach((value) => counts.set(String(value), (counts.get(String(value)) || 0) + 1));
+  return Object.fromEntries([...counts.entries()].sort((left, right) => right[1] - left[1]).slice(0, limit));
+}
+
+function averagePresent(rows, field) {
+  const values = rows.map((row) => Number(row[field])).filter(Number.isFinite);
+  return values.length ? Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 100) / 100 : null;
+}
+
+function sumPresent(rows, field) {
+  const values = rows.map((row) => Number(row[field])).filter(Number.isFinite);
+  return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) * 100) / 100 : null;
+}
+
+function hasMeaningfulValue(value) {
+  return value !== undefined && value !== null && value !== "";
+}
+
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
 export function buildOpenRouterRequest(context) {
@@ -139,28 +323,29 @@ export function buildOpenRouterRequest(context) {
     response_format: {
       type: "json_schema",
       json_schema: {
-        name: "stockflix_ai_explanation",
+        name: "stockflix_ai_decision_companion_v2",
         strict: true,
-        schema: aiResponseSchema(),
+        schema: aiResponseSchema(context),
       },
     },
     messages: [
       {
         role: "system",
         content: [
-          "You are StockFlix AI Explainer for beginner Thai investors.",
-          "Reply in Thai using plain language.",
-          "Use only the supplied JSON facts. Never calculate or replace Think2 scores or actions.",
-          "Never issue a direct buy/sell order, guaranteed return, target price, or suitability claim.",
-          "Always provide decision support: choose the most useful next study or review action, explain why using supplied facts, list checks required before acting, and state confidence as ต่ำ, ปานกลาง, or สูง.",
-          "Start with a short beginner conclusion. Whenever you mention PE, RSI, RRR, Volume Ratio, debt, yield, score, or another metric, include its supplied value, explain the term in plain Thai, and say what the value can and cannot prove.",
+          "You are StockFlix AI Decision Companion for beginner Thai investors.",
+          "Reply in concise, plain Thai. Use only the supplied JSON facts and stay inside scopeSummary.",
+          "Never calculate or replace Think2 scores or actions. Never issue a direct buy/sell order, guaranteed return, target price, or suitability claim.",
+          "Return five useful parts: a short conclusion, one decision stance, evidence-backed reasons, missing data, and exactly one practical next action.",
+          "Every reason must cite one supplied Symbol and field with the exact supplied value. Use an empty Symbol only for supplied portfolioSummary or scopeRowCount evidence.",
+          "If dataQuality reports stale or missing required context, state it, lower confidence, and never claim the data is real-time, current today, or complete.",
+          "Whenever you mention PE, RSI, RRR, Volume Ratio, debt, yield, score, or another metric, explain the term in plain Thai and say what the value can and cannot prove.",
           "Never recommend a stock from Total Score alone. Cross-check valuation, reward versus risk, financial risk, trend/setup, liquidity, data warnings, and portfolio concentration when those facts are supplied.",
           "MACD is not supplied by this application. If asked about MACD, explicitly say it cannot be evaluated from the current data. Never invent missing metrics, company facts, news, forecasts, or price targets.",
           "For PE, never say a stock is cheap, inexpensive, or not expensive from PE alone. A supplied peer or historical comparison is required, and growth plus earnings quality must still be checked. For RSI, explain that it is momentum rather than business quality. For RRR, explain that it is a scenario estimate, not a guaranteed payoff or proof that the stock is suitable. For Volume Ratio, explain that unusual trading activity can be buying or selling pressure.",
           "For stock or compare mode, identify which supplied stock is most worth studying next when evidence permits. For portfolio review, follow reviewQueue in its supplied risk-first order and do not replace it with a highest-score ranking. For simulation, state whether the result merits further study or should be treated cautiously.",
-          "Use decision language such as น่าศึกษาต่อ, ควรตรวจ, or ควรชะลอ. Do not say the user should buy or sell.",
+          "Use only these stance values: ควรตรวจเร่งด่วน, ควรชะลอ, น่าศึกษาต่อ, or ข้อมูลไม่พอ. Do not say the user should buy or sell.",
           "If company business information is absent, explicitly say that a verified company profile is unavailable; never infer it from the ticker. If researchContext is present, translate industry labels by business meaning: Packaged Foods means อาหารสำเร็จรูปหรืออาหารบรรจุห่อ, not ธุรกิจบรรจุภัณฑ์. Use only its company, sector, industry, and news facts and return only supplied source URLs in citations.",
-          "Treat Target_Action as an existing system output and explain it with uncertainty, not as personal financial advice.",
+          "Treat Target_Action as an existing system output and explain it with uncertainty, not as personal financial advice. Do not repeat the same point across multiple sections.",
         ].join(" "),
       },
       {
@@ -209,12 +394,17 @@ export async function generateAiInvestmentExplanation(snapshot, input = {}, opti
     const result = validateAiResponse(parseJsonContent(content), context);
     return {
       result,
+      verification: result.verification,
       context: {
         mode: context.mode,
         generatedAt: context.generatedAt,
         symbol: context.selectedStock?.Symbol || "",
         peerCount: context.peers.length,
         holdingCount: context.holdings.length,
+        scopeSummary: context.scopeSummary,
+        contextSelection: context.contextSelection,
+        contextNeeds: context.contextNeeds,
+        dataQuality: context.dataQuality,
       },
       usage: sanitizeUsage(payload?.usage || {}),
       model: payload?.model || requestBody.model,
@@ -233,25 +423,46 @@ export async function generateAiInvestmentExplanation(snapshot, input = {}, opti
   }
 }
 
-function aiResponseSchema() {
+function aiResponseSchema(context = {}) {
+  const allowedSymbols = ["", ...new Set((context.currentRows || []).map((row) => row.Symbol).filter(Boolean))];
   return {
     type: "object",
     additionalProperties: false,
-    required: ["title", "summary", "beginnerConclusion", "beginnerMetrics", "decisionHeadline", "decisionAction", "decisionReasons", "decisionChecks", "decisionConfidence", "keyPoints", "risks", "nextQuestions", "dataLimitations", "citations", "disclaimer"],
+    required: ["title", "conclusion", "stance", "reasons", "missingData", "nextAction", "confidence", "details", "scopeUsed", "citations", "disclaimer"],
     properties: {
       title: { type: "string" },
-      summary: { type: "string" },
-      beginnerConclusion: { type: "string" },
-      beginnerMetrics: { type: "array", items: { type: "string" }, maxItems: 6 },
-      decisionHeadline: { type: "string" },
-      decisionAction: { type: "string" },
-      decisionReasons: { type: "array", items: { type: "string" }, maxItems: 4 },
-      decisionChecks: { type: "array", items: { type: "string" }, maxItems: 4 },
-      decisionConfidence: { type: "string", enum: ["ต่ำ", "ปานกลาง", "สูง"] },
-      keyPoints: { type: "array", items: { type: "string" }, maxItems: 6 },
-      risks: { type: "array", items: { type: "string" }, maxItems: 6 },
-      nextQuestions: { type: "array", items: { type: "string" }, maxItems: 5 },
-      dataLimitations: { type: "array", items: { type: "string" }, maxItems: 5 },
+      conclusion: { type: "string" },
+      stance: { type: "string", enum: decisionStances },
+      reasons: {
+        type: "array",
+        minItems: 1,
+        maxItems: 4,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["claim", "symbol", "field", "value"],
+          properties: {
+            claim: { type: "string" },
+            symbol: { type: "string", enum: allowedSymbols },
+            field: { type: "string", enum: evidenceFields },
+            value: { type: "string" },
+          },
+        },
+      },
+      missingData: { type: "array", items: { type: "string" }, maxItems: 5 },
+      nextAction: { type: "string" },
+      confidence: { type: "string", enum: ["ต่ำ", "ปานกลาง", "สูง"] },
+      details: {
+        type: "object",
+        additionalProperties: false,
+        required: ["metrics", "risks", "questions"],
+        properties: {
+          metrics: { type: "array", items: { type: "string" }, maxItems: 5 },
+          risks: { type: "array", items: { type: "string" }, maxItems: 5 },
+          questions: { type: "array", items: { type: "string" }, maxItems: 4 },
+        },
+      },
+      scopeUsed: { type: "string" },
       citations: {
         type: "array",
         maxItems: 6,
@@ -482,28 +693,163 @@ function parseJsonContent(content) {
 }
 
 function validateAiResponse(result, context = {}) {
-  if (!result || typeof result !== "object" || !result.title || !result.summary) {
+  if (!result || typeof result !== "object" || !result.title || !result.conclusion) {
     const error = new Error("AI Assistant response was incomplete. Please try again.");
     error.statusCode = 502;
     throw error;
   }
-  return {
+  const normalized = {
     title: String(result.title).slice(0, 180),
-    summary: String(result.summary).slice(0, 1800),
-    beginnerConclusion: String(result.beginnerConclusion || "ยังไม่ควรตัดสินใจจากตัวเลขเดียว ควรอ่านเหตุผลและข้อมูลที่ขาดก่อน").slice(0, 800),
-    beginnerMetrics: cleanStringList(result.beginnerMetrics, 6),
-    decisionHeadline: String(result.decisionHeadline || "ควรตรวจข้อมูลเพิ่มก่อนตัดสินใจ").slice(0, 240),
-    decisionAction: String(result.decisionAction || "ทบทวนข้อมูลและความเสี่ยงที่ระบบแสดงก่อนดำเนินการ").slice(0, 800),
-    decisionReasons: cleanStringList(result.decisionReasons, 4),
-    decisionChecks: cleanStringList(result.decisionChecks, 4),
-    decisionConfidence: ["ต่ำ", "ปานกลาง", "สูง"].includes(result.decisionConfidence) ? result.decisionConfidence : "ต่ำ",
-    keyPoints: cleanStringList(result.keyPoints, 6),
-    risks: cleanStringList(result.risks, 6),
-    nextQuestions: cleanStringList(result.nextQuestions, 5),
-    dataLimitations: cleanStringList(result.dataLimitations, 5),
+    conclusion: String(result.conclusion).slice(0, 900),
+    stance: decisionStances.includes(result.stance) ? result.stance : "ข้อมูลไม่พอ",
+    reasons: normalizeEvidenceReasons(result.reasons),
+    missingData: cleanStringList(result.missingData, 5),
+    nextAction: String(result.nextAction || "ตรวจข้อมูลที่ขาดหนึ่งรายการก่อนตัดสินใจ").slice(0, 600),
+    confidence: ["ต่ำ", "ปานกลาง", "สูง"].includes(result.confidence) ? result.confidence : "ต่ำ",
+    details: {
+      metrics: cleanStringList(result.details?.metrics, 5),
+      risks: cleanStringList(result.details?.risks, 5),
+      questions: cleanStringList(result.details?.questions, 4),
+    },
+    scopeUsed: String(result.scopeUsed || "").slice(0, 500),
     citations: filterVerifiedCitations(result.citations, context.researchContext),
     disclaimer: String(result.disclaimer || "ข้อมูลนี้ใช้เพื่อการศึกษา ไม่ใช่คำแนะนำเฉพาะบุคคล").slice(0, 500),
   };
+  const verification = verifyAiInvestmentResponse(normalized, context);
+  const invalidIndexes = new Set(verification.invalidReasonIndexes);
+  normalized.reasons = normalized.reasons.filter((_reason, index) => !invalidIndexes.has(index));
+  if (!normalized.reasons.length) normalized.reasons = [fallbackEvidenceReason(context)];
+  normalized.missingData = uniqueStrings([
+    ...normalized.missingData,
+    ...(context.dataQuality?.warnings || []),
+    ...verification.issues.map((issue) => `ตัวตรวจคำตอบ: ${issue}`),
+  ], 7);
+  if (!verification.passed) {
+    normalized.confidence = "ต่ำ";
+    normalized.stance = "ข้อมูลไม่พอ";
+  } else if (context.dataQuality?.snapshot?.status === "stale" && normalized.confidence === "สูง") {
+    normalized.confidence = "ปานกลาง";
+  }
+  const reasonTexts = normalized.reasons.map(formatEvidenceReason);
+  return {
+    ...normalized,
+    verification: {
+      passed: verification.passed,
+      issues: verification.issues,
+      checkedEvidenceCount: verification.checkedEvidenceCount,
+    },
+    summary: normalized.conclusion,
+    beginnerConclusion: normalized.conclusion,
+    beginnerMetrics: normalized.details.metrics,
+    decisionHeadline: normalized.stance,
+    decisionAction: normalized.nextAction,
+    decisionReasons: reasonTexts,
+    decisionChecks: normalized.missingData,
+    decisionConfidence: normalized.confidence,
+    keyPoints: reasonTexts,
+    risks: normalized.details.risks,
+    nextQuestions: normalized.details.questions,
+    dataLimitations: normalized.missingData,
+  };
+}
+
+export function verifyAiInvestmentResponse(result, context = {}) {
+  const issues = [];
+  const invalidReasonIndexes = [];
+  const rowsBySymbol = new Map((context.currentRows || []).map((row) => [row.Symbol, row]));
+  const reasons = Array.isArray(result.reasons) ? result.reasons : [];
+  reasons.forEach((reason, index) => {
+    const expected = expectedEvidenceValue(reason, context, rowsBySymbol);
+    if (!expected.found) {
+      invalidReasonIndexes.push(index);
+      issues.push(`หลักฐานข้อ ${index + 1} อ้าง ${reason.symbol || "ภาพรวม"}.${reason.field} ที่ไม่มีใน Scope`);
+      return;
+    }
+    if (!evidenceValueMatches(reason.value, expected.value)) {
+      invalidReasonIndexes.push(index);
+      issues.push(`หลักฐานข้อ ${index + 1} ใช้ค่า ${reason.value || "ว่าง"} แต่ข้อมูลจริงคือ ${expected.value}`);
+    }
+  });
+
+  const unknownSymbols = findUnknownClaimedSymbols(result, rowsBySymbol);
+  if (unknownSymbols.length) issues.push(`พบ Symbol นอก Scope: ${unknownSymbols.join(", ")}`);
+  const responseText = JSON.stringify(result);
+  if (context.dataQuality?.snapshot?.status === "stale" && /(เรียลไทม์|real[- ]?time|ข้อมูลวันนี้|ราคาวันนี้)/iu.test(responseText)) {
+    issues.push("คำตอบอ้างว่าข้อมูลเป็นปัจจุบัน ทั้งที่ผล Think2 เก่า");
+  }
+  if ((context.dataQuality?.warnings || []).some((warning) => /ยังไม่มี/u.test(warning)) && result.confidence === "สูง") {
+    issues.push("คำตอบให้ความมั่นใจสูงทั้งที่บริบทสำคัญยังขาด");
+  }
+  return {
+    passed: issues.length === 0,
+    issues: uniqueStrings(issues, 8),
+    invalidReasonIndexes: [...new Set(invalidReasonIndexes)],
+    checkedEvidenceCount: reasons.length,
+  };
+}
+
+function normalizeEvidenceReasons(values) {
+  return (Array.isArray(values) ? values : []).slice(0, 4).map((reason) => ({
+    claim: String(reason?.claim || "").slice(0, 500),
+    symbol: cleanSymbol(reason?.symbol),
+    field: String(reason?.field || "").slice(0, 80),
+    value: String(reason?.value ?? "").slice(0, 120),
+  })).filter((reason) => reason.claim && reason.field);
+}
+
+function expectedEvidenceValue(reason, context, rowsBySymbol) {
+  if (reason.symbol) {
+    const row = rowsBySymbol.get(reason.symbol);
+    if (!row || !hasMeaningfulValue(row[reason.field])) return { found: false, value: null };
+    return { found: true, value: row[reason.field] };
+  }
+  if (reason.field === "scopeRowCount") return { found: true, value: context.scopeSummary?.rowCount ?? 0 };
+  const summaryFieldMap = {
+    marketValue: "marketValue",
+    gainLossPct: "gainLossPct",
+    avgScore: "avgScore",
+    urgentActions: "urgentActions",
+  };
+  const summaryField = summaryFieldMap[reason.field];
+  if (summaryField && hasMeaningfulValue(context.portfolioSummary?.[summaryField])) {
+    return { found: true, value: context.portfolioSummary[summaryField] };
+  }
+  return { found: false, value: null };
+}
+
+function evidenceValueMatches(actualText, expectedValue) {
+  if (typeof expectedValue === "number") {
+    const match = String(actualText || "").replace(/,/gu, "").match(/-?\d+(?:\.\d+)?/u);
+    if (!match) return false;
+    const actual = Number(match[0]);
+    return Number.isFinite(actual) && Math.abs(actual - expectedValue) <= Math.max(0.02, Math.abs(expectedValue) * 0.0005);
+  }
+  return String(actualText || "").toLowerCase().includes(String(expectedValue || "").toLowerCase());
+}
+
+function findUnknownClaimedSymbols(result, rowsBySymbol) {
+  const allowed = new Set(rowsBySymbol.keys());
+  const ignored = new Set(["AI", "PE", "ROE", "DE", "RSI", "RRR", "MACD", "THB", "SET", "ETF", "ESG", "IPO", "RED", "ORANGE", "YELLOW", "THINK2", "YAHOO"]);
+  const text = [result.title, result.conclusion, result.nextAction, ...(result.reasons || []).map((reason) => reason.claim)].join(" ");
+  const candidates = text.match(/\b[A-Z][A-Z0-9]{1,9}\b/gu) || [];
+  return [...new Set(candidates.filter((token) => !allowed.has(token) && !ignored.has(token) && !/^\d/u.test(token)))];
+}
+
+function fallbackEvidenceReason(context) {
+  const row = context.currentRows?.[0];
+  if (row && hasMeaningfulValue(row.Total_Score)) {
+    return { claim: "ใช้คะแนน Think2 เป็นจุดเริ่มต้นและต้องตรวจปัจจัยอื่นร่วมด้วย", symbol: row.Symbol, field: "Total_Score", value: String(row.Total_Score) };
+  }
+  return { claim: "ระบบตรวจได้เฉพาะจำนวนรายการใน Scope นี้", symbol: "", field: "scopeRowCount", value: String(context.scopeSummary?.rowCount ?? 0) };
+}
+
+function formatEvidenceReason(reason) {
+  const source = reason.symbol ? `${reason.symbol} ${reason.field}` : reason.field;
+  return `${reason.claim} (${source} = ${reason.value})`;
+}
+
+function uniqueStrings(values, limit) {
+  return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))].slice(0, limit);
 }
 
 export function filterVerifiedCitations(citations, researchContext) {

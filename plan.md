@@ -44,6 +44,58 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T218 - AI Decision Companion v2
+
+- สถานะ: Ready to Deploy
+- เริ่มเมื่อ: `2026-11-23 19:33:06 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ที่มา:
+  - การประเมินล่าสุดพบว่า AI อธิบายข้อมูลได้ แต่ยังทำหน้าที่เป็นผู้ช่วยตัดสินใจได้ไม่สม่ำเสมอ
+  - บริบทเดิมตัดข้อมูลเหลือสูงสุด 25 แถวโดยไม่บอกผู้ใช้ และยังไม่มีตัวตรวจว่าหุ้น/ตัวเลขในคำตอบตรงกับ Scope หรือไม่
+  - ผู้ใช้มือใหม่ต้องเห็นข้อสรุป เหตุผล ข้อมูลที่ขาด และสิ่งที่ควรทำต่อแบบสั้นและตรวจสอบย้อนกลับได้
+- ขอบเขตและกฎ:
+  - ห้ามเปลี่ยนคะแนน Think2, Target Action, recommendation calculation หรือข้อมูลพอร์ตต้นฉบับ
+  - AI ต้องอ่านเฉพาะหุ้นและตัวกรองของหน้าที่เปิดอยู่ พร้อมเปิดเผยจำนวนข้อมูลที่ใช้และข้อมูลที่ไม่ได้ส่งให้โมเดล
+  - ถ้าข้อมูลเก่า ขาด หรือคำตอบตรวจสอบไม่ผ่าน ต้องลดความมั่นใจและแจ้งผู้ใช้ ห้ามเดา
+- งานที่ต้องทำ:
+  - [x] บันทึก contract ของ AI v2 และ baseline regression เดิม
+    - Done: `2026-11-23 19:33:59 +07:00`
+    - Result: กำหนดเกณฑ์ Scope, freshness, evidence, verifier และ UX ใน T218; baseline `test:ai-investment` และ Node syntax ของ service/frontend ผ่านก่อนเริ่มแก้โค้ด
+  - [x] เพิ่มการเลือกบริบทตามคำถาม พร้อมสรุป Scope ทั้งชุดโดยไม่ตัดข้อมูลแบบเงียบ ๆ
+    - Done: `2026-11-23 19:41:27 +07:00`
+    - Result: เก็บ Scope ได้สูงสุด 200 แถว, สรุป symbol/sector/action ทั้งชุด และเปิดเผยจำนวนที่ส่งให้โมเดลกับจำนวนที่ตัดออก; หุ้นที่ถูกถามและรายการเสี่ยงมาก่อน
+  - [x] เพิ่มข้อมูลอายุ ความครบถ้วน แหล่งข้อมูล และคำเตือนคุณภาพข้อมูล
+    - Done: `2026-11-23 19:41:27 +07:00`
+    - Result: เพิ่ม `dataQuality` สำหรับ snapshot/market/research freshness, field coverage, missing fields, sources และคำเตือน required context
+  - [x] ปรับคำตอบเป็น 5 ส่วน: ข้อสรุป, มุมช่วยตัดสินใจ, เหตุผลจากตัวเลข, ข้อมูลที่ขาด, สิ่งที่ควรทำต่อหนึ่งข้อ
+    - Done: `2026-11-23 19:41:27 +07:00`
+    - Result: OpenRouter schema v2 บังคับ stance, evidence ที่อ้าง Symbol/field/value จริง, missing data และ next action เพียงหนึ่งข้อ พร้อมแปลงกลับ legacy fields เพื่อไม่ทำให้ UI เดิมพัง
+  - [x] เพิ่ม deterministic verifier ตรวจหุ้น ตัวเลข Scope และคำกล่าวอ้างเรื่องความสดของข้อมูลก่อนแสดงผล
+    - Done: `2026-11-23 19:41:27 +07:00`
+    - Result: ตรวจ field/value, Symbol นอก Scope, real-time claim บน snapshot เก่า และ confidence สูงเมื่อบริบทขาด; ตัดหลักฐานผิดและลด stance/confidence เป็นแบบระมัดระวังโดยไม่เรียก AI ซ้ำ
+  - [x] ให้หน้าเว็บโหลดข้อมูลบริษัท/ราคาอัตโนมัติเมื่อคำถามจำเป็น และแสดง Scope/คุณภาพ/ผลตรวจคำตอบให้เข้าใจง่าย
+    - Done: `2026-11-23 19:50:07 +07:00`
+    - Result: คำถามที่มี Symbol ใน Scope เปลี่ยนเป็น stock mode อัตโนมัติ; โหลด Yahoo market/research ตาม intent และแสดง Scope, อายุข้อมูล, completeness, verifier พร้อมคำตอบ 5 ขั้น
+  - [x] เพิ่ม qualitative regression cases สำหรับหุ้นรายตัว พอร์ต Screener Sector ข้อมูลเก่า และคำตอบหลุด Scope
+    - Done: `2026-11-23 19:50:07 +07:00`
+    - Result: ครอบคลุม Scope 30 หุ้น, risk-first selection, stock isolation, filtered Screener/Sector, context needs, stale claim, Symbol นอก Scope, ตัวเลขผิด และ guardrail ลด confidence
+  - [x] รันทดสอบที่เกี่ยวข้อง อัปเดต Version และบันทึกผลใน `plan.md`
+    - Done: `2026-11-23 19:50:07 +07:00`
+    - Result: `npm run test-regression` ผ่านทั้งชุด; Python parity numeric/text/sector mismatch = 0 และ `git diff --check` ผ่าน
+    - Test maintenance: ปรับ Reference Master admin fixture ให้ใช้เวลาปัจจุบัน เพื่อไม่ให้ regression ล้มเพราะ fixture เก่ากว่า freshness window 30 วัน
+    - Release candidate: `Think2 AI Decision Companion v1.0.0` / build `20261123-1945`
+- เกณฑ์ผ่าน:
+  - คำถามหุ้นรายตัวต้องไม่สรุปภาพรวมพอร์ตหรือกล่าวถึงหุ้นอื่น
+  - คำถามจาก Screener/Sector ต้องใช้เฉพาะผลที่กรองอยู่และบอกจำนวน Scope ที่อ่าน
+  - ตัวเลขในหลักฐานต้องตรงกับ Think2 context; ถ้าไม่ตรงต้องถูก verifier จับได้
+  - ข้อมูลเก่าหรือข้อมูลบริษัท/ราคาไม่ครบต้องปรากฏเป็นคำเตือนและทำให้ confidence ไม่เป็น `สูง`
+  - Regression เดิมและ regression ใหม่ต้องผ่าน โดยไม่มีข้อมูลส่วนตัวหรือ URL ที่ AI สร้างเองหลุดออกมา
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอและห้ามลบไฟล์นี้
+  - ทำ T218 บน branch `codex/beginner-ai-companion-ui`
+  - เริ่มจาก task ที่ยังไม่ทำข้อแรก แล้วอัปเดตวันเวลาเมื่อแต่ละ task เสร็จ
+  - ห้ามเปลี่ยน Think2 scoring/action logic; แก้เฉพาะ AI context, response, verifier, UX และ tests
+
 ### T217 - Beginner Decision Flow
 
 - สถานะ: Implementation Done - รอ owner visual acceptance บน Portfolio ที่โหลดข้อมูลครบ

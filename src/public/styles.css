@@ -1095,6 +1095,24 @@ td select {
   line-height: 1.55;
 }
 
+.ai-context-quality {
+  background: rgba(255, 255, 255, 0.035);
+  border-bottom: 1px solid var(--line);
+  border-top: 3px solid var(--green-soft);
+  display: grid;
+  gap: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 12px -14px 0;
+  padding: 0 14px;
+}
+
+.ai-context-quality.has-warning { border-top-color: #ffbf47; }
+.ai-context-quality > div { display: grid; gap: 4px; padding: 12px; }
+.ai-context-quality > div + div { border-left: 1px solid var(--line); }
+.ai-context-quality span { color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.ai-context-quality strong { color: var(--text); font-size: 15px; }
+.ai-context-quality small { color: var(--muted); line-height: 1.4; }
+
 .ai-result-grid {
   display: grid;
   gap: 14px;
@@ -1147,6 +1165,15 @@ td select {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .ai-decision-grid ul { margin: 7px 0 0; padding-left: 20px; }
+.ai-next-action {
+  border-top: 1px solid rgba(82, 194, 133, 0.3);
+  display: grid;
+  gap: 6px;
+  padding-top: 12px;
+}
+.ai-next-action p { color: var(--text); font-size: 16px; line-height: 1.55; margin: 0; }
+.ai-result-details { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 12px; }
+.ai-result-details summary { color: var(--text); cursor: pointer; font-weight: 800; line-height: 1.45; }
 .ai-confidence {
   background: #153c2a;
   border: 1px solid #287a45;
@@ -1165,6 +1192,9 @@ html[data-theme="light"] .ai-decision-card li { color: #53665c; }
 html[data-theme="light"] .ai-beginner-readout { background: #eef9f3; border-color: #a9d8be; }
 html[data-theme="light"] .ai-beginner-readout > strong { color: #193327; }
 html[data-theme="light"] .ai-beginner-readout li { color: #3f574a; }
+html[data-theme="light"] .ai-context-quality { background: #f5faf7; }
+html[data-theme="light"] .ai-next-action p,
+html[data-theme="light"] .ai-result-details summary { color: #193327; }
 
 .ai-result-grid ul {
   margin: 7px 0 0;
@@ -3163,9 +3193,12 @@ html[data-theme="light"] a {
 
   .ai-controls,
   .ai-result-grid,
-  .ai-decision-grid {
+  .ai-decision-grid,
+  .ai-context-quality {
     grid-template-columns: 1fr;
   }
+
+  .ai-context-quality > div + div { border-left: 0; border-top: 1px solid var(--line); }
 
   .ai-decision-heading {
     align-items: flex-start;

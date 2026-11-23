@@ -33,9 +33,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261105-1457";
-const programVersion = "Think2 Beginner Decision Flow v0.9.0";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261105-1457";
+const frontendBuildVersion = "20261123-1945";
+const programVersion = "Think2 AI Decision Companion v1.0.0";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261123-1945";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -95,6 +95,7 @@ const state = {
     symbol: "",
     loading: false,
     result: null,
+    context: null,
     error: "",
     quota: null,
     focus: "",
@@ -535,10 +536,11 @@ document.addEventListener("click", (event) => {
     const questionInput = document.querySelector("[data-ai-custom-question]");
     const question = String(questionInput?.value || "").trim();
     if (!question || aiCustomSubmit.disabled) return;
+    const questionSymbol = aiQuestionSymbol(question);
     state.aiAssistant.focus = "";
     state.aiAssistant.question = question.slice(0, 600);
-    state.aiAssistant.mode = state.activeView === "sector" ? "compare" : "portfolio";
-    state.aiAssistant.symbol = bestContextSymbol();
+    state.aiAssistant.mode = questionSymbol ? "stock" : state.activeView === "sector" ? "compare" : "portfolio";
+    state.aiAssistant.symbol = questionSymbol || bestContextSymbol();
     runAiInvestmentExplanation({ drawer: true });
     return;
   }
@@ -2099,35 +2101,50 @@ function renderAiAssistantResult(result) {
   return `
     <article class="ai-result" aria-live="polite">
       <h4>${escapeHtml(result.title || "ผลคำอธิบาย")}</h4>
-      <p>${escapeHtml(result.summary || "")}</p>
+      ${renderAiContextQuality(state.aiAssistant.context, result.verification)}
       <section class="ai-beginner-readout" data-ai-beginner-readout>
-        <span>อ่านแบบมือใหม่</span>
+        <span>1. ข้อสรุปแบบเข้าใจง่าย</span>
         <strong>${escapeHtml(result.beginnerConclusion || "ยังไม่ควรตัดสินใจจากตัวเลขเดียว")}</strong>
-        ${list("ตัวเลขที่ AI ใช้และความหมาย", result.beginnerMetrics)}
       </section>
       <section class="ai-decision-card" data-ai-decision-support>
         <div class="ai-decision-heading">
           <div>
-            <span>มุมมองช่วยตัดสินใจ</span>
+            <span>2. มุมมองช่วยตัดสินใจ</span>
             <strong>${escapeHtml(result.decisionHeadline || "ควรตรวจข้อมูลเพิ่มก่อนตัดสินใจ")}</strong>
           </div>
           <span class="ai-confidence">ความมั่นใจ: ${escapeHtml(result.decisionConfidence || "ต่ำ")}</span>
         </div>
-        <p>${escapeHtml(result.decisionAction || "ทบทวนข้อมูลและความเสี่ยงที่ระบบแสดงก่อนดำเนินการ")}</p>
-        <div class="ai-decision-grid">
-          ${list("เหตุผลประกอบ", result.decisionReasons)}
-          ${list("ต้องตรวจยืนยันก่อนทำจริง", result.decisionChecks)}
-        </div>
+        ${list("3. เหตุผลจากตัวเลขที่ตรวจสอบได้", result.decisionReasons)}
+        ${list("4. ข้อมูลที่ยังขาดหรือต้องระวัง", result.decisionChecks)}
+        <div class="ai-next-action"><strong>5. ทำอะไรต่อหนึ่งอย่าง</strong><p>${escapeHtml(result.decisionAction || "ทบทวนข้อมูลและความเสี่ยงที่ระบบแสดงก่อนดำเนินการ")}</p></div>
       </section>
-      <div class="ai-result-grid">
-        ${list("ประเด็นสำคัญ", result.keyPoints)}
-        ${list("ความเสี่ยงที่ควรอ่านต่อ", result.risks)}
-        ${list("คำถามที่ควรศึกษาต่อ", result.nextQuestions)}
-        ${list("ข้อจำกัดของข้อมูล", result.dataLimitations)}
-      </div>
+      <details class="ai-result-details">
+        <summary>ดูคำอธิบายตัวเลขและคำถามสำหรับศึกษาต่อ</summary>
+        <div class="ai-result-grid">
+          ${list("ตัวเลขนี้หมายความว่าอย่างไร", result.beginnerMetrics)}
+          ${list("ความเสี่ยงที่ควรอ่านต่อ", result.risks)}
+          ${list("คำถามที่ควรศึกษาต่อ", result.nextQuestions)}
+        </div>
+      </details>
       ${citations}
       <p class="ai-disclaimer">${escapeHtml(result.disclaimer || "ข้อมูลนี้ใช้เพื่อการศึกษา ไม่ใช่คำแนะนำเฉพาะบุคคล")}</p>
     </article>
+  `;
+}
+
+function renderAiContextQuality(context = {}, verification = {}) {
+  if (!context?.dataQuality) return "";
+  const quality = context.dataQuality;
+  const selection = context.contextSelection || {};
+  const freshnessLabels = { fresh: "ใหม่ไม่เกิน 24 ชม.", aging: "เริ่มเก่า", stale: "ข้อมูลเก่า", unknown: "ไม่ทราบเวลา" };
+  const verificationPassed = verification?.passed !== false;
+  return `
+    <section class="ai-context-quality ${verificationPassed ? "is-verified" : "has-warning"}" data-ai-context-quality>
+      <div><span>Scope ที่อ่าน</span><strong>${formatNumber(selection.scopeRowCount || 0)} หุ้น</strong><small>ส่งรายละเอียด ${formatNumber(selection.includedRowCount || 0)} หุ้น${selection.omittedRowCount ? ` · สรุปอีก ${formatNumber(selection.omittedRowCount)} หุ้นไว้ในภาพรวม` : ""}</small></div>
+      <div><span>อายุผล Think2</span><strong>${escapeHtml(freshnessLabels[quality.snapshot?.status] || "ไม่ทราบเวลา")}</strong><small>${quality.snapshot?.ageDays != null ? `${formatNumber(quality.snapshot.ageDays)} วัน` : "ควรรัน Analyze ใหม่"}</small></div>
+      <div><span>ความครบของตัวเลข</span><strong>${formatNumber(quality.completenessPct || 0)}%</strong><small>${quality.missingFields?.length ? `ขาด ${escapeHtml(quality.missingFields.slice(0, 3).join(", "))}` : "ข้อมูลหลักครบ"}</small></div>
+      <div><span>ตรวจคำตอบ</span><strong>${verificationPassed ? "ผ่าน" : "พบข้อควรระวัง"}</strong><small>${verificationPassed ? "Symbol และตัวเลขตรงกับ Scope" : "ระบบลดความมั่นใจแล้ว"}</small></div>
+    </section>
   `;
 }
 
@@ -2156,6 +2173,7 @@ async function runAiInvestmentExplanation(options = {}) {
   else renderPortfolioView();
 
   try {
+    await ensureAiSupportingContext();
     const response = await fetch("/api/ai/explain", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2175,6 +2193,7 @@ async function runAiInvestmentExplanation(options = {}) {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.message || "AI Assistant could not finish.");
     state.aiAssistant.result = payload.result;
+    state.aiAssistant.context = payload.context || null;
     state.aiAssistant.quota = payload.quota;
   } catch (error) {
     state.aiAssistant.error = error.message || "AI Assistant could not finish.";
@@ -2320,6 +2339,41 @@ async function runAiPreparedPrompt(button) {
     await loadAiCompanyResearch(state.aiAssistant.symbol);
   }
   await runAiInvestmentExplanation({ drawer: true });
+}
+
+async function ensureAiSupportingContext() {
+  const symbol = state.aiAssistant.symbol || bestContextSymbol();
+  if (!symbol || state.activeView === "simulation") return;
+  const needs = clientAiContextNeeds();
+  if (needs.market && state.aiAssistant.marketChart?.symbol !== symbol) {
+    await loadAiMarketHistory(symbol);
+  }
+  if (needs.research && state.aiAssistant.companyResearch?.symbol !== symbol) {
+    await loadAiCompanyResearch(symbol);
+  }
+}
+
+function clientAiContextNeeds() {
+  const text = [state.aiAssistant.question, state.aiAssistant.focus, state.aiAssistant.mode, state.activeView].filter(Boolean).join(" ").toLowerCase();
+  return {
+    market: ["stock", "compare"].includes(state.aiAssistant.mode)
+      || /(ราคา|กราฟ|52\s*สัปดาห์|แนวโน้ม|volume|rsi|macd|rrr|ตอนนี้|น่าลงทุน|price|chart|week|trend)/iu.test(text),
+    research: state.aiAssistant.focus === "beginner_stock_basics"
+      || /(ทำธุรกิจ|บริษัท|อุตสาหกรรม|คู่แข่ง|ข่าว|งบ|รายได้|กำไร|business|company|industry|competitor|news|earnings)/iu.test(text),
+  };
+}
+
+function aiQuestionSymbol(question) {
+  const normalized = String(question || "").toUpperCase();
+  return activeAiContextRows()
+    .map((row) => String(row.Symbol || "").trim().toUpperCase())
+    .filter(Boolean)
+    .sort((left, right) => right.length - left.length)
+    .find((symbol) => new RegExp(`(^|[^A-Z0-9])${escapeRegExpForSearch(symbol)}([^A-Z0-9]|$)`, "u").test(normalized)) || "";
+}
+
+function escapeRegExpForSearch(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
 function bestContextSymbol() {

@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
-import { buildAiInvestmentContext, buildOpenRouterRequest, filterVerifiedCitations, generateAiInvestmentExplanation } from "../src/services/aiInvestmentService.js";
+import {
+  buildAiInvestmentContext,
+  buildOpenRouterRequest,
+  filterVerifiedCitations,
+  generateAiInvestmentExplanation,
+  inferAiContextNeeds,
+  verifyAiInvestmentResponse,
+} from "../src/services/aiInvestmentService.js";
 
 const snapshot = {
   generatedAt: "2026-11-03T02:00:00.000Z",
@@ -42,13 +49,21 @@ const response = await generateAiInvestmentExplanation(snapshot, { mode: "stock"
         provider: "test-provider",
         usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150, cost: 0.001 },
         choices: [{ message: { content: JSON.stringify({
-          title: "คำอธิบาย AAA", summary: "สรุปจากข้อมูล Think2", keyPoints: ["คะแนน 72"],
-          beginnerConclusion: "AAA น่าศึกษาต่อ แต่ยังไม่ควรตัดสินใจจากคะแนนอย่างเดียว",
-          beginnerMetrics: ["RRR 1.8: ผลตอบแทนคาดหวังเริ่มคุ้มความเสี่ยง แต่ไม่ใช่การรับประกัน"],
-          decisionHeadline: "AAA น่าศึกษาต่อก่อน", decisionAction: "ตรวจงบและ RRR ของ AAA เพิ่มก่อนตัดสินใจ",
-          decisionReasons: ["คะแนนรวมสูงกว่าเพื่อน"], decisionChecks: ["ตรวจงบล่าสุด"], decisionConfidence: "ปานกลาง",
-          risks: ["ควรตรวจข้อมูลเพิ่ม"], nextQuestions: ["งบล่าสุดเป็นอย่างไร"],
-          dataLimitations: ["ไม่มีข้อมูลประเภทธุรกิจที่ยืนยันแล้ว"], citations: [{ label: "ข้อมูลหุ้น AAA", url: "https://example.com/aaa-stock" }], disclaimer: "ใช้เพื่อการศึกษา",
+          title: "คำอธิบาย AAA",
+          conclusion: "AAA น่าศึกษาต่อ แต่ยังไม่ควรตัดสินใจจากคะแนนอย่างเดียว",
+          stance: "น่าศึกษาต่อ",
+          reasons: [{ claim: "คะแนน Think2 อยู่ในระดับที่ควรอ่านต่อ", symbol: "AAA", field: "Total_Score", value: "72" }],
+          missingData: ["ไม่มีข้อมูลประเภทธุรกิจที่ยืนยันแล้ว"],
+          nextAction: "ตรวจงบและ RRR ของ AAA เพิ่มก่อนตัดสินใจ",
+          confidence: "ปานกลาง",
+          details: {
+            metrics: ["RRR 1.8: เป็นสัดส่วนผลตอบแทนต่อความเสี่ยงโดยประมาณ ไม่ใช่การรับประกัน"],
+            risks: ["ควรตรวจข้อมูลเพิ่ม"],
+            questions: ["งบล่าสุดเป็นอย่างไร"],
+          },
+          scopeUsed: "AAA เพียงหุ้นเดียว",
+          citations: [{ label: "ข้อมูลหุ้น AAA", url: "https://example.com/aaa-stock" }],
+          disclaimer: "ใช้เพื่อการศึกษา",
         }) } }],
       }),
     };
@@ -56,20 +71,21 @@ const response = await generateAiInvestmentExplanation(snapshot, { mode: "stock"
 });
 
 assert.equal(response.result.title, "คำอธิบาย AAA");
-assert.equal(response.result.decisionHeadline, "AAA น่าศึกษาต่อก่อน");
+assert.equal(response.result.decisionHeadline, "น่าศึกษาต่อ");
 assert.match(response.result.beginnerConclusion, /ยังไม่ควรตัดสินใจ/u);
 assert.equal(response.result.beginnerMetrics.length, 1);
 assert.equal(response.result.decisionConfidence, "ปานกลาง");
+assert.equal(response.result.verification.passed, true);
 assert.deepEqual(response.result.citations, []);
 assert.equal(response.usage.totalTokens, 150);
 assert.equal(sentRequest.provider.zdr, true);
-assert.match(sentRequest.messages[0].content, /Always provide decision support/u);
+assert.match(sentRequest.messages[0].content, /five useful parts/u);
 assert.match(sentRequest.messages[0].content, /MACD is not supplied/u);
 assert.match(sentRequest.messages[0].content, /Never recommend a stock from Total Score alone/u);
 assert.match(sentRequest.messages[0].content, /never say a stock is cheap, inexpensive, or not expensive from PE alone/iu);
 assert.match(sentRequest.messages[0].content, /Packaged Foods means อาหารสำเร็จรูปหรืออาหารบรรจุห่อ/u);
-assert(sentRequest.response_format.json_schema.schema.required.includes("decisionAction"));
-assert(sentRequest.response_format.json_schema.schema.required.includes("beginnerMetrics"));
+assert(sentRequest.response_format.json_schema.schema.required.includes("nextAction"));
+assert(sentRequest.response_format.json_schema.schema.required.includes("reasons"));
 
 const staleSnapshotContext = buildAiInvestmentContext({
   generatedAt: snapshot.generatedAt,
@@ -292,4 +308,86 @@ assert.deepEqual(verifiedCitations.map((item) => item.url), [
   "https://example-news.com/or",
 ]);
 assert.deepEqual(filterVerifiedCitations([{ label: "ปลอม", url: "https://example.com/or-stock" }], null), []);
+
+const oversizedRows = Array.from({ length: 30 }, (_value, index) => ({
+  Symbol: `S${String(index + 1).padStart(2, "0")}`,
+  Sector: index % 2 ? "Energy" : "Commerce",
+  Total_Score: 50 + index,
+  RRR: 0.5 + index / 10,
+  Market_Value: 1000 + index,
+  Conflict_Severity: index === 29 ? "RED" : "YELLOW",
+}));
+const oversizedContext = buildAiInvestmentContext({ generatedAt: "2026-11-10T00:00:00.000Z" }, {
+  mode: "portfolio",
+  focus: "portfolio_review",
+  contextView: "portfolio",
+  currentRows: oversizedRows,
+  filterSummary: "30 filtered stocks",
+});
+assert.equal(oversizedContext.scopeSummary.rowCount, 30);
+assert.equal(oversizedContext.contextSelection.includedRowCount, 25);
+assert.equal(oversizedContext.contextSelection.omittedRowCount, 5);
+assert.equal(oversizedContext.contextSelection.includedSymbols.includes("S30"), true);
+assert.equal(oversizedContext.scopeSummary.symbols.includes("S01"), true);
+assert.equal(oversizedContext.dataQuality.snapshot.status, "stale");
+
+assert.deepEqual(inferAiContextNeeds({ mode: "stock", question: "PTT ทำธุรกิจอะไรและราคา 52 สัปดาห์อยู่ตรงไหน" }), {
+  market: true,
+  research: true,
+  reasons: ["คำถามต้องใช้บริบทราคา/แนวโน้ม", "คำถามต้องใช้ข้อมูลบริษัทหรือข่าวที่ยืนยันแหล่งที่มา"],
+});
+
+const verificationContext = buildAiInvestmentContext(snapshot, {
+  mode: "stock",
+  symbol: "AAA",
+  contextView: "portfolio",
+  currentRows: [{ Symbol: "AAA", Total_Score: 72, RRR: 1.8 }],
+});
+const validVerification = verifyAiInvestmentResponse({
+  title: "AAA",
+  conclusion: "AAA มีคะแนนที่ควรศึกษาเพิ่ม",
+  nextAction: "ตรวจงบ AAA",
+  confidence: "ปานกลาง",
+  reasons: [{ claim: "คะแนนรวม", symbol: "AAA", field: "Total_Score", value: "72" }],
+}, verificationContext);
+assert.equal(validVerification.passed, true);
+
+const invalidVerification = verifyAiInvestmentResponse({
+  title: "AAA เทียบ OUTSIDE",
+  conclusion: "ข้อมูลวันนี้เป็นเรียลไทม์",
+  nextAction: "ซื้อ OUTSIDE",
+  confidence: "สูง",
+  reasons: [{ claim: "คะแนนรวม", symbol: "AAA", field: "Total_Score", value: "99" }],
+}, verificationContext);
+assert.equal(invalidVerification.passed, false);
+assert.match(invalidVerification.issues.join(" "), /ข้อมูลจริงคือ 72/u);
+assert.match(invalidVerification.issues.join(" "), /OUTSIDE/u);
+assert.match(invalidVerification.issues.join(" "), /ผล Think2 เก่า/u);
+
+const guardedResponse = await generateAiInvestmentExplanation(snapshot, { mode: "stock", symbol: "AAA" }, {
+  apiKey: "test-key",
+  fetchImpl: async () => ({
+    ok: true,
+    status: 200,
+    text: async () => JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({
+        title: "AAA",
+        conclusion: "AAA มีข้อมูลวันนี้แบบเรียลไทม์",
+        stance: "น่าศึกษาต่อ",
+        reasons: [{ claim: "คะแนนรวมสูง", symbol: "AAA", field: "Total_Score", value: "99" }],
+        missingData: [],
+        nextAction: "ตรวจงบ AAA",
+        confidence: "สูง",
+        details: { metrics: [], risks: [], questions: [] },
+        scopeUsed: "AAA",
+        citations: [],
+        disclaimer: "ใช้เพื่อการศึกษา",
+      }) } }],
+    }),
+  }),
+});
+assert.equal(guardedResponse.result.verification.passed, false);
+assert.equal(guardedResponse.result.decisionConfidence, "ต่ำ");
+assert.equal(guardedResponse.result.decisionHeadline, "ข้อมูลไม่พอ");
+assert.match(guardedResponse.result.dataLimitations.join(" "), /ตัวตรวจคำตอบ/u);
 console.log("AI investment service regression passed.");

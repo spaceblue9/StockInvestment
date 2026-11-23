@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from "url";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "stockflix-reference-master-admin-"));
+const fixtureGeneratedAt = new Date().toISOString();
 
 process.chdir(tempRoot);
 
@@ -18,7 +19,7 @@ const master = createReferenceMasterFromRows([
   { Symbol: "AAA", Sector: "Commerce", PE: 12, ROE: 18, Yield: 3, DE: 0.5 },
   { Symbol: "BBB", Sector: "Unknown", PE: 0, ROE: 0, Yield: 0, DE: 0 },
 ], {
-  generatedAt: "2026-06-11T06:06:53.000Z",
+  generatedAt: fixtureGeneratedAt,
   sourceFile: "recommended_stocks.csv",
   sourceType: "regression_fixture",
 });
