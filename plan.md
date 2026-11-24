@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T220 - Thai Value Investing Stock Analysis
 
-- สถานะ: In Progress
+- สถานะ: Production Deployed - รอ owner visual acceptance
 - เริ่มเมื่อ: `2026-11-24 07:15:39 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - เป้าหมาย:
@@ -86,7 +86,12 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
     - Version: `Think2 Thai VI Analyst v1.1.0` · Build `20261124-0731`
     - Verification: `npm run test-regression` ผ่านครบ รวม AI/VI, market history, auth, tenant isolation, database, frontend viewport, analysis flow, web smoke และ Python comparison; formula/sector/portfolio mismatch = 0
     - Quality: `git diff --check` ผ่าน มีเพียงคำเตือน line ending LF/CRLF ของ Windows
-  - [ ] Commit, push, deploy Production และตรวจ Browser
+  - [x] Commit, push, deploy Production และตรวจ Production
+    - Done: `2026-11-24 07:38:27 +07:00`
+    - Git: commit `a827ce3` (`Add source-backed Thai VI stock analysis`) pushed to `origin/codex/beginner-ai-companion-ui`
+    - Deploy: Vercel deployment `dpl_8ze6YH3mUxrMJTgmX3ADod68GYFS` READY และ alias `https://thai-stock-investment-web.vercel.app`
+    - Production verification: `/api/health` ตอบ `ok: true`; HTML/app.js มี build `20261124-0731`, Version `Think2 Thai VI Analyst v1.1.0`, marker `data-ai-vi-result`; anonymous VI endpoint ตอบ 401 ตาม auth guard
+    - Visual limitation: พยายามตรวจด้วย Computer Use แล้ว แต่เครื่องมือหยุดเพราะยังไม่รองรับ URL-policy enforcement ของ Firefox บน Windows จึงต้องรอ owner ยืนยันภาพและผล AI หลัง login
 - เกณฑ์ผ่าน:
   - คำตอบ VI ต้องกล่าวถึงหุ้นที่เลือกเพียงตัวเดียว และไม่ใช้หุ้นอื่นหรือภาพรวมพอร์ตแทน
   - ตารางต้องครอบคลุม Revenue, Net Income, ROE, D/E, FCF, P/E, P/BV และ Dividend Yield โดยค่าที่ไม่มีต้องระบุชัด
