@@ -1201,6 +1201,184 @@ html[data-theme="light"] .ai-result-details summary { color: #193327; }
   padding-left: 20px;
 }
 
+.ai-vi-result {
+  display: grid;
+  gap: 16px;
+}
+
+.ai-vi-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.ai-vi-header > div {
+  display: grid;
+  gap: 5px;
+}
+
+.ai-vi-header > div > span,
+.ai-vi-verdict > div > span {
+  color: var(--pink-soft);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.ai-vi-header h4,
+.ai-vi-section h5 {
+  color: var(--text);
+  margin: 0;
+}
+
+.ai-vi-section {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+}
+
+.ai-vi-section > p,
+.ai-vi-section li {
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.ai-vi-section ul,
+.ai-vi-verdict ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.ai-vi-table-wrap {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.ai-vi-table {
+  border-collapse: collapse;
+  min-width: 860px;
+  width: 100%;
+}
+
+.ai-vi-table th,
+.ai-vi-table td {
+  padding: 11px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.ai-vi-table tbody th {
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text);
+  min-width: 130px;
+}
+
+.ai-vi-table td small {
+  color: var(--muted);
+  display: block;
+  line-height: 1.45;
+  margin-top: 5px;
+}
+
+.ai-vi-table a,
+.ai-vi-section a {
+  color: var(--green-soft);
+  font-weight: 800;
+}
+
+.vi-assessment {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+
+.vi-good { background: rgba(52, 211, 153, 0.12); color: #6ee7a9; }
+.vi-medium { background: rgba(250, 204, 21, 0.12); color: #f5d45a; }
+.vi-risk { background: rgba(251, 113, 133, 0.12); color: #ff9aab; }
+.vi-missing { background: rgba(156, 163, 175, 0.12); color: #c9cdd3; }
+
+.ai-vi-two-column {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ai-vi-valuation {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.ai-vi-valuation.is-available { border-left: 4px solid var(--green-soft); }
+.ai-vi-valuation.is-missing { border-left: 4px solid #ffbf47; }
+
+.ai-vi-value-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ai-vi-value-grid > span {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+}
+
+.ai-vi-value-grid small { color: var(--muted); line-height: 1.35; }
+.ai-vi-value-grid strong { color: var(--text); line-height: 1.35; }
+
+.ai-vi-verdict {
+  background: rgba(82, 194, 133, 0.1);
+  border: 1px solid rgba(82, 194, 133, 0.38);
+  border-left: 4px solid var(--green-soft);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.ai-vi-verdict > div {
+  display: grid;
+  gap: 6px;
+}
+
+.ai-vi-verdict > div > strong {
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.ai-vi-verdict li,
+.ai-vi-verdict p {
+  color: var(--muted);
+  line-height: 1.55;
+  margin: 0;
+}
+
+html[data-theme="light"] .ai-vi-table tbody th,
+html[data-theme="light"] .ai-vi-value-grid > span {
+  background: #f5faf7;
+}
+
+html[data-theme="light"] .ai-vi-table a,
+html[data-theme="light"] .ai-vi-section a { color: #176c49; }
+html[data-theme="light"] .vi-good { background: #e9f8f0; color: #176c49; }
+html[data-theme="light"] .vi-medium { background: #fff8dc; color: #735c00; }
+html[data-theme="light"] .vi-risk { background: #fff0f3; color: #9e2f45; }
+html[data-theme="light"] .vi-missing { background: #f1f3f2; color: #59665f; }
+html[data-theme="light"] .ai-vi-verdict { background: #edf8f2; border-color: #b7ddc8; }
+
 .ai-error,
 .ai-disclaimer {
   color: #ffb4b8;
@@ -3194,8 +3372,14 @@ html[data-theme="light"] a {
   .ai-controls,
   .ai-result-grid,
   .ai-decision-grid,
-  .ai-context-quality {
+  .ai-context-quality,
+  .ai-vi-two-column,
+  .ai-vi-value-grid {
     grid-template-columns: 1fr;
+  }
+
+  .ai-vi-header {
+    display: grid;
   }
 
   .ai-context-quality > div + div { border-left: 0; border-top: 1px solid var(--line); }

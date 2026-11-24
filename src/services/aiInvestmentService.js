@@ -22,11 +22,12 @@ const focusTasks = {
   beginner_stock_basics: "Explain the selected company's verified business profile first, then translate its supplied PE, RSI, RRR, Volume Ratio, debt, and score into plain Thai. Clearly name every missing item, including MACD when it is not supplied.",
   beginner_metrics: "Teach the supplied metrics using the actual values: what each number means, whether it is a strength, warning, or unknown, and why no single metric is enough for a decision.",
   beginner_wait_reasons: "Give the strongest evidence-based reasons to slow down or avoid adding money now. Distinguish a real warning from missing data and list what would change the conclusion.",
+  value_investing: "Analyze only the selected Thai stock for long-term value investing. Cover the verified business profile, financial quality, competitive advantages, valuation, and risks. Do not use technical indicators or short-term timing. Treat missing evidence as missing, not as a reason to guess.",
 };
 const stockFields = [
   "Symbol", "Sector", "Price", "Total_Score", "Quality_Score", "Valuation_Score",
   "Setup_Score", "Balance_Risk_Score", "Liquidity_Score", "Composite_Score_v2",
-  "PE", "ROE", "DE", "Yield", "RSI", "RRR", "Technical_RRR", "Upside_Pct", "Volume_Ratio",
+  "PE", "PBV", "ROE", "DE", "Yield", "RSI", "RRR", "Technical_RRR", "Upside_Pct", "Volume_Ratio",
   "Gain_Loss_Pct", "Gain_Loss_Value", "Market_Value", "Cost_Value", "Portfolio_Weight_Pct", "Trend_Status",
   "Advice", "Target_Action", "Effective_Target_Action", "Conflict_Severity",
   "Data_Status", "Data_Warnings", "Conflict_Alerts", "Rationale",
@@ -34,6 +35,19 @@ const stockFields = [
 const completenessFields = ["Price", "Total_Score", "RRR", "PE", "ROE", "DE", "RSI", "Volume_Ratio", "Trend_Status", "Data_Status"];
 const evidenceFields = [...stockFields, "scopeRowCount", "marketValue", "gainLossPct", "avgScore", "urgentActions"];
 const decisionStances = ["ควรตรวจเร่งด่วน", "ควรชะลอ", "น่าศึกษาต่อ", "ข้อมูลไม่พอ"];
+const viMetricDefinitions = [
+  { key: "revenue", label: "รายได้รวม", meaning: "เงินที่กิจการขายสินค้าหรือบริการได้ก่อนหักค่าใช้จ่าย" },
+  { key: "netIncome", label: "กำไรสุทธิ", meaning: "เงินที่เหลือหลังหักต้นทุน ค่าใช้จ่าย ดอกเบี้ย และภาษี" },
+  { key: "roe", label: "ROE", meaning: "ผลตอบแทนที่กิจการสร้างได้จากเงินของผู้ถือหุ้น" },
+  { key: "debtToEquity", label: "D/E", meaning: "หนี้เทียบกับเงินของผู้ถือหุ้น ยิ่งสูงยิ่งต้องตรวจความสามารถชำระหนี้" },
+  { key: "freeCashFlow", label: "Free Cash Flow", meaning: "เงินสดที่เหลือหลังดำเนินธุรกิจและลงทุนในทรัพย์สินที่จำเป็น" },
+  { key: "pe", label: "P/E", meaning: "ราคาหุ้นเทียบกับกำไรต่อหุ้น ต้องเทียบกับอดีตและคุณภาพกำไรร่วมกัน" },
+  { key: "pbv", label: "P/BV", meaning: "ราคาหุ้นเทียบกับมูลค่าทางบัญชีต่อหุ้น ไม่ได้บอกว่าถูกหรือแพงเพียงลำพัง" },
+  { key: "dividendYield", label: "Dividend Yield", meaning: "เงินปันผลต่อปีเทียบกับราคาหุ้น โดยผลตอบแทนในอนาคตไม่รับประกัน" },
+];
+const viMetricKeys = viMetricDefinitions.map((metric) => metric.key);
+const viAssessments = ["ดี", "ปานกลาง", "น่ากังวล", "ข้อมูลไม่พอ"];
+const viVerdicts = ["น่าศึกษาต่อในราคาปัจจุบัน", "กิจการน่าสนใจ แต่ควรรอราคาที่เหมาะกว่า", "ยังไม่น่าศึกษาต่อ", "ข้อมูลยังไม่พอประเมิน"];
 
 export function openRouterAiInfo() {
   return {
@@ -172,16 +186,19 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
 
 export function inferAiContextNeeds(input = {}) {
   const text = [input.question, input.focus, input.mode, input.contextView].filter(Boolean).join(" ").toLowerCase();
-  const research = input.focus === "beginner_stock_basics"
+  const vi = input.focus === "value_investing";
+  const research = ["beginner_stock_basics", "value_investing"].includes(input.focus)
     || /(ทำธุรกิจ|บริษัท|อุตสาหกรรม|คู่แข่ง|ข่าว|งบ|รายได้|กำไร|business|company|industry|competitor|news|earnings)/iu.test(text);
-  const market = ["stock", "compare"].includes(input.mode)
+  const market = vi || ["stock", "compare"].includes(input.mode)
     || /(ราคา|กราฟ|52\s*สัปดาห์|แนวโน้ม|volume|rsi|macd|rrr|ตอนนี้|น่าลงทุน|price|chart|week|trend)/iu.test(text);
   return {
     market,
     research,
+    vi,
     reasons: [
       ...(market ? ["คำถามต้องใช้บริบทราคา/แนวโน้ม"] : []),
       ...(research ? ["คำถามต้องใช้ข้อมูลบริษัทหรือข่าวที่ยืนยันแหล่งที่มา"] : []),
+      ...(vi ? ["การวิเคราะห์ VI ต้องใช้งบย้อนหลังและ valuation model ที่ตรวจสอบได้"] : []),
     ],
   };
 }
@@ -251,19 +268,29 @@ function buildDataQuality({ generatedAt, rows, scopeRowCount, marketContext, res
     field,
     checkedRows.length ? Math.round((checkedRows.filter((row) => hasMeaningfulValue(row[field])).length / checkedRows.length) * 100) : 0,
   ]));
-  const missingFields = checkedFields.filter((field) => coverageByField[field] < 60);
+  let missingFields = checkedFields.filter((field) => coverageByField[field] < 60);
+  let completenessPct = Math.round((presentCells / totalCells) * 100);
+  let effectiveCoverageByField = coverageByField;
+  if (contextNeeds.vi) {
+    const metricsByKey = new Map((researchContext?.viFundamentals?.metrics || []).map((metric) => [metric.key, metric]));
+    effectiveCoverageByField = Object.fromEntries(viMetricKeys.map((key) => [key, Number.isFinite(metricsByKey.get(key)?.value) ? 100 : 0]));
+    missingFields = viMetricKeys.filter((key) => effectiveCoverageByField[key] === 0);
+    completenessPct = Math.round(((viMetricKeys.length - missingFields.length) / viMetricKeys.length) * 100);
+  }
   const warnings = [];
   if (snapshotFreshness.status === "stale") warnings.push(`ผล Think2 เก่าประมาณ ${snapshotFreshness.ageDays} วัน ควรรัน Analyze ใหม่ก่อนใช้ตัดสินใจ`);
   if (snapshotFreshness.status === "unknown") warnings.push("ไม่พบเวลาที่สร้างผล Think2 จึงยืนยันความสดของข้อมูลไม่ได้");
   if (contextNeeds.market && !marketContext) warnings.push("คำถามนี้ต้องใช้ข้อมูลราคา/แนวโน้ม แต่ยังไม่มี Yahoo market context");
   if (contextNeeds.research && !researchContext) warnings.push("คำถามนี้ต้องใช้ข้อมูลบริษัท/ข่าว แต่ยังไม่มี research context ที่ยืนยันแหล่งที่มา");
+  if (contextNeeds.vi && !researchContext?.valuationModel) warnings.push("ข้อมูลยังไม่พอสร้างกรอบมูลค่าแบบ VI ที่ตรวจสอบสูตรได้");
+  if (contextNeeds.vi) warnings.push(...(researchContext?.viFundamentals?.warnings || []));
   if (missingFields.length) warnings.push(`ข้อมูลตัวเลขยังไม่ครบ: ${missingFields.join(", ")}`);
   return {
     snapshot: snapshotFreshness,
     market: marketFreshness,
     research: researchFreshness,
-    completenessPct: Math.round((presentCells / totalCells) * 100),
-    coverageByField,
+    completenessPct,
+    coverageByField: effectiveCoverageByField,
     missingFields,
     warnings,
     scopeRowCount,
@@ -271,6 +298,7 @@ function buildDataQuality({ generatedAt, rows, scopeRowCount, marketContext, res
       isSimulation ? "Think2 simulation result" : "Think2 deterministic snapshot",
       ...(marketContext ? [marketContext.source || "Yahoo Finance chart"] : []),
       ...(researchContext ? [researchContext.source || "Yahoo Finance research"] : []),
+      ...(researchContext?.sources || []).map((source) => source.label),
     ],
   };
 }
@@ -312,7 +340,10 @@ function escapeRegExp(value) {
 }
 
 export function buildOpenRouterRequest(context) {
-  const task = context.contextView === "simulation"
+  const isVi = context.focus === "value_investing";
+  const task = isVi
+    ? "Create a one-page Thai value-investing review for only selectedStock. Use researchContext.viFundamentals for financial facts and valuationModel for any price range."
+    : context.contextView === "simulation"
     ? "Explain the supplied simulation summary, strategy versus buy-and-hold result, buy plan, sampled history, and trades. State whether the result merits further study or should be treated cautiously."
     : ({
     portfolio: "Summarize portfolio concentration, strengths, risks, and practical questions the investor should study next.",
@@ -349,6 +380,15 @@ export function buildOpenRouterRequest(context) {
           "You are StockFlix AI Decision Companion for beginner Thai investors.",
           "Reply in concise, plain Thai. Use only the supplied JSON facts and stay inside scopeSummary.",
           "For portfolio mode, portfolioSummary and scopeSummary cover the full active screen scope. currentRows can be a selected detail subset, so never recount holdings or totals from currentRows; use portfolioSummary for portfolio totals and contextSelection for disclosed row counts.",
+          ...(isVi ? [
+            "This is a long-term Thai value-investing review, not technical analysis. Discuss only selectedStock and do not summarize the portfolio or compare unrelated symbols.",
+            "The backend owns every displayed metric value, accounting date, source URL, formula, and valuation range. Return only metric keys and qualitative assessments; never restate, recalculate, replace, or invent those numbers.",
+            "Use metricAssessments exactly once for every required metric key. Explain each metric for a beginner and rate it only as ดี, ปานกลาง, น่ากังวล, or ข้อมูลไม่พอ.",
+            "Competitive advantages must cite one supplied sourceId. If the supplied profile, financial history, or news cannot verify a durable advantage, say ไม่พบข้อมูลยืนยันความได้เปรียบที่ยั่งยืน.",
+            "Use only valuationModel supplied by the backend. If it is null, state that no defensible interesting-price range can be calculated. Never create a target price or different range.",
+            "Distinguish verified facts from your interpretation. Missing Revenue, Net Income, Free Cash Flow, P/E, P/BV, or accounting period must lower confidence and can require verdict ข้อมูลยังไม่พอประเมิน.",
+            "Keep the answer readable within three minutes. Do not discuss RSI, MACD, charts, or short-term entry timing.",
+          ] : []),
           "Never calculate or replace Think2 scores or actions. Never issue a direct buy/sell order, guaranteed return, target price, or suitability claim.",
           "Return five useful parts: a short conclusion, one decision stance, evidence-backed reasons, missing data, and exactly one practical next action.",
           "Every reason must cite one supplied Symbol and field with the exact supplied value. Use an empty Symbol only for supplied portfolioSummary or scopeRowCount evidence.",
@@ -412,6 +452,7 @@ export async function generateAiInvestmentExplanation(snapshot, input = {}, opti
       verification: result.verification,
       context: {
         mode: context.mode,
+        focus: context.focus,
         generatedAt: context.generatedAt,
         symbol: context.selectedStock?.Symbol || "",
         peerCount: context.peers.length,
@@ -439,6 +480,7 @@ export async function generateAiInvestmentExplanation(snapshot, input = {}, opti
 }
 
 function aiResponseSchema(context = {}) {
+  if (context.focus === "value_investing") return viResponseSchema(context);
   const allowedSymbols = ["", ...new Set((context.currentRows || []).map((row) => row.Symbol).filter(Boolean))];
   return {
     type: "object",
@@ -481,6 +523,81 @@ function aiResponseSchema(context = {}) {
       citations: {
         type: "array",
         maxItems: 6,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["label", "url"],
+          properties: { label: { type: "string" }, url: { type: "string" } },
+        },
+      },
+      disclaimer: { type: "string" },
+    },
+  };
+}
+
+function viResponseSchema(context = {}) {
+  const sourceIds = (context.researchContext?.sources || []).map((source) => source.id).filter(Boolean);
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: [
+      "title", "companyOverview", "metricAssessments", "competitiveAdvantages", "valuationCommentary",
+      "risks", "verdict", "verdictReasons", "confidence", "missingData", "nextAction", "citations", "disclaimer",
+    ],
+    properties: {
+      title: { type: "string" },
+      companyOverview: { type: "string" },
+      metricAssessments: {
+        type: "array",
+        minItems: viMetricKeys.length,
+        maxItems: viMetricKeys.length,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["key", "assessment", "explanation"],
+          properties: {
+            key: { type: "string", enum: viMetricKeys },
+            assessment: { type: "string", enum: viAssessments },
+            explanation: { type: "string" },
+          },
+        },
+      },
+      competitiveAdvantages: {
+        type: "array",
+        maxItems: 3,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["claim", "sourceId"],
+          properties: {
+            claim: { type: "string" },
+            sourceId: { type: "string", enum: sourceIds.length ? sourceIds : [""] },
+          },
+        },
+      },
+      valuationCommentary: { type: "string" },
+      risks: { type: "array", items: { type: "string" }, maxItems: 3 },
+      verdict: { type: "string", enum: viVerdicts },
+      verdictReasons: {
+        type: "array",
+        minItems: 1,
+        maxItems: 3,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["claim", "metricKey"],
+          properties: {
+            claim: { type: "string" },
+            metricKey: { type: "string", enum: viMetricKeys },
+          },
+        },
+      },
+      confidence: { type: "string", enum: ["ต่ำ", "ปานกลาง", "สูง"] },
+      missingData: { type: "array", items: { type: "string" }, maxItems: 8 },
+      nextAction: { type: "string" },
+      citations: {
+        type: "array",
+        maxItems: 8,
         items: {
           type: "object",
           additionalProperties: false,
@@ -658,6 +775,40 @@ function sanitizeResearchContext(input = {}, allowedRows = []) {
       return "";
     }
   };
+  const sources = (Array.isArray(input?.sources) ? input.sources : []).slice(0, 10).map((source) => ({
+    id: String(source?.id || "").replace(/[^a-z0-9_-]/giu, "").slice(0, 60),
+    label: String(source?.label || "").slice(0, 180),
+    url: safeUrl(source?.url),
+    fetchedAt: String(source?.fetchedAt || "").slice(0, 40),
+    purpose: String(source?.purpose || "").slice(0, 240),
+  })).filter((source) => source.id && source.label && source.url);
+  const allowedSourceIds = new Set(sources.map((source) => source.id));
+  const viMetrics = (Array.isArray(input?.viFundamentals?.metrics) ? input.viFundamentals.metrics : [])
+    .slice(0, viMetricKeys.length)
+    .map((metric) => ({
+      key: viMetricKeys.includes(metric?.key) ? metric.key : "",
+      label: String(metric?.label || "").slice(0, 80),
+      value: Number.isFinite(Number(metric?.value)) ? Number(metric.value) : null,
+      unit: String(metric?.unit || "").slice(0, 20),
+      asOfDate: String(metric?.asOfDate || "").slice(0, 10),
+      periodType: String(metric?.periodType || "").slice(0, 20),
+      sourceId: allowedSourceIds.has(metric?.sourceId) ? metric.sourceId : "",
+      sourceLabel: String(metric?.sourceLabel || "").slice(0, 180),
+      sourceUrl: safeUrl(metric?.sourceUrl),
+      formula: String(metric?.formula || "").slice(0, 300),
+    })).filter((metric) => metric.key);
+  const histories = ["revenue", "netIncome", "freeCashFlow", "pe"].reduce((result, key) => {
+    result[key] = (Array.isArray(input?.viFundamentals?.histories?.[key]) ? input.viFundamentals.histories[key] : [])
+      .slice(-6)
+      .map((point) => ({
+        asOfDate: String(point?.asOfDate || "").slice(0, 10),
+        periodType: String(point?.periodType || "").slice(0, 20),
+        currencyCode: String(point?.currencyCode || "").slice(0, 10),
+        value: Number.isFinite(Number(point?.value)) ? Number(point.value) : null,
+      })).filter((point) => point.asOfDate && point.value !== null);
+    return result;
+  }, {});
+  const valuationModel = sanitizeViValuationModel(input?.valuationModel, safeUrl);
   return {
     symbol,
     source: String(input?.source || "").slice(0, 80),
@@ -675,7 +826,37 @@ function sanitizeResearchContext(input = {}, allowedRows = []) {
       publishedAt: String(item?.publishedAt || "").slice(0, 40),
       url: safeUrl(item?.url),
     })).filter((item) => item.title && item.url),
+    viFundamentals: {
+      metrics: viMetrics,
+      histories,
+      coveragePct: Math.max(0, Math.min(100, numberValue(input?.viFundamentals?.coveragePct))),
+      missingKeys: (Array.isArray(input?.viFundamentals?.missingKeys) ? input.viFundamentals.missingKeys : [])
+        .filter((key) => viMetricKeys.includes(key)),
+      warnings: cleanStringList(input?.viFundamentals?.warnings, 6),
+    },
+    valuationModel,
+    sources,
   };
+}
+
+function sanitizeViValuationModel(input, safeUrl) {
+  if (!input || typeof input !== "object") return null;
+  const numericFields = [
+    "eps", "referencePe", "referencePeSampleCount", "fairValue", "marginOfSafetyMinPct",
+    "marginOfSafetyMaxPct", "interestingPriceLow", "interestingPriceHigh",
+  ];
+  const result = numericFields.reduce((output, field) => {
+    if (Number.isFinite(Number(input[field]))) output[field] = numberValue(input[field]);
+    return output;
+  }, {
+    method: String(input.method || "").slice(0, 240),
+    formula: String(input.formula || "").slice(0, 240),
+    epsAsOfDate: String(input.epsAsOfDate || "").slice(0, 10),
+    currency: String(input.currency || "THB").slice(0, 10),
+    limitations: cleanStringList(input.limitations, 4),
+    sourceUrls: (Array.isArray(input.sourceUrls) ? input.sourceUrls : []).map(safeUrl).filter(Boolean).slice(0, 4),
+  });
+  return result.fairValue > 0 && result.interestingPriceHigh > 0 ? result : null;
 }
 
 function sanitizeRecordList(rows, fields, limit) {
@@ -732,6 +913,7 @@ function parseJsonContent(content) {
 }
 
 function validateAiResponse(result, context = {}) {
+  if (context.focus === "value_investing") return validateViAiResponse(result, context);
   if (!result || typeof result !== "object" || !result.title || !result.conclusion) {
     const error = new Error("AI Assistant response was incomplete. Please try again.");
     error.statusCode = 502;
@@ -789,6 +971,150 @@ function validateAiResponse(result, context = {}) {
     risks: normalized.details.risks,
     nextQuestions: normalized.details.questions,
     dataLimitations: normalized.missingData,
+  };
+}
+
+function validateViAiResponse(result, context = {}) {
+  if (!result || typeof result !== "object" || !result.title || !result.companyOverview) {
+    const error = new Error("AI Assistant returned an incomplete VI analysis. Please try again.");
+    error.statusCode = 502;
+    throw error;
+  }
+  const metricsByKey = new Map((context.researchContext?.viFundamentals?.metrics || []).map((metric) => [metric.key, metric]));
+  const assessmentsByKey = new Map((Array.isArray(result.metricAssessments) ? result.metricAssessments : [])
+    .filter((item) => viMetricKeys.includes(item?.key))
+    .map((item) => [item.key, item]));
+  const metricTable = viMetricDefinitions.map((definition) => {
+    const supplied = metricsByKey.get(definition.key) || {};
+    const assessment = assessmentsByKey.get(definition.key) || {};
+    const hasValue = Number.isFinite(Number(supplied.value));
+    return {
+      key: definition.key,
+      label: definition.label,
+      value: hasValue ? Number(supplied.value) : null,
+      unit: hasValue ? String(supplied.unit || "") : "",
+      meaning: definition.meaning,
+      assessment: hasValue && viAssessments.includes(assessment.assessment) ? assessment.assessment : "ข้อมูลไม่พอ",
+      explanation: hasValue
+        ? String(assessment.explanation || "ต้องอ่านร่วมกับแนวโน้มย้อนหลังและลักษณะธุรกิจ").slice(0, 500)
+        : "ไม่พบข้อมูลที่มีแหล่งอ้างอิงเพียงพอ จึงยังประเมินไม่ได้",
+      asOfDate: hasValue ? String(supplied.asOfDate || "") : "",
+      periodType: hasValue ? String(supplied.periodType || "") : "",
+      sourceLabel: hasValue ? String(supplied.sourceLabel || "") : "ไม่พบข้อมูล",
+      sourceUrl: hasValue ? safeCitationUrl(supplied.sourceUrl) : "",
+      formula: hasValue ? String(supplied.formula || "") : "",
+    };
+  });
+  const missingMetricLabels = metricTable.filter((metric) => metric.value === null).map((metric) => metric.label);
+  const sourcesById = new Map((context.researchContext?.sources || []).map((source) => [source.id, source]));
+  const competitiveAdvantages = (Array.isArray(result.competitiveAdvantages) ? result.competitiveAdvantages : [])
+    .slice(0, 3)
+    .map((item) => ({
+      claim: String(item?.claim || "").slice(0, 500),
+      sourceId: String(item?.sourceId || ""),
+      sourceLabel: sourcesById.get(String(item?.sourceId || ""))?.label || "",
+      sourceUrl: sourcesById.get(String(item?.sourceId || ""))?.url || "",
+    }))
+    .filter((item) => item.claim && item.sourceLabel);
+  if (!competitiveAdvantages.length) {
+    competitiveAdvantages.push({
+      claim: "ไม่พบข้อมูลยืนยันความได้เปรียบที่ยั่งยืนจากข้อมูลที่ระบบดึงได้ ต้องตรวจ 56-1 One Report เพิ่ม",
+      sourceId: "",
+      sourceLabel: "ข้อมูลยังไม่พอ",
+      sourceUrl: "",
+    });
+  }
+  const valuationModel = context.researchContext?.valuationModel || null;
+  const currentPrice = numberValue(context.marketContext?.current || context.selectedStock?.Price);
+  const valuation = buildVerifiedViValuation(valuationModel, currentPrice, result.valuationCommentary);
+  const coveragePct = numberValue(context.researchContext?.viFundamentals?.coveragePct);
+  const hasDecisionData = coveragePct >= 75 && Boolean(valuationModel);
+  let verdict = viVerdicts.includes(result.verdict) ? result.verdict : "ข้อมูลยังไม่พอประเมิน";
+  let confidence = ["ต่ำ", "ปานกลาง", "สูง"].includes(result.confidence) ? result.confidence : "ต่ำ";
+  if (!hasDecisionData) {
+    verdict = "ข้อมูลยังไม่พอประเมิน";
+    confidence = "ต่ำ";
+  } else if ((context.dataQuality?.warnings || []).length && confidence === "สูง") {
+    confidence = "ปานกลาง";
+  }
+  const verdictReasons = (Array.isArray(result.verdictReasons) ? result.verdictReasons : [])
+    .slice(0, 3)
+    .map((reason) => {
+      const metric = metricTable.find((item) => item.key === reason?.metricKey);
+      if (!metric || metric.value === null) return null;
+      return {
+        claim: String(reason?.claim || "").slice(0, 500),
+        metricKey: metric.key,
+        metricLabel: metric.label,
+        value: metric.value,
+        unit: metric.unit,
+      };
+    }).filter((reason) => reason?.claim);
+  const missingData = uniqueStrings([
+    ...missingMetricLabels.map((label) => `ไม่พบ ${label} ที่มีแหล่งอ้างอิงครบ`),
+    ...(context.researchContext?.viFundamentals?.warnings || []),
+    ...(Array.isArray(result.missingData) ? result.missingData : []),
+    ...(!valuationModel ? ["ยังคำนวณกรอบราคาที่มีสูตรและสมมติฐานตรวจสอบได้ไม่ได้"] : []),
+  ], 10);
+  const citations = filterVerifiedCitations(result.citations, context.researchContext);
+  return {
+    type: "value_investing",
+    title: String(result.title).slice(0, 180),
+    symbol: context.selectedStock?.Symbol || "",
+    companyOverview: String(result.companyOverview).slice(0, 1000),
+    metricTable,
+    competitiveAdvantages,
+    valuation,
+    risks: cleanStringList(result.risks, 3),
+    verdict,
+    verdictReasons,
+    confidence,
+    missingData,
+    nextAction: String(result.nextAction || "ตรวจ 56-1 One Report และงบล่าสุดก่อนตัดสินใจ").slice(0, 500),
+    citations,
+    disclaimer: String(result.disclaimer || "ข้อมูลนี้ใช้ประกอบการตัดสินใจเท่านั้น ไม่ใช่คำแนะนำการลงทุนเฉพาะบุคคล").slice(0, 500),
+    verification: {
+      passed: true,
+      issues: [],
+      checkedEvidenceCount: metricTable.filter((metric) => metric.value !== null).length,
+    },
+  };
+}
+
+function buildVerifiedViValuation(model, currentPrice, commentary) {
+  if (!model) {
+    return {
+      available: false,
+      commentary: "ข้อมูลยังไม่พอคำนวณช่วงราคาที่น่าสนใจโดยไม่เดา",
+      limitations: ["ต้องมี EPS และ P/E อ้างอิงย้อนหลังอย่างน้อย 3 ค่า"],
+    };
+  }
+  const position = currentPrice > 0
+    ? currentPrice <= model.interestingPriceHigh
+      ? "ราคาปัจจุบันอยู่ในหรือต่ำกว่ากรอบ Margin of Safety ของแบบจำลอง"
+      : currentPrice <= model.fairValue
+        ? "ราคาปัจจุบันต่ำกว่ามูลค่าจากแบบจำลอง แต่ยังไม่ถึงกรอบ Margin of Safety"
+        : "ราคาปัจจุบันสูงกว่ามูลค่าจากแบบจำลองอย่างง่าย"
+    : "ไม่พบราคาปัจจุบันสำหรับเปรียบเทียบ";
+  return {
+    available: true,
+    method: model.method,
+    formula: model.formula,
+    eps: model.eps,
+    epsAsOfDate: model.epsAsOfDate,
+    referencePe: model.referencePe,
+    referencePeSampleCount: model.referencePeSampleCount,
+    fairValue: model.fairValue,
+    marginOfSafetyMinPct: model.marginOfSafetyMinPct,
+    marginOfSafetyMaxPct: model.marginOfSafetyMaxPct,
+    interestingPriceLow: model.interestingPriceLow,
+    interestingPriceHigh: model.interestingPriceHigh,
+    currency: model.currency || "THB",
+    currentPrice: currentPrice > 0 ? currentPrice : null,
+    position,
+    commentary: String(commentary || "ใช้กรอบนี้เป็นสมมติฐานเพื่อศึกษา ไม่ใช่ราคาเป้าหมาย").replace(/\d+(?:\.\d+)?/gu, "").slice(0, 600),
+    limitations: cleanStringList(model.limitations, 4),
+    sourceUrls: (model.sourceUrls || []).map(safeCitationUrl).filter(Boolean),
   };
 }
 
@@ -896,6 +1222,7 @@ export function filterVerifiedCitations(citations, researchContext) {
   const allowedUrls = new Set([
     researchContext.sourceUrl,
     ...(researchContext.news || []).map((item) => item.url),
+    ...(researchContext.sources || []).map((item) => item.url),
   ].map(safeCitationUrl).filter(Boolean));
   return (Array.isArray(citations) ? citations : []).slice(0, 6).map((item) => ({
     label: String(item?.label || "แหล่งข้อมูล").slice(0, 200),

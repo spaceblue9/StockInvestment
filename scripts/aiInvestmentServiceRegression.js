@@ -283,6 +283,149 @@ const beginnerMetricContext = buildAiInvestmentContext(snapshot, {
 assert.equal(beginnerMetricContext.selectedStock.Volume_Ratio, 1.6);
 assert.match(buildOpenRouterRequest(beginnerMetricContext).messages[1].content, /actual values/u);
 
+const viResearchInput = {
+  symbol: "AAA",
+  source: "Yahoo Finance research",
+  sourceUrl: "https://finance.yahoo.com/quote/AAA.BK/profile/",
+  fetchedAt: "2026-11-24T00:00:00.000Z",
+  profile: { name: "AAA Company", exchange: "SET", sector: "Commerce", industry: "Retail" },
+  news: [],
+  sources: [
+    { id: "yahoo_financials", label: "Yahoo Financials", url: "https://finance.yahoo.com/quote/AAA.BK/financials/", fetchedAt: "2026-11-24T00:00:00.000Z" },
+    { id: "yahoo_statistics", label: "Yahoo Statistics", url: "https://finance.yahoo.com/quote/AAA.BK/key-statistics/", fetchedAt: "2026-11-24T00:00:00.000Z" },
+    { id: "set_factsheet", label: "SET Factsheet", url: "https://www.set.or.th/th/market/product/stock/quote/AAA/factsheet", fetchedAt: "2026-11-24T00:00:00.000Z" },
+  ],
+  viFundamentals: {
+    metrics: [
+      { key: "revenue", label: "Revenue", value: 1000000, unit: "THB", asOfDate: "2025-12-31", periodType: "12M", sourceId: "yahoo_financials", sourceLabel: "Yahoo Financials", sourceUrl: "https://finance.yahoo.com/quote/AAA.BK/financials/" },
+      { key: "netIncome", label: "Net income", value: 100000, unit: "THB", asOfDate: "2025-12-31", periodType: "12M", sourceId: "yahoo_financials", sourceLabel: "Yahoo Financials", sourceUrl: "https://finance.yahoo.com/quote/AAA.BK/financials/" },
+      { key: "roe", label: "ROE", value: 15, unit: "%", asOfDate: "2025-12-31", periodType: "12M", sourceId: "yahoo_financials", sourceLabel: "Yahoo Financials", sourceUrl: "https://finance.yahoo.com/quote/AAA.BK/financials/", formula: "net income / equity" },
+      { key: "debtToEquity", label: "D/E", value: 0.7, unit: "x", asOfDate: "2025-12-31", periodType: "12M", sourceId: "yahoo_financials", sourceLabel: "Yahoo Financials", sourceUrl: "https://finance.yahoo.com/quote/AAA.BK/financials/" },
+      { key: "freeCashFlow", label: "FCF", value: 80000, unit: "THB", asOfDate: "2025-12-31", periodType: "12M", sourceId: "yahoo_financials", sourceLabel: "Yahoo Financials", sourceUrl: "https://finance.yahoo.com/quote/AAA.BK/financials/" },
+      { key: "pe", label: "P/E", value: 12, unit: "x", asOfDate: "2026-11-20", periodType: "TTM", sourceId: "yahoo_statistics", sourceLabel: "Yahoo Statistics", sourceUrl: "https://finance.yahoo.com/quote/AAA.BK/key-statistics/" },
+      { key: "pbv", label: "P/BV", value: 1.5, unit: "x", asOfDate: "2026-11-20", periodType: "TTM/12M", sourceId: "yahoo_statistics", sourceLabel: "Yahoo Statistics", sourceUrl: "https://finance.yahoo.com/quote/AAA.BK/key-statistics/" },
+      { key: "dividendYield", label: "Yield", value: 4, unit: "%", asOfDate: "2026-10-31", periodType: "TTM", sourceId: "yahoo_statistics", sourceLabel: "Yahoo Statistics", sourceUrl: "https://finance.yahoo.com/quote/AAA.BK/key-statistics/" },
+    ],
+    histories: {},
+    coveragePct: 100,
+    missingKeys: [],
+    warnings: ["Verify with SET"],
+  },
+  valuationModel: {
+    method: "EPS x median PE",
+    formula: "5 x 12 = 60 THB",
+    eps: 5,
+    epsAsOfDate: "2025-12-31",
+    referencePe: 12,
+    referencePeSampleCount: 5,
+    fairValue: 60,
+    marginOfSafetyMinPct: 20,
+    marginOfSafetyMaxPct: 30,
+    interestingPriceLow: 42,
+    interestingPriceHigh: 48,
+    currency: "THB",
+    sourceUrls: ["https://finance.yahoo.com/quote/AAA.BK/financials/", "https://finance.yahoo.com/quote/AAA.BK/key-statistics/"],
+    limitations: ["Simple model"],
+  },
+};
+const viContext = buildAiInvestmentContext(snapshot, {
+  mode: "stock",
+  symbol: "AAA",
+  focus: "value_investing",
+  contextView: "portfolio",
+  currentRows: [{ Symbol: "AAA", Price: 45, Total_Score: 72 }],
+  marketContext: { symbol: "AAA", source: "Yahoo Finance chart", fetchedAt: "2026-11-24T00:00:00.000Z", current: 45, history: [] },
+  researchContext: { ...viResearchInput, privateNote: "must-not-leak" },
+});
+assert.equal(viContext.focus, "value_investing");
+assert.equal(viContext.contextNeeds.vi, true);
+assert.equal(viContext.dataQuality.completenessPct, 100);
+assert.equal(viContext.researchContext.valuationModel.interestingPriceHigh, 48);
+assert.equal(JSON.stringify(viContext).includes("must-not-leak"), false);
+const viRequest = buildOpenRouterRequest(viContext);
+assert.match(viRequest.messages[0].content, /long-term Thai value-investing review/u);
+assert.equal(viRequest.response_format.json_schema.schema.properties.metricAssessments.minItems, 8);
+
+const viResponse = await generateAiInvestmentExplanation(snapshot, {
+  mode: "stock",
+  symbol: "AAA",
+  focus: "value_investing",
+  contextView: "portfolio",
+  currentRows: [{ Symbol: "AAA", Price: 45, Total_Score: 72 }],
+  marketContext: { symbol: "AAA", source: "Yahoo Finance chart", fetchedAt: "2026-11-24T00:00:00.000Z", current: 45, history: [] },
+  researchContext: viResearchInput,
+}, {
+  apiKey: "test-key",
+  fetchImpl: async () => ({
+    ok: true,
+    status: 200,
+    text: async () => JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({
+        title: "AAA แบบ VI",
+        companyOverview: "AAA ทำธุรกิจค้าปลีกจากข้อมูลบริษัทที่ยืนยันแล้ว",
+        metricAssessments: viResearchInput.viFundamentals.metrics.map((metric) => ({ key: metric.key, assessment: "ปานกลาง", explanation: "ควรอ่านแนวโน้มย้อนหลังร่วมด้วย" })),
+        competitiveAdvantages: [{ claim: "ขนาดรายได้ช่วยให้มีฐานธุรกิจ", sourceId: "yahoo_financials" }],
+        valuationCommentary: "กรอบราคา 999 บาท",
+        risks: ["กำไรอาจผันผวน"],
+        verdict: "กิจการน่าสนใจ แต่ควรรอราคาที่เหมาะกว่า",
+        verdictReasons: [{ claim: "กระแสเงินสดเป็นบวก", metricKey: "freeCashFlow" }],
+        confidence: "ปานกลาง",
+        missingData: [],
+        nextAction: "ตรวจ 56-1 One Report",
+        citations: [
+          { label: "Yahoo Financials", url: "https://finance.yahoo.com/quote/AAA.BK/financials/" },
+          { label: "Fake", url: "https://example.com/fake" },
+        ],
+        disclaimer: "ใช้ประกอบการตัดสินใจเท่านั้น",
+      }) } }],
+    }),
+  }),
+});
+assert.equal(viResponse.result.type, "value_investing");
+assert.equal(viResponse.result.metricTable.length, 8);
+assert.equal(viResponse.result.metricTable.find((metric) => metric.key === "revenue").value, 1000000);
+assert.equal(viResponse.result.valuation.fairValue, 60);
+assert.equal(viResponse.result.valuation.interestingPriceLow, 42);
+assert.equal(viResponse.result.valuation.interestingPriceHigh, 48);
+assert.equal(viResponse.result.valuation.commentary.includes("999"), false);
+assert.deepEqual(viResponse.result.citations.map((citation) => citation.url), ["https://finance.yahoo.com/quote/AAA.BK/financials/"]);
+
+const viMissingResponse = await generateAiInvestmentExplanation(snapshot, {
+  mode: "stock",
+  symbol: "AAA",
+  focus: "value_investing",
+  contextView: "portfolio",
+  currentRows: [{ Symbol: "AAA", Price: 45 }],
+  researchContext: { ...viResearchInput, viFundamentals: { metrics: [], coveragePct: 0, missingKeys: viResearchInput.viFundamentals.metrics.map((metric) => metric.key), warnings: [] }, valuationModel: null },
+}, {
+  apiKey: "test-key",
+  fetchImpl: async () => ({
+    ok: true,
+    status: 200,
+    text: async () => JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({
+        title: "AAA แบบ VI",
+        companyOverview: "AAA",
+        metricAssessments: viResearchInput.viFundamentals.metrics.map((metric) => ({ key: metric.key, assessment: "ดี", explanation: "เดา" })),
+        competitiveAdvantages: [],
+        valuationCommentary: "ซื้อได้ที่ 99 บาท",
+        risks: [],
+        verdict: "น่าศึกษาต่อในราคาปัจจุบัน",
+        verdictReasons: [{ claim: "กำไรดี", metricKey: "netIncome" }],
+        confidence: "สูง",
+        missingData: [],
+        nextAction: "ลงทุน",
+        citations: [],
+        disclaimer: "ศึกษาเท่านั้น",
+      }) } }],
+    }),
+  }),
+});
+assert.equal(viMissingResponse.result.verdict, "ข้อมูลยังไม่พอประเมิน");
+assert.equal(viMissingResponse.result.confidence, "ต่ำ");
+assert.equal(viMissingResponse.result.valuation.available, false);
+assert.equal(viMissingResponse.result.metricTable.every((metric) => metric.assessment === "ข้อมูลไม่พอ"), true);
+
 const orCompareContext = buildAiInvestmentContext({ portfolioRows: [] }, {
   mode: "compare",
   symbol: "OR",
@@ -375,7 +518,18 @@ assert.notEqual(currentScreenPortfolioContext.portfolioSummary.marketValue, 2972
 assert.deepEqual(inferAiContextNeeds({ mode: "stock", question: "PTT ทำธุรกิจอะไรและราคา 52 สัปดาห์อยู่ตรงไหน" }), {
   market: true,
   research: true,
+  vi: false,
   reasons: ["คำถามต้องใช้บริบทราคา/แนวโน้ม", "คำถามต้องใช้ข้อมูลบริษัทหรือข่าวที่ยืนยันแหล่งที่มา"],
+});
+assert.deepEqual(inferAiContextNeeds({ mode: "stock", focus: "value_investing" }), {
+  market: true,
+  research: true,
+  vi: true,
+  reasons: [
+    "คำถามต้องใช้บริบทราคา/แนวโน้ม",
+    "คำถามต้องใช้ข้อมูลบริษัทหรือข่าวที่ยืนยันแหล่งที่มา",
+    "การวิเคราะห์ VI ต้องใช้งบย้อนหลังและ valuation model ที่ตรวจสอบได้",
+  ],
 });
 
 const verificationContext = buildAiInvestmentContext(snapshot, {

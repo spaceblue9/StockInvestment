@@ -33,9 +33,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261123-2017";
-const programVersion = "Think2 Portfolio Sync v1.0.1";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261123-2017";
+const frontendBuildVersion = "20261124-0731";
+const programVersion = "Think2 Thai VI Analyst v1.1.0";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261124-0731";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -537,9 +537,10 @@ document.addEventListener("click", (event) => {
     const question = String(questionInput?.value || "").trim();
     if (!question || aiCustomSubmit.disabled) return;
     const questionSymbol = aiQuestionSymbol(question);
-    state.aiAssistant.focus = "";
+    const wantsVi = aiQuestionWantsVi(question);
+    state.aiAssistant.focus = wantsVi ? "value_investing" : "";
     state.aiAssistant.question = question.slice(0, 600);
-    state.aiAssistant.mode = questionSymbol ? "stock" : state.activeView === "sector" ? "compare" : "portfolio";
+    state.aiAssistant.mode = wantsVi ? "vi" : questionSymbol ? "stock" : state.activeView === "sector" ? "compare" : "portfolio";
     state.aiAssistant.symbol = questionSymbol || bestContextSymbol();
     runAiInvestmentExplanation({ drawer: true });
     return;
@@ -2076,6 +2077,7 @@ function renderAiAssistantPanel(rows) {
             ${option("portfolio", "สรุปภาพรวมพอร์ต", state.aiAssistant.mode)}
             ${option("stock", "อธิบายหุ้นรายตัว", state.aiAssistant.mode)}
             ${option("compare", "เปรียบเทียบหุ้นกลุ่มเดียวกัน", state.aiAssistant.mode)}
+            ${option("vi", "วิเคราะห์หุ้นรายตัวแบบ VI", state.aiAssistant.mode)}
           </select>
         </label>
         <label class="${needsSymbol ? "" : "ai-control-hidden"}">หุ้นที่ต้องการดู
@@ -2094,6 +2096,7 @@ function renderAiAssistantPanel(rows) {
 }
 
 function renderAiAssistantResult(result) {
+  if (result?.type === "value_investing") return renderAiViResult(result);
   const list = (title, values) => Array.isArray(values) && values.length
     ? `<div><strong>${escapeHtml(title)}</strong><ul>${values.map((value) => `<li>${escapeHtml(value)}</li>`).join("")}</ul></div>`
     : "";
@@ -2134,6 +2137,96 @@ function renderAiAssistantResult(result) {
   `;
 }
 
+function renderAiViResult(result) {
+  const metrics = Array.isArray(result.metricTable) ? result.metricTable : [];
+  const advantages = Array.isArray(result.competitiveAdvantages) ? result.competitiveAdvantages : [];
+  const reasons = Array.isArray(result.verdictReasons) ? result.verdictReasons : [];
+  const valuation = result.valuation || {};
+  const citations = Array.isArray(result.citations) ? result.citations : [];
+  const list = (values, emptyText) => values.length
+    ? `<ul>${values.map((value) => `<li>${escapeHtml(typeof value === "string" ? value : value.claim || "")}</li>`).join("")}</ul>`
+    : `<p class="muted">${escapeHtml(emptyText)}</p>`;
+  return `
+    <article class="ai-result ai-vi-result" aria-live="polite" data-ai-vi-result>
+      <div class="ai-vi-header">
+        <div><span>VALUE INVESTING · ${escapeHtml(result.symbol || "")}</span><h4>${escapeHtml(result.title || "วิเคราะห์หุ้นแบบ VI")}</h4></div>
+        <span class="ai-confidence">ความมั่นใจ: ${escapeHtml(result.confidence || "ต่ำ")}</span>
+      </div>
+      ${renderAiContextQuality(state.aiAssistant.context, result.verification)}
+      <section class="ai-vi-section">
+        <h5>1. รู้จักบริษัท</h5>
+        <p>${escapeHtml(result.companyOverview || "ไม่พบข้อมูลบริษัทที่ยืนยันแล้ว")}</p>
+      </section>
+      <section class="ai-vi-section">
+        <h5>2. ตัวเลขสำคัญ</h5>
+        <div class="ai-vi-table-wrap">
+          <table class="ai-vi-table">
+            <thead><tr><th>ตัวชี้วัด</th><th>ค่าล่าสุด</th><th>ความหมายแบบง่าย</th><th>ประเมิน</th><th>แหล่งและวันที่</th></tr></thead>
+            <tbody>${metrics.map((metric) => `
+              <tr>
+                <th>${escapeHtml(metric.label || metric.key || "-")}</th>
+                <td><strong>${escapeHtml(formatViMetricValue(metric))}</strong>${metric.formula ? `<small>สูตร: ${escapeHtml(metric.formula)}</small>` : ""}</td>
+                <td>${escapeHtml(metric.meaning || "-")}<small>${escapeHtml(metric.explanation || "")}</small></td>
+                <td><span class="vi-assessment vi-${viAssessmentClass(metric.assessment)}">${escapeHtml(metric.assessment || "ข้อมูลไม่พอ")}</span></td>
+                <td>${metric.sourceUrl ? `<a href="${escapeHtml(safeExternalUrl(metric.sourceUrl))}" target="_blank" rel="noopener noreferrer">${escapeHtml(metric.sourceLabel || "แหล่งข้อมูล")}</a>` : "ไม่พบข้อมูล"}<small>${escapeHtml([metric.asOfDate, metric.periodType].filter(Boolean).join(" · "))}</small></td>
+              </tr>
+            `).join("")}</tbody>
+          </table>
+        </div>
+      </section>
+      <div class="ai-vi-two-column">
+        <section class="ai-vi-section">
+          <h5>3. จุดแข็งในการแข่งขัน</h5>
+          ${advantages.length ? `<ul>${advantages.map((item) => `<li>${escapeHtml(item.claim || "")}${item.sourceUrl ? ` <a href="${escapeHtml(safeExternalUrl(item.sourceUrl))}" target="_blank" rel="noopener noreferrer">ตรวจแหล่งข้อมูล</a>` : ""}</li>`).join("")}</ul>` : '<p class="muted">ไม่พบข้อมูลยืนยันความได้เปรียบที่ยั่งยืน</p>'}
+        </section>
+        <section class="ai-vi-section ai-vi-valuation ${valuation.available ? "is-available" : "is-missing"}">
+          <h5>4. ราคาเทียบกับมูลค่า</h5>
+          ${valuation.available ? `
+            <p><strong>${escapeHtml(valuation.position || "")}</strong></p>
+            <div class="ai-vi-value-grid">
+              <span><small>ราคาปัจจุบัน</small><strong>${valuation.currentPrice ? `${formatNumber(valuation.currentPrice)} THB` : "ไม่พบข้อมูล"}</strong></span>
+              <span><small>มูลค่าจากแบบจำลอง</small><strong>${formatNumber(valuation.fairValue)} THB</strong></span>
+              <span><small>ช่วงที่มี Margin of Safety</small><strong>${formatNumber(valuation.interestingPriceLow)}–${formatNumber(valuation.interestingPriceHigh)} THB</strong></span>
+            </div>
+            <p>${escapeHtml(valuation.method || "")}<br><small>${escapeHtml(valuation.formula || "")} · Margin of Safety ${formatNumber(valuation.marginOfSafetyMinPct)}–${formatNumber(valuation.marginOfSafetyMaxPct)}%</small></p>
+            <p class="muted">${escapeHtml(valuation.commentary || "")}</p>
+          ` : `<p><strong>ข้อมูลยังไม่พอคำนวณช่วงราคาโดยไม่เดา</strong></p><p class="muted">${escapeHtml(valuation.commentary || "ต้องมี EPS และ P/E อ้างอิงที่เพียงพอ")}</p>`}
+        </section>
+      </div>
+      <section class="ai-vi-section">
+        <h5>5. ความเสี่ยงที่ควรรู้</h5>
+        ${list(Array.isArray(result.risks) ? result.risks : [], "ยังไม่มีความเสี่ยงที่ยืนยันจากข้อมูลชุดนี้")}
+      </section>
+      <section class="ai-vi-verdict">
+        <div><span>6. คำตัดสินเพื่อศึกษาต่อ</span><strong>${escapeHtml(result.verdict || "ข้อมูลยังไม่พอประเมิน")}</strong></div>
+        ${reasons.length ? `<ul>${reasons.map((reason) => `<li>${escapeHtml(reason.claim || "")} <small>(${escapeHtml(reason.metricLabel || reason.metricKey || "")} = ${escapeHtml(formatViMetricValue(reason))})</small></li>`).join("")}</ul>` : ""}
+        <p><strong>ทำอะไรต่อ:</strong> ${escapeHtml(result.nextAction || "ตรวจ 56-1 One Report และงบล่าสุด")}</p>
+      </section>
+      ${Array.isArray(result.missingData) && result.missingData.length ? `<details class="ai-result-details"><summary>ข้อมูลที่ยังขาดหรือควรตรวจยืนยัน</summary>${list(result.missingData, "")}</details>` : ""}
+      ${citations.length ? `<div class="ai-citations"><strong>แหล่งข้อมูล</strong><ul>${citations.map((item) => `<li><a href="${escapeHtml(safeExternalUrl(item.url))}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.label || item.url)}</a></li>`).join("")}</ul></div>` : ""}
+      <p class="ai-disclaimer">${escapeHtml(result.disclaimer || "ข้อมูลนี้ใช้ประกอบการตัดสินใจเท่านั้น ไม่ใช่คำแนะนำการลงทุนเฉพาะบุคคล")}</p>
+    </article>
+  `;
+}
+
+function formatViMetricValue(metric = {}) {
+  const value = Number(metric.value);
+  if (!Number.isFinite(value)) return "ไม่พบข้อมูล";
+  if (metric.unit === "THB") {
+    if (Math.abs(value) >= 1e12) return `${formatNumber(value / 1e12)} ล้านล้านบาท`;
+    if (Math.abs(value) >= 1e9) return `${formatNumber(value / 1e9)} พันล้านบาท`;
+    if (Math.abs(value) >= 1e6) return `${formatNumber(value / 1e6)} ล้านบาท`;
+    return `${formatNumber(value)} บาท`;
+  }
+  if (metric.unit === "%") return `${formatNumber(value)}%`;
+  if (metric.unit === "x") return `${formatNumber(value)} เท่า`;
+  return formatNumber(value);
+}
+
+function viAssessmentClass(value) {
+  return { "ดี": "good", "ปานกลาง": "medium", "น่ากังวล": "risk" }[value] || "missing";
+}
+
 function renderAiContextQuality(context = {}, verification = {}) {
   if (!context?.dataQuality) return "";
   const quality = context.dataQuality;
@@ -2160,6 +2253,7 @@ function attachAiAssistantControls(rows) {
   const symbolInput = viewOutput.querySelector("[data-ai-symbol]");
   modeInput?.addEventListener("change", () => {
     state.aiAssistant.mode = modeInput.value;
+    state.aiAssistant.focus = modeInput.value === "vi" ? "value_investing" : "";
     state.aiAssistant.result = null;
     state.aiAssistant.error = "";
     renderPortfolioView();
@@ -2185,9 +2279,9 @@ async function runAiInvestmentExplanation(options = {}) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        mode: state.aiAssistant.mode,
+        mode: state.aiAssistant.mode === "vi" ? "stock" : state.aiAssistant.mode,
         symbol: state.aiAssistant.symbol,
-        focus: state.aiAssistant.focus,
+        focus: state.aiAssistant.mode === "vi" ? "value_investing" : state.aiAssistant.focus,
         question: state.aiAssistant.question,
         contextView: state.activeView,
         filterSummary: activeAiFilterSummary(),
@@ -2287,7 +2381,7 @@ function renderAiCompanion() {
     ` : ""}
     <div class="ai-prompt-list">
       ${prompts.map((prompt) => `
-        <button type="button" data-ai-companion-prompt="${escapeHtml(prompt.id)}" data-ai-mode="${escapeHtml(prompt.mode)}" data-ai-symbol="${escapeHtml(prompt.symbol || "")}" data-ai-requires-research="${String(Boolean(prompt.requiresResearch))}" ${state.aiAssistant.loading || !canAsk ? "disabled" : ""}>
+        <button type="button" data-ai-companion-prompt="${escapeHtml(prompt.id)}" data-ai-mode="${escapeHtml(prompt.mode)}" data-ai-symbol="${escapeHtml(prompt.symbol || "")}" data-ai-requires-research="${String(Boolean(prompt.requiresResearch))}" data-ai-requires-vi-research="${String(Boolean(prompt.requiresViResearch))}" ${state.aiAssistant.loading || !canAsk ? "disabled" : ""}>
           ${escapeHtml(prompt.label)}
         </button>
       `).join("")}
@@ -2312,11 +2406,13 @@ function aiCompanionPrompts(view) {
   const prompts = {
     portfolio: [
       { id: "portfolio_review", mode: "portfolio", label: "วันนี้ควรตรวจหุ้นตัวไหนก่อน" },
+      { id: "value_investing", mode: "vi", symbol, requiresViResearch: true, label: `วิเคราะห์ ${symbol || "หุ้นที่เลือก"} แบบ VI ระยะยาว` },
       { id: "beginner_wait_reasons", mode: "portfolio", label: "ถ้าจะเพิ่มเงิน มีเหตุผลอะไรที่ควรชะลอก่อน" },
       { id: "beginner_metrics", mode: "portfolio", label: "แปล Score, PE, RSI, RRR และ Volume ในพอร์ตนี้" },
       { id: "portfolio_concentration", mode: "portfolio", label: "พอร์ตกระจุกตัวตรงไหนและเสี่ยงอย่างไร" },
     ],
     screener: [
+      { id: "value_investing", mode: "vi", symbol, requiresViResearch: true, label: `วิเคราะห์ ${symbol || "หุ้นเด่น"} แบบ VI ระยะยาว` },
       { id: "beginner_stock_basics", mode: "stock", symbol, requiresResearch: true, label: `${symbol || "หุ้นเด่น"} ทำธุรกิจอะไร และตัวเลขบอกอะไร` },
       { id: "screener_shortlist", mode: "stock", symbol, label: "ทำไมหุ้นเด่นจึงน่าศึกษา และยังขาดอะไร" },
       { id: "beginner_wait_reasons", mode: "stock", symbol, label: "มีเหตุผลอะไรที่ยังไม่ควรลงทุนในหุ้นเด่น" },
@@ -2342,7 +2438,9 @@ async function runAiPreparedPrompt(button) {
   state.aiAssistant.mode = button.dataset.aiMode || "portfolio";
   state.aiAssistant.symbol = button.dataset.aiSymbol || bestContextSymbol();
   state.aiAssistant.drawerOpen = true;
-  if (button.dataset.aiRequiresResearch === "true" && state.aiAssistant.symbol) {
+  if (button.dataset.aiRequiresViResearch === "true" && state.aiAssistant.symbol) {
+    await loadAiCompanyResearch(state.aiAssistant.symbol, { vi: true });
+  } else if (button.dataset.aiRequiresResearch === "true" && state.aiAssistant.symbol) {
     await loadAiCompanyResearch(state.aiAssistant.symbol);
   }
   await runAiInvestmentExplanation({ drawer: true });
@@ -2355,7 +2453,9 @@ async function ensureAiSupportingContext() {
   if (needs.market && state.aiAssistant.marketChart?.symbol !== symbol) {
     await loadAiMarketHistory(symbol);
   }
-  if (needs.research && state.aiAssistant.companyResearch?.symbol !== symbol) {
+  if (needs.vi && (state.aiAssistant.companyResearch?.symbol !== symbol || !state.aiAssistant.companyResearch?.viFundamentals)) {
+    await loadAiCompanyResearch(symbol, { vi: true });
+  } else if (needs.research && state.aiAssistant.companyResearch?.symbol !== symbol) {
     await loadAiCompanyResearch(symbol);
   }
 }
@@ -2363,11 +2463,16 @@ async function ensureAiSupportingContext() {
 function clientAiContextNeeds() {
   const text = [state.aiAssistant.question, state.aiAssistant.focus, state.aiAssistant.mode, state.activeView].filter(Boolean).join(" ").toLowerCase();
   return {
-    market: ["stock", "compare"].includes(state.aiAssistant.mode)
+    market: state.aiAssistant.mode === "vi" || ["stock", "compare"].includes(state.aiAssistant.mode)
       || /(ราคา|กราฟ|52\s*สัปดาห์|แนวโน้ม|volume|rsi|macd|rrr|ตอนนี้|น่าลงทุน|price|chart|week|trend)/iu.test(text),
-    research: state.aiAssistant.focus === "beginner_stock_basics"
+    research: ["beginner_stock_basics", "value_investing"].includes(state.aiAssistant.focus)
       || /(ทำธุรกิจ|บริษัท|อุตสาหกรรม|คู่แข่ง|ข่าว|งบ|รายได้|กำไร|business|company|industry|competitor|news|earnings)/iu.test(text),
+    vi: state.aiAssistant.mode === "vi" || state.aiAssistant.focus === "value_investing",
   };
+}
+
+function aiQuestionWantsVi(question) {
+  return /(\bvi\b|value\s*invest|ระยะยาว|เน้นคุณค่า|มูลค่ากิจการ|งบการเงิน|free\s*cash\s*flow|p\/bv)/iu.test(String(question || ""));
 }
 
 function aiQuestionSymbol(question) {
@@ -2434,7 +2539,7 @@ async function loadAiMarketHistory(symbol) {
   }
 }
 
-async function loadAiCompanyResearch(symbol) {
+async function loadAiCompanyResearch(symbol, options = {}) {
   const normalizedSymbol = String(symbol || "").trim().toUpperCase();
   const allowedSymbols = new Set(activeAiContextRows().map((row) => String(row.Symbol || "").trim().toUpperCase()));
   if (!normalizedSymbol || !allowedSymbols.has(normalizedSymbol) || state.aiAssistant.companyResearchLoading) return;
@@ -2443,12 +2548,13 @@ async function loadAiCompanyResearch(symbol) {
   state.aiAssistant.companyResearch = null;
   renderAiCompanion();
   try {
-    const response = await fetch(`/api/market/research/${encodeURIComponent(normalizedSymbol)}`);
+    const endpoint = options.vi ? "vi-research" : "research";
+    const response = await fetch(`/api/market/${endpoint}/${encodeURIComponent(normalizedSymbol)}`);
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.message || "โหลดข้อมูลบริษัทไม่สำเร็จ");
+    if (!response.ok) throw new Error(payload.message || (options.vi ? "โหลดข้อมูลงบสำหรับ VI ไม่สำเร็จ" : "โหลดข้อมูลบริษัทไม่สำเร็จ"));
     state.aiAssistant.companyResearch = payload;
   } catch (error) {
-    state.aiAssistant.companyResearchError = error.message || "โหลดข้อมูลบริษัทไม่สำเร็จ";
+    state.aiAssistant.companyResearchError = error.message || (options.vi ? "โหลดข้อมูลงบสำหรับ VI ไม่สำเร็จ" : "โหลดข้อมูลบริษัทไม่สำเร็จ");
   } finally {
     state.aiAssistant.companyResearchLoading = false;
     renderAiCompanion();

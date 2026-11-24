@@ -4,7 +4,7 @@ import path from "path";
 import { collectInputSymbolsFromFiles } from "../services/inputService.js";
 import { buildBlankPortfolioTemplateBuffer, buildBlankWatchlistTemplateText } from "../services/inputTemplateService.js";
 import { getUserFromRequest, recordAuditEvent, requirePlanEntitlement, saveCustomerPortfolioSnapshot } from "../services/authService.js";
-import { fetchThaiMarketData, fetchYahoo52WeekHistory, fetchYahooCompanyResearch } from "../services/marketDataService.js";
+import { fetchThaiMarketData, fetchYahoo52WeekHistory, fetchYahooCompanyResearch, fetchYahooViResearch } from "../services/marketDataService.js";
 import { ensureDataDirs, outputPath, UPLOAD_DIR } from "../services/pathService.js";
 import { analyzePortfolio } from "../services/portfolioService.js";
 import { runStrategySimulation } from "../services/simulationService.js";
@@ -366,6 +366,21 @@ router.get("/market/research/:symbol", async (req, res) => {
     }
     requirePlanEntitlement(currentUser, "ai.investment_explainer");
     const research = await fetchYahooCompanyResearch(req.params.symbol);
+    res.json({ ok: true, ...research });
+  } catch (error) {
+    sendAnalysisError(res, error);
+  }
+});
+
+router.get("/market/vi-research/:symbol", async (req, res) => {
+  try {
+    const currentUser = await getUserFromRequest(req);
+    if (!currentUser) {
+      res.status(401).json({ ok: false, message: "Please sign in before loading VI research." });
+      return;
+    }
+    requirePlanEntitlement(currentUser, "ai.investment_explainer");
+    const research = await fetchYahooViResearch(req.params.symbol);
     res.json({ ok: true, ...research });
   } catch (error) {
     sendAnalysisError(res, error);

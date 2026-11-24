@@ -53,6 +53,9 @@ try {
   });
   assertEqual(unauthAi.status, 401, "AI Assistant should require login.");
 
+  const unauthViResearch = await fetch(`${baseUrl}/api/market/vi-research/PTT`);
+  assertEqual(unauthViResearch.status, 401, "VI research should require login.");
+
   const unauthPortfolioTemplate = await fetch(`${baseUrl}/api/analysis/template/portfolio`);
   assertEqual(unauthPortfolioTemplate.status, 401, "Anonymous users should not download portfolio templates.");
 
@@ -144,8 +147,8 @@ try {
     '<option value="light">Light</option>',
     '<option value="dark">Dark</option>',
     "Hide panel",
-    "/styles.css?v=20261123-2017",
-    "/app.js?v=20261123-2017",
+    "/styles.css?v=20261124-0731",
+    "/app.js?v=20261124-0731",
     'id="logoutStatus"',
     'class="ai-companion-icon"',
     'class="ai-companion-label"',
@@ -184,9 +187,9 @@ try {
     "Sign in to analyze",
     "Create an account or sign in before downloading templates",
     "frontendBuildVersion",
-    "20261123-2017",
-    "Think2 Portfolio Sync v1.0.1",
-    "codex/beginner-ai-companion-ui@20261123-2017",
+    "20261124-0731",
+    "Think2 Thai VI Analyst v1.1.0",
+    "codex/beginner-ai-companion-ui@20261124-0731",
     "data-beginner-decision-flow",
     "data-portfolio-advanced",
     "snapshotAgeDays",
@@ -197,6 +200,13 @@ try {
     "beginner_stock_basics",
     "beginner_wait_reasons",
     "data-ai-requires-research",
+    "data-ai-requires-vi-research",
+    "value_investing",
+    "วิเคราะห์หุ้นรายตัวแบบ VI",
+    "/api/market/${endpoint}/",
+    "data-ai-vi-result",
+    "renderAiViResult",
+    "ข้อมูลยังไม่พอคำนวณช่วงราคาโดยไม่เดา",
     "data-ai-context-quality",
     "ensureAiSupportingContext",
     "clientAiContextNeeds",

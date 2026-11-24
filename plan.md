@@ -44,6 +44,61 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T220 - Thai Value Investing Stock Analysis
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-24 07:15:39 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- เป้าหมาย:
+  - เพิ่มโหมด `วิเคราะห์หุ้นรายตัวแบบ VI` สำหรับนักลงทุนมือใหม่ โดยแยกจาก Think2/กราฟเทคนิคเดิม
+  - สรุปกิจการ งบการเงิน ความได้เปรียบ ราคาเทียบมูลค่า ความเสี่ยง และคำตัดสินแบบตรวจสอบย้อนกลับได้
+  - ห้ามสร้างตัวเลขหรือช่วงราคาเองเมื่อข้อมูลหลักฐานไม่ครบ
+- ขอบเขตและกฎ:
+  - วิเคราะห์เฉพาะ Symbol ที่ผู้ใช้เลือกและอยู่ใน Scope ปัจจุบัน
+  - ใช้ข้อมูลที่ระบบดึงและส่งให้ AI เท่านั้น พร้อมแหล่งข้อมูล รอบบัญชี และวันที่; หากไม่มีให้แสดง `ไม่พบข้อมูล`
+  - แยกข้อเท็จจริงจากความเห็น AI และไม่เปลี่ยนคะแนน/Action ของ Think2
+  - ช่วงราคาน่าสนใจต้องมีสูตร สมมติฐาน และ Margin of Safety; ถ้าคำนวณไม่ได้ต้องไม่สร้างราคา
+  - คำตัดสินเป็นมุมมองเพื่อศึกษาต่อ ไม่ใช่คำสั่งซื้อขายหรือคำแนะนำเฉพาะบุคคล
+- งานที่ต้องทำ:
+  - [x] สำรวจข้อมูลและเส้นทาง AI เดิม พร้อมกำหนดช่องว่างข้อมูล VI
+    - Done: `2026-11-24 07:15:39 +07:00`
+    - Result: ระบบมี Yahoo profile/news, ราคา 52 สัปดาห์ และค่า PE/ROE/D-E/Yield จาก Think2 row บางส่วน แต่ยังไม่มี Revenue, Net Income, Free Cash Flow, P/BV และรอบบัญชีที่ยืนยันครบ
+  - [x] เพิ่มแหล่งข้อมูล VI ที่ sanitize และเปิดเผย source/as-of โดยไม่รั่วข้อมูลส่วนตัว
+    - Done: `2026-11-24 07:21:28 +07:00`
+    - Result: เพิ่ม authenticated `/api/market/vi-research/:symbol`; ดึง Yahoo timeseries 6 ปีสำหรับ Revenue, Net Income, FCF, Equity, Debt, Shares, Market Cap, P/E และ Yield แล้วคำนวณ ROE, D/E, P/BV แบบ deterministic พร้อม source URL/as-of/formula
+    - Valuation guard: คำนวณ EPS × median P/E เฉพาะเมื่อมีข้อมูลพอ และสร้างช่วง Margin of Safety 20–30%; หากดึงงบไม่ได้ endpoint ยังคืน profile พร้อม coverage 0% และคำเตือนแทนการเดา
+    - Verification: Node syntax และ `npm run test:market-history` ผ่านทั้งกรณีข้อมูลครบและ upstream ล้มเหลว
+  - [x] เพิ่ม focus/schema/prompt เฉพาะ VI พร้อม verdict, confidence, missing data และ valuation guardrail
+    - Done: `2026-11-24 07:26:38 +07:00`
+    - Result: เพิ่ม `value_investing` focus และ JSON schema เฉพาะ; AI ส่งเพียง assessment/คำอธิบาย/metricKey ส่วน backend ประกอบตัวเลข วันที่ URL สูตร และช่วงราคาเดิมกลับเข้า report จึงแก้ตัวเลขไม่ได้
+    - Guardrails: coverage ต่ำกว่า 75% หรือไม่มี valuation model จะบังคับ verdict `ข้อมูลยังไม่พอประเมิน`, confidence `ต่ำ`, metric `ข้อมูลไม่พอ` และไม่แสดงช่วงราคาที่ AI แต่งเอง
+    - Verification: `npm run test:ai-investment` ผ่านกรณีข้อมูลครบ, URL ปลอมถูกตัด, ตัวเลขราคา AI ปลอมไม่ถูกใช้ และข้อมูลขาดถูกลด verdict/confidence
+  - [x] เพิ่ม UI เลือกหุ้นและแสดงผล VI แบบหนึ่งหน้าสำหรับมือใหม่
+    - Done: `2026-11-24 07:33:04 +07:00`
+    - Result: เพิ่มโหมด `วิเคราะห์หุ้นรายตัวแบบ VI` ใน AI Assistant และปุ่มลัดใน Portfolio/Screener; โหลดงบจาก `/api/market/vi-research/:symbol` เฉพาะ Symbol ใน Scope แล้วแสดงบริษัท ตาราง 8 ตัวชี้วัด แหล่ง/วันที่/สูตร จุดแข็ง กรอบมูลค่า ความเสี่ยง verdict และข้อมูลที่ขาด
+    - UX: ตารางเลื่อนได้บนจอใหญ่และยุบเป็นคอลัมน์เดียวบนจอเล็ก พร้อมป้ายข้อความและสีสำหรับ `ดี/ปานกลาง/น่ากังวล/ข้อมูลไม่พอ` ทั้ง Light/Dark theme
+  - [x] เพิ่ม regression สำหรับข้อมูลครบ ข้อมูลขาด Symbol นอก Scope URL ปลอม และช่วงราคาที่ไม่มีหลักฐาน
+    - Done: `2026-11-24 07:33:04 +07:00`
+    - Result: regression ยืนยัน backend เป็นเจ้าของตัวเลข/สูตร/ช่วงราคา, ตัด URL และราคาปลอมจาก AI, ลด verdict/confidence เมื่อ coverage ต่ำ, จำกัด Symbol ด้วย selected stock/Scope และตรวจ auth guard ของ VI endpoint
+    - Verification: `test:ai-investment`, `test:market-history`, `test:frontend-viewport`, `test:web-smoke` และ `git diff --check` ผ่าน
+  - [x] รันทดสอบ อัปเดต Version และบันทึกผล
+    - Done: `2026-11-24 07:34:37 +07:00`
+    - Version: `Think2 Thai VI Analyst v1.1.0` · Build `20261124-0731`
+    - Verification: `npm run test-regression` ผ่านครบ รวม AI/VI, market history, auth, tenant isolation, database, frontend viewport, analysis flow, web smoke และ Python comparison; formula/sector/portfolio mismatch = 0
+    - Quality: `git diff --check` ผ่าน มีเพียงคำเตือน line ending LF/CRLF ของ Windows
+  - [ ] Commit, push, deploy Production และตรวจ Browser
+- เกณฑ์ผ่าน:
+  - คำตอบ VI ต้องกล่าวถึงหุ้นที่เลือกเพียงตัวเดียว และไม่ใช้หุ้นอื่นหรือภาพรวมพอร์ตแทน
+  - ตารางต้องครอบคลุม Revenue, Net Income, ROE, D/E, FCF, P/E, P/BV และ Dividend Yield โดยค่าที่ไม่มีต้องระบุชัด
+  - Citation ต้องเป็น URL ที่ backend ส่งให้เท่านั้น และตัวเลขต้องมีวันที่/รอบบัญชี
+  - ห้ามมีราคาเหมาะสมเมื่อไม่มีสูตร/สมมติฐาน/ข้อมูลรองรับ
+  - Regression เดิมทั้งหมดต้องผ่าน
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอและห้ามลบไฟล์นี้
+  - ทำ T220 บน branch `codex/beginner-ai-companion-ui`
+  - เริ่มจาก task ที่ยังไม่ทำข้อแรกและอัปเดตวันเวลาเมื่อเสร็จ
+  - ห้ามเปลี่ยน Think2 scoring/action logic; เพิ่มเฉพาะ VI data context, AI response, UI และ tests
+
 ### T219 - AI and On-Screen Portfolio Summary Consistency
 
 - สถานะ: Production Deployed - รอ owner acceptance ว่าตัวเลข header และ AI ตรงกันหลัง Analyze
