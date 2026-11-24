@@ -80,6 +80,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
     - GitHub: commit `5bab403` push ไปที่ `origin/codex/beginner-ai-companion-ui` สำเร็จแล้ว
     - Deploy: `2026-11-23 20:35:04 +07:00` deployment `dpl_7wZM877hosQwf7DqPU2eRDXSUszf` สถานะ READY และ alias ไปที่ Production แล้ว
     - Verification: `/api/health` ตอบ `ok: true`; Production HTML อ้างอิง build `20261123-2017`; deployed JavaScript พบ `Think2 Portfolio Sync v1.0.1`, `current_screen_scope` และการส่ง Scope สูงสุด 200 แถว
+    - Browser shell QA: `2026-11-24 07:06:06 +07:00` Production เปิดได้, auth controls โหลดครบ, สถานะ `Ready` และไม่พบ JavaScript console error; Browser ทดสอบไม่ได้ login จึงไม่แตะข้อมูลพอร์ตหรือใช้โควตา AI
     - Next: owner รัน Analyze หนึ่งครั้ง แล้วกด AI สรุปภาพรวมพอร์ตโดยไม่ตั้ง filter เพื่อตรวจว่า holdings, market value, P/L และ avg score ตรงกับ header
 - เกณฑ์ผ่าน:
   - เมื่อไม่มี filter ตัวเลขจำนวนหุ้น มูลค่าตลาด ต้นทุน กำไร/ขาดทุน และคะแนนเฉลี่ยที่ AI ใช้ต้องตรงกับหัวหน้า Portfolio
