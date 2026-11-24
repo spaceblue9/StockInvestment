@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T221 - AI Freshness Follows Latest On-Screen Analysis
 
-- สถานะ: In Progress
+- สถานะ: Production Deployed - รอ owner acceptance หลัง Analyze ใหม่
 - เริ่มเมื่อ: `2026-11-24 12:15:14 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ที่มา:
@@ -73,7 +73,11 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
     - Version: `Think2 Thai VI Analyst v1.1.1` · Build `20261124-1219`
     - Verification: `npm run test-regression` ผ่านครบ; AI freshness, analysis timestamp, frontend, auth, tenant/database, Think2 และ market regressions ผ่าน และ Python comparison mismatch = 0
     - Quality: `git diff --check` ผ่าน มีเพียงคำเตือน line ending LF/CRLF ของ Windows
-  - [ ] Commit, push, deploy Production และตรวจผล
+  - [x] Commit, push, deploy Production และตรวจผล
+    - Done: `2026-11-24 12:22:57 +07:00`
+    - Git: commit `50e4dfb` (`Use latest on-screen analysis freshness for AI`) pushed to `origin/codex/beginner-ai-companion-ui`
+    - Deploy: Vercel deployment `dpl_E7stPDXWw9ov3nzXBntwJ1pMyjkZ` READY และ alias `https://thai-stock-investment-web.vercel.app`
+    - Production verification: `/api/health` ตอบ `ok: true`; HTML/app.js เป็น build `20261124-1219`, Version `Think2 Thai VI Analyst v1.1.1` และมี marker `currentAnalysisGeneratedAt`, `current_screen_analysis`, `รอบ Analyze บนหน้าจอ`
 - เกณฑ์ผ่าน:
   - หลัง Analyze ใหม่ AI ต้องไม่เตือนอายุ snapshot เก่าเมื่อกำลังอ่าน current screen rows
   - หลัง refresh ที่เหลือเพียง saved snapshot ต้องกลับไปใช้อายุ snapshot ตามจริง
