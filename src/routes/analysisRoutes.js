@@ -153,9 +153,11 @@ router.post("/analysis/run", upload.fields([
       runtimeWarnings.push("Vercel trial mode skipped audit logging in this request to avoid timeout.");
     }
 
+    const analysisGeneratedAt = new Date().toISOString();
     res.json({
       ok: true,
       stage: "stock-analysis",
+      analysisGeneratedAt,
       demoMode,
       runtimeMode: fastMode ? "vercel_fast_analysis" : "standard_analysis",
       runtimeWarnings,

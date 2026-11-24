@@ -78,6 +78,11 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
     .slice(0, MAX_SCOPE_ROWS)
     .map(sanitizeStockRow)
     .filter((row) => row.Symbol);
+  const currentAnalysisGeneratedAt = hasExplicitContextView && currentRows.length
+    ? sanitizeAnalysisGeneratedAt(input.analysisGeneratedAt)
+    : "";
+  const effectiveGeneratedAt = currentAnalysisGeneratedAt || snapshot?.generatedAt || "";
+  const freshnessSource = currentAnalysisGeneratedAt ? "current_screen_analysis" : "saved_snapshot";
   const portfolioRows = (snapshot?.portfolioRows || []).map(sanitizeStockRow).filter((row) => row.Symbol);
   const recommendations = (snapshot?.recommendations || []).map(sanitizeStockRow).filter((row) => row.Symbol);
   const symbol = cleanSymbol(input.symbol);
@@ -142,9 +147,10 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
     includedSymbols: uniqueBySymbol(modeRows).map((row) => row.Symbol),
     selectionReason: rowSelection.reason,
     summarySource: portfolioSummarySource,
+    freshnessSource,
   };
   const dataQuality = buildDataQuality({
-    generatedAt: snapshot?.generatedAt,
+    generatedAt: effectiveGeneratedAt,
     rows: uniqueBySymbol(modeRows),
     scopeRowCount: effectiveScopeRows.length,
     marketContext,
@@ -160,7 +166,7 @@ export function buildAiInvestmentContext(snapshot, input = {}) {
     contextView,
     filterSummary,
     question,
-    generatedAt: snapshot?.generatedAt || "",
+    generatedAt: effectiveGeneratedAt,
     dataContract: {
       scoringSource: "Think2 deterministic analysis",
       aiRole: "Decision support with deterministic verification; never replace Think2 outputs",
@@ -313,6 +319,13 @@ function freshnessDetails(value) {
     ageDays: Math.round((ageHours / 24) * 10) / 10,
     status: ageHours <= FRESH_HOURS ? "fresh" : ageHours <= AGING_HOURS ? "aging" : "stale",
   };
+}
+
+function sanitizeAnalysisGeneratedAt(value) {
+  const timestamp = new Date(String(value || "")).getTime();
+  if (!Number.isFinite(timestamp)) return "";
+  if (timestamp > Date.now() + 5 * 60 * 1000) return "";
+  return new Date(timestamp).toISOString();
 }
 
 function countValues(values, limit) {

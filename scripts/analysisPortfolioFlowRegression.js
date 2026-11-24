@@ -39,6 +39,7 @@ try {
   globalThis.fetch = nativeFetch;
 
   assertEqual(analysis.data.ok, true, "Analysis should succeed with an uploaded portfolio workbook.");
+  assert(Number.isFinite(new Date(analysis.data.analysisGeneratedAt).getTime()), "Analysis response should include a server-generated completion timestamp.");
   assertEqual(analysis.data.portfolioRows.length, 2, "Analysis response should include two portfolio rows.");
   assertEqual(analysis.data.portfolioReport.count, 2, "Portfolio report metadata should count two rows.");
   assertEqual(analysis.data.uploadSummary.portfolio.fileName, "my_renamed_portfolio.xlsx", "Analysis response should report the uploaded portfolio filename.");

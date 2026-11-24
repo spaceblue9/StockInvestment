@@ -44,6 +44,46 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T221 - AI Freshness Follows Latest On-Screen Analysis
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-24 12:15:14 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ที่มา:
+  - ผู้ใช้รัน Analyze ใหม่บน Vercel แล้ว แต่ AI ยังเตือนว่า Think2 เก่าประมาณ 139.9 วัน
+  - Vercel fast analysis แสดงผลใหม่บนจอแต่ข้ามการบันทึก snapshot; AI รับ `currentRows` ใหม่แต่ยังคำนวณ freshness จาก `snapshot.generatedAt` เก่า
+- กฎ:
+  - ใช้เวลา server ของรอบ Analyze ปัจจุบัน ไม่ใช้เวลา client ที่สร้างเอง
+  - ใช้ on-screen timestamp ได้เฉพาะเมื่อ request มี Context View และ current rows จริง
+  - timestamp ผิดรูปแบบหรืออยู่ในอนาคตต้อง fallback ไป saved snapshot
+  - ห้ามเปลี่ยนคะแนน Think2, Target Action หรือข้อมูลหุ้น
+- งานที่ต้องทำ:
+  - [x] เพิ่ม analysis timestamp จาก server และเก็บใน frontend state
+    - Done: `2026-11-24 12:19:29 +07:00`
+    - Result: `/api/analysis/run` ส่ง `analysisGeneratedAt` จาก server และ frontend เก็บใน `currentAnalysisGeneratedAt` เฉพาะรอบที่แสดงบนจอ; เมื่อโหลด saved portfolio หรือ logout จะล้างค่านี้
+  - [x] ให้ AI data quality เลือก freshness source ให้ตรงกับ Scope ที่ใช้
+    - Done: `2026-11-24 12:19:29 +07:00`
+    - Result: เมื่อมี Context View, current rows และ timestamp ที่ถูกต้อง AI ใช้ `current_screen_analysis`; กรณีอื่นใช้ `saved_snapshot` พร้อมแสดงชื่อแหล่งเวลาในกล่องอายุผล Think2
+    - Guard: timestamp อนาคตเกิน 5 นาทีหรือผิดรูปแบบจะไม่ถูกใช้
+  - [x] เพิ่ม regression สำหรับ snapshot เก่า + current screen ใหม่ และ timestamp ไม่ถูกต้อง
+    - Done: `2026-11-24 12:19:29 +07:00`
+    - Verification: `test:ai-investment`, `test:analysis-portfolio-flow`, `test:frontend-viewport`, `test:web-smoke`, syntax checks และ `git diff --check` ผ่าน
+  - [x] รันทดสอบ อัปเดต Version และบันทึกผล
+    - Done: `2026-11-24 12:21:07 +07:00`
+    - Version: `Think2 Thai VI Analyst v1.1.1` · Build `20261124-1219`
+    - Verification: `npm run test-regression` ผ่านครบ; AI freshness, analysis timestamp, frontend, auth, tenant/database, Think2 และ market regressions ผ่าน และ Python comparison mismatch = 0
+    - Quality: `git diff --check` ผ่าน มีเพียงคำเตือน line ending LF/CRLF ของ Windows
+  - [ ] Commit, push, deploy Production และตรวจผล
+- เกณฑ์ผ่าน:
+  - หลัง Analyze ใหม่ AI ต้องไม่เตือนอายุ snapshot เก่าเมื่อกำลังอ่าน current screen rows
+  - หลัง refresh ที่เหลือเพียง saved snapshot ต้องกลับไปใช้อายุ snapshot ตามจริง
+  - ต้องเปิดเผยว่าเวลา freshness มาจาก `current_screen_analysis` หรือ `saved_snapshot`
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอและห้ามลบไฟล์นี้
+  - ทำ T221 บน branch `codex/beginner-ai-companion-ui`
+  - เริ่มจาก task ที่ยังไม่ทำข้อแรกและอัปเดตวันเวลาเมื่อเสร็จ
+  - ห้ามเปลี่ยน Think2 scoring/action logic
+
 ### T220 - Thai Value Investing Stock Analysis
 
 - สถานะ: Production Deployed - รอ owner visual acceptance

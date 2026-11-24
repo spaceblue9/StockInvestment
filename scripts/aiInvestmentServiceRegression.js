@@ -498,10 +498,13 @@ const currentScreenPortfolioContext = buildAiInvestmentContext({
 }, {
   mode: "portfolio",
   contextView: "portfolio",
+  analysisGeneratedAt: new Date().toISOString(),
   currentRows: latestScreenRows,
   filterSummary: "all 28 current holdings",
 });
 assert.equal(currentScreenPortfolioContext.contextSelection.summarySource, "current_screen_scope");
+assert.equal(currentScreenPortfolioContext.contextSelection.freshnessSource, "current_screen_analysis");
+assert.equal(currentScreenPortfolioContext.dataQuality.snapshot.status, "fresh");
 assert.equal(currentScreenPortfolioContext.contextSelection.scopeRowCount, 28);
 assert.equal(currentScreenPortfolioContext.contextSelection.includedRowCount, 25);
 assert.equal(currentScreenPortfolioContext.contextSelection.omittedRowCount, 3);
@@ -514,6 +517,19 @@ assert.equal(currentScreenPortfolioContext.portfolioSummary.avgScore, 63.5);
 assert.equal(currentScreenPortfolioContext.portfolioSummary.urgentActions, 1);
 assert.equal(currentScreenPortfolioContext.currentRows.some((row) => row.Cost_Value > 0), true);
 assert.notEqual(currentScreenPortfolioContext.portfolioSummary.marketValue, 297206.5);
+
+const invalidCurrentTimestampContext = buildAiInvestmentContext({
+  generatedAt: "2026-11-01T00:00:00.000Z",
+  portfolioRows: latestScreenRows,
+}, {
+  mode: "portfolio",
+  contextView: "portfolio",
+  analysisGeneratedAt: new Date(Date.now() + 86400000).toISOString(),
+  currentRows: latestScreenRows,
+});
+assert.equal(invalidCurrentTimestampContext.contextSelection.freshnessSource, "saved_snapshot");
+assert.equal(invalidCurrentTimestampContext.generatedAt, "2026-11-01T00:00:00.000Z");
+assert.equal(invalidCurrentTimestampContext.dataQuality.snapshot.status, "stale");
 
 assert.deepEqual(inferAiContextNeeds({ mode: "stock", question: "PTT ทำธุรกิจอะไรและราคา 52 สัปดาห์อยู่ตรงไหน" }), {
   market: true,

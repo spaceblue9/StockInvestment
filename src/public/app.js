@@ -33,9 +33,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261124-0731";
-const programVersion = "Think2 Thai VI Analyst v1.1.0";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261124-0731";
+const frontendBuildVersion = "20261124-1219";
+const programVersion = "Think2 Thai VI Analyst v1.1.1";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261124-1219";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -77,6 +77,7 @@ const state = {
   },
   businessSection: "packages",
   analysisRunning: false,
+  currentAnalysisGeneratedAt: "",
   signingOut: false,
   analysisClickCount: 0,
   lastAnalysisTriggerAt: 0,
@@ -662,6 +663,7 @@ async function loadSavedPortfolio() {
     state.savedSnapshot = data.snapshot;
     state.portfolioRows = data.snapshot.portfolioRows || [];
     state.recommendations = data.snapshot.recommendations || [];
+    state.currentAnalysisGeneratedAt = "";
   }
   renderSnapshot();
 }
@@ -968,6 +970,7 @@ async function logout() {
 
   state.user = null;
   state.savedSnapshot = null;
+  state.currentAnalysisGeneratedAt = "";
   state.businessMetrics = null;
   state.referenceMaster = null;
   state.portfolioDataHealth = null;
@@ -1421,6 +1424,7 @@ async function runAnalysis(event) {
     state.recommendations = data.recommendations || [];
     state.portfolioRows = data.portfolioRows || [];
     state.savedSnapshot = data.customerSnapshot || null;
+    state.currentAnalysisGeneratedAt = data.analysisGeneratedAt || "";
     await Promise.all([loadBusinessMetrics(), loadAuditEvents(), loadTenantScope()]);
     renderAuthState();
     state.activeView = state.portfolioRows.length ? "portfolio" : "screener";
@@ -2238,10 +2242,15 @@ function renderAiContextQuality(context = {}, verification = {}) {
     : selection.summarySource === "saved_snapshot"
       ? "ยอดสรุปจาก snapshot ที่บันทึกไว้"
       : "";
+  const freshnessSourceLabel = selection.freshnessSource === "current_screen_analysis"
+    ? "รอบ Analyze บนหน้าจอ"
+    : selection.freshnessSource === "saved_snapshot"
+      ? "Snapshot ที่บันทึกไว้"
+      : "ไม่ทราบแหล่งเวลา";
   return `
     <section class="ai-context-quality ${verificationPassed ? "is-verified" : "has-warning"}" data-ai-context-quality>
       <div><span>Scope ที่อ่าน</span><strong>${formatNumber(selection.scopeRowCount || 0)} หุ้น</strong><small>${summarySourceLabel ? `${escapeHtml(summarySourceLabel)} · ` : ""}ส่งรายละเอียด ${formatNumber(selection.includedRowCount || 0)} หุ้น${selection.omittedRowCount ? ` · รวมอีก ${formatNumber(selection.omittedRowCount)} หุ้นในยอดสรุป` : ""}</small></div>
-      <div><span>อายุผล Think2</span><strong>${escapeHtml(freshnessLabels[quality.snapshot?.status] || "ไม่ทราบเวลา")}</strong><small>${quality.snapshot?.ageDays != null ? `${formatNumber(quality.snapshot.ageDays)} วัน` : "ควรรัน Analyze ใหม่"}</small></div>
+      <div><span>อายุผล Think2</span><strong>${escapeHtml(freshnessLabels[quality.snapshot?.status] || "ไม่ทราบเวลา")}</strong><small>${escapeHtml(freshnessSourceLabel)} · ${quality.snapshot?.ageDays != null ? `${formatNumber(quality.snapshot.ageDays)} วัน` : "ควรรัน Analyze ใหม่"}</small></div>
       <div><span>ความครบของตัวเลข</span><strong>${formatNumber(quality.completenessPct || 0)}%</strong><small>${quality.missingFields?.length ? `ขาด ${escapeHtml(quality.missingFields.slice(0, 3).join(", "))}` : "ข้อมูลหลักครบ"}</small></div>
       <div><span>ตรวจคำตอบ</span><strong>${verificationPassed ? "ผ่าน" : "พบข้อควรระวัง"}</strong><small>${verificationPassed ? "Symbol และตัวเลขตรงกับ Scope" : "ระบบลดความมั่นใจแล้ว"}</small></div>
     </section>
@@ -2283,6 +2292,7 @@ async function runAiInvestmentExplanation(options = {}) {
         symbol: state.aiAssistant.symbol,
         focus: state.aiAssistant.mode === "vi" ? "value_investing" : state.aiAssistant.focus,
         question: state.aiAssistant.question,
+        analysisGeneratedAt: state.currentAnalysisGeneratedAt,
         contextView: state.activeView,
         filterSummary: activeAiFilterSummary(),
         currentRows: currentAiContextRows(),
