@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T222 - Screener Exact Multi-Symbol Search
 
-- สถานะ: In Progress
+- สถานะ: Production Deployed - รอ owner acceptance
 - เริ่มเมื่อ: `2026-11-24 13:23:46 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ที่มา:
@@ -73,7 +73,11 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
     - Verification: `npm run test-regression` ผ่านครบ รวม stock search, frontend viewport, web smoke, auth, tenant/database, AI, Portfolio, Think2 และ market regressions; Python comparison mismatch = 0
     - Cache guard: JavaScript modules ทุกไฟล์ส่ง `no-store` เพื่อป้องกัน Browser ใช้กติกาค้นหาเวอร์ชันเก่า
     - Quality: syntax checks และ `git diff --check` ผ่าน มีเพียงคำเตือน line ending LF/CRLF ของ Windows
-  - [ ] Commit, push, deploy Production และตรวจผล
+  - [x] Commit, push, deploy Production และตรวจผล
+    - Done: `2026-11-24 13:31:15 +07:00`
+    - Git: commit `3ecff28` (`Fix exact multi-symbol stock search`) pushed to `origin/codex/beginner-ai-companion-ui`
+    - Deploy: Vercel deployment `dpl_CZJWgp6XCQJ67YoHNbbw44G9LUcp` READY และ alias `https://thai-stock-investment-web.vercel.app`
+    - Production verification: `/api/health` ตอบ `ok: true`; `app.js` เป็น Version `Think2 Thai VI Analyst v1.1.2`, Build `20261124-1327` และ import exact matcher; `stockSearch.js` บน Production มี `exactSymbolTokens` และ partial text fallback ครบ
 - เกณฑ์ผ่าน:
   - Screener ค้น `PTT, AOT` แล้วแสดง 2 หุ้นเมื่อหุ้นทั้งสองผ่าน filter อื่น
   - `PTTEP` และ `PTTGC` ต้องไม่ติดผลลัพธ์จาก token `PTT`
