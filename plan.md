@@ -44,6 +44,47 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T222 - Screener Exact Multi-Symbol Search
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-24 13:23:46 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ที่มา:
+  - ผู้ใช้ค้นหา `PTT, AOT` ในหน้า Screener แต่ระบบแสดง 4 หุ้น ได้แก่ `PTT`, `PTTEP`, `PTTGC` และ `AOT`
+  - สาเหตุที่ยืนยันจากโค้ด: ตัวกรองใช้ `includes()` กับ Symbol จึงตีความ `PTT` เป็นข้อความบางส่วนแทน Symbol แบบตรงตัว
+- กฎ:
+  - Token ที่ตรงกับ Symbol ในชุดข้อมูลต้องจับคู่แบบตรงตัว เช่น `PTT` ต้องไม่รวม `PTTEP` หรือ `PTTGC`
+  - รองรับหลาย Symbol ที่คั่นด้วย comma, semicolon หรือช่องว่างเหมือนเดิม
+  - คำค้นที่ไม่ตรงกับ Symbol ใดเลยยังค้นชื่อบริษัทแบบบางส่วนได้
+  - ห้ามเปลี่ยนคะแนน Think2, Target Action หรือข้อมูลหุ้น
+- งานที่ต้องทำ:
+  - [x] เพิ่มตัวแยกและตัวจับคู่คำค้นหุ้นที่แยก exact Symbol จากข้อความค้นชื่อ
+    - Done: `2026-11-24 13:25:55 +07:00`
+    - Result: เพิ่ม helper กลาง `stockSearch.js`; token ที่ตรง Symbol ในข้อมูลใช้ exact match ส่วน token ที่ไม่ใช่ Symbol ใช้ค้นข้อความบางส่วน
+  - [x] ใช้กติกาเดียวกันใน Screener และ Portfolio Recommended actions
+    - Done: `2026-11-24 13:25:55 +07:00`
+    - Result: ทั้งสองหน้าสร้าง matcher จาก rows ที่กำลังแสดง จึงไม่ดึง `PTTEP`/`PTTGC` เมื่อค้น `PTT` และยังรองรับ comma, semicolon, ช่องว่าง และ `.BK`
+  - [x] เพิ่ม regression กรณี `PTT, AOT` ต้องได้เพียง `PTT` และ `AOT` พร้อมกรณีค้นชื่อ/ข้อความบางส่วน
+    - Done: `2026-11-24 13:25:55 +07:00`
+    - Verification: `npm run test:stock-search` ผ่านกรณี exact ticker, partial ticker, ชื่อบริษัทหลายคำ, exact ticker ผสม free text, `.BK`, token ซ้ำ และช่องค้นว่าง
+  - [x] รันทดสอบ อัปเดต Version และบันทึกผล
+    - Done: `2026-11-24 13:29:05 +07:00`
+    - Version: `Think2 Thai VI Analyst v1.1.2` · Build `20261124-1327`
+    - Verification: `npm run test-regression` ผ่านครบ รวม stock search, frontend viewport, web smoke, auth, tenant/database, AI, Portfolio, Think2 และ market regressions; Python comparison mismatch = 0
+    - Cache guard: JavaScript modules ทุกไฟล์ส่ง `no-store` เพื่อป้องกัน Browser ใช้กติกาค้นหาเวอร์ชันเก่า
+    - Quality: syntax checks และ `git diff --check` ผ่าน มีเพียงคำเตือน line ending LF/CRLF ของ Windows
+  - [ ] Commit, push, deploy Production และตรวจผล
+- เกณฑ์ผ่าน:
+  - Screener ค้น `PTT, AOT` แล้วแสดง 2 หุ้นเมื่อหุ้นทั้งสองผ่าน filter อื่น
+  - `PTTEP` และ `PTTGC` ต้องไม่ติดผลลัพธ์จาก token `PTT`
+  - การค้นชื่อบริษัทแบบบางส่วนยังใช้งานได้
+  - Regression เดิมทั้งหมดต้องผ่าน
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอและห้ามลบไฟล์นี้
+  - ทำ T222 บน branch `codex/beginner-ai-companion-ui`
+  - เริ่มจาก task ที่ยังไม่ทำข้อแรกและอัปเดตวันเวลาเมื่อเสร็จ
+  - ห้ามเปลี่ยน Think2 scoring/action logic
+
 ### T221 - AI Freshness Follows Latest On-Screen Analysis
 
 - สถานะ: Production Deployed - รอ owner acceptance หลัง Analyze ใหม่

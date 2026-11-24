@@ -7,6 +7,7 @@ const repoRoot = path.resolve(scriptDir, "..");
 const html = await fs.readFile(path.join(repoRoot, "src", "public", "index.html"), "utf8");
 const styles = await fs.readFile(path.join(repoRoot, "src", "public", "styles.css"), "utf8");
 const appJs = await fs.readFile(path.join(repoRoot, "src", "public", "app.js"), "utf8");
+const stockSearchJs = await fs.readFile(path.join(repoRoot, "src", "public", "stockSearch.js"), "utf8");
 
 assertIncludes(html, [
   '<meta name="viewport" content="width=device-width, initial-scale=1">',
@@ -25,8 +26,8 @@ assertIncludes(html, [
   'data-frontend-version',
   'leftRailToggle',
   'Hide panel',
-  '/styles.css?v=20261124-1219',
-  '/app.js?v=20261124-1219',
+  '/styles.css?v=20261124-1327',
+  '/app.js?v=20261124-1327',
   'id="logoutStatus"',
   '<option value="light">Light</option>',
   '<option value="dark">Dark</option>',
@@ -34,6 +35,14 @@ assertIncludes(html, [
 if (html.includes('data-view="approvals"')) {
   throw new Error("Launch navigation should not expose deferred Approvals.");
 }
+
+assertIncludes(stockSearchJs, [
+  "parseStockSearchTokens",
+  "createStockSearchMatcher",
+  "exactSymbolTokens",
+  "textTokens.every",
+  "split(/[\\s,;]+/u)",
+], "Stock search helper should use exact known Symbols while keeping partial name search.");
 
 assertIncludes(styles, [
   "overflow-x: hidden;",
@@ -196,9 +205,9 @@ assertIncludes(appJs, [
   "Sign in to analyze",
   "Create an account or sign in before downloading templates",
   "frontendBuildVersion",
-  "20261124-1219",
-  "Think2 Thai VI Analyst v1.1.1",
-  "codex/beginner-ai-companion-ui@20261124-1219",
+  "20261124-1327",
+  "Think2 Thai VI Analyst v1.1.2",
+  "codex/beginner-ai-companion-ui@20261124-1327",
   "data-beginner-decision-flow",
   "1. วันนี้ต้องตรวจอะไร",
   "2. เพราะอะไร",
@@ -258,6 +267,7 @@ assertIncludes(appJs, [
   "AI จะอ่านเฉพาะ",
   "recommendedActionSearchTokens",
   "searchTokens",
+  "createStockSearchMatcher",
   "today-review-detail",
   "today-review-facts",
   "today-review-item",

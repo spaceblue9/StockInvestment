@@ -1,3 +1,5 @@
+import { createStockSearchMatcher, parseStockSearchTokens } from "./stockSearch.js";
+
 const healthStatus = document.querySelector("#healthStatus");
 const appShell = document.querySelector(".app-shell");
 const authPanel = document.querySelector("#authPanel");
@@ -33,9 +35,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261124-1219";
-const programVersion = "Think2 Thai VI Analyst v1.1.1";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261124-1219";
+const frontendBuildVersion = "20261124-1327";
+const programVersion = "Think2 Thai VI Analyst v1.1.2";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261124-1327";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -2899,7 +2901,7 @@ function normalizeManualVisualFilters(control, panel) {
 }
 
 function getFilteredRecommendedActions(rows, panel) {
-  const searchTokens = recommendedActionSearchTokens(panel);
+  const stockSearch = createStockSearchMatcher(rows, panel.querySelector("#actionSearch")?.value || "");
   const actionFilter = panel.querySelector("#actionGroupFilter")?.value || "";
   const sectorFilter = panel.querySelector("#actionSectorFilter")?.value || "";
   const trendFilter = panel.querySelector("#actionTrendFilter")?.value || "";
@@ -2909,7 +2911,7 @@ function getFilteredRecommendedActions(rows, panel) {
   const direction = panel.querySelector("#actionSortDirection")?.value || "desc";
 
   return rows
-    .filter((row) => !searchTokens.length || searchTokens.some((token) => String(row.Symbol || "").toUpperCase().replace(/\.BK$/u, "").includes(token)))
+    .filter((row) => stockSearch.matches(row))
     .filter((row) => !actionFilter || matchesRecommendedActionFilter(row, actionFilter))
     .filter((row) => !sectorFilter || (row.Sector || "Unknown") === sectorFilter)
     .filter((row) => !trendFilter || (row.Trend_Status || "Unknown") === trendFilter)
@@ -2920,8 +2922,7 @@ function getFilteredRecommendedActions(rows, panel) {
 }
 
 function recommendedActionSearchTokens(panel) {
-  const searchText = String(panel.querySelector("#actionSearch")?.value || "").trim().toUpperCase();
-  return [...new Set(searchText.split(/[\s,;]+/u).map((token) => token.replace(/\.BK$/u, "").trim()).filter(Boolean))];
+  return parseStockSearchTokens(panel.querySelector("#actionSearch")?.value || "");
 }
 
 function recommendedActionsFilterSummary(panel) {
@@ -4137,15 +4138,10 @@ function renderScreenerView() {
   const trendFilter = document.querySelector("#trendFilter");
   const filterStatus = document.querySelector("#screenerFilterStatus");
   const renderFiltered = () => {
-    const searchText = String(symbolSearch.value || "").trim().toUpperCase();
-    const searchTokens = [...new Set(searchText.split(/[\s,;]+/u).map((token) => token.replace(/\.BK$/u, "").trim()).filter(Boolean))];
+    const stockSearch = createStockSearchMatcher(state.recommendations, symbolSearch.value || "");
+    const searchTokens = stockSearch.tokens;
     const rows = state.recommendations
-      .filter((row) => {
-        if (!searchTokens.length) return true;
-        const searchableValues = [row.Symbol, row.Name, row.Company, row.Security_Name]
-          .map((value) => String(value || "").toUpperCase().replace(/\.BK$/u, ""));
-        return searchTokens.some((token) => searchableValues.some((value) => value.includes(token)));
-      })
+      .filter((row) => stockSearch.matches(row))
       .filter((row) => numberValue(row.Total_Score) >= numberValue(minScore.value))
       .filter((row) => numberValue(row.RRR) >= numberValue(minRrr.value))
       .filter((row) => numberValue(row.DE) <= numberValue(maxDe.value))

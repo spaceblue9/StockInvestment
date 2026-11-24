@@ -147,8 +147,8 @@ try {
     '<option value="light">Light</option>',
     '<option value="dark">Dark</option>',
     "Hide panel",
-    "/styles.css?v=20261124-1219",
-    "/app.js?v=20261124-1219",
+    "/styles.css?v=20261124-1327",
+    "/app.js?v=20261124-1327",
     'id="logoutStatus"',
     'class="ai-companion-icon"',
     'class="ai-companion-label"',
@@ -159,6 +159,16 @@ try {
   const appJsResponse = await getTextWithHeaders(`${baseUrl}/app.js`);
   const appJs = appJsResponse.text;
   assert((appJsResponse.cacheControl || "").includes("no-store"), "app.js should send no-store cache headers so bug fixes load after restart.");
+  const stockSearchResponse = await getTextWithHeaders(`${baseUrl}/stockSearch.js`);
+  const stockSearchJs = stockSearchResponse.text;
+  assert((stockSearchResponse.cacheControl || "").includes("no-store"), "stockSearch.js should send no-store cache headers so search fixes load after restart.");
+  assertIncludes(stockSearchJs, [
+    "parseStockSearchTokens",
+    "createStockSearchMatcher",
+    "exactSymbolTokens",
+    "textTokens.every",
+    "split(/[\\s,;]+/u)",
+  ], "Stock search helper should preserve exact ticker matching and partial company-name search.");
   assertIncludes(appJs, [
     "sectorFilter",
     "data-sector-filter",
@@ -187,9 +197,9 @@ try {
     "Sign in to analyze",
     "Create an account or sign in before downloading templates",
     "frontendBuildVersion",
-    "20261124-1219",
-    "Think2 Thai VI Analyst v1.1.1",
-    "codex/beginner-ai-companion-ui@20261124-1219",
+    "20261124-1327",
+    "Think2 Thai VI Analyst v1.1.2",
+    "codex/beginner-ai-companion-ui@20261124-1327",
     "data-beginner-decision-flow",
     "data-portfolio-advanced",
     "snapshotAgeDays",
@@ -241,7 +251,7 @@ try {
     "AI จะอ่านเฉพาะ",
     "recommendedActionSearchTokens",
     "searchTokens",
-    "split(/[\\s,;]+/u)",
+    "createStockSearchMatcher",
     "data-today-review",
     "buildTodayReviewItems",
     "data-guided-action",
