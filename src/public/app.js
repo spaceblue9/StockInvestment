@@ -1,4 +1,5 @@
 import { createStockSearchMatcher, parseStockSearchTokens } from "./stockSearch.js";
+import { buildAiCompanionPrompts, resolveAiCompanionSymbol } from "./aiCompanionUi.js";
 
 const healthStatus = document.querySelector("#healthStatus");
 const appShell = document.querySelector(".app-shell");
@@ -35,9 +36,9 @@ const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261124-1327";
-const programVersion = "Think2 Thai VI Analyst v1.1.2";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261124-1327";
+const frontendBuildVersion = "20261124-1344";
+const programVersion = "Think2 Thai VI Analyst v1.1.3";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261124-1344";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -541,10 +542,11 @@ document.addEventListener("click", (event) => {
     if (!question || aiCustomSubmit.disabled) return;
     const questionSymbol = aiQuestionSymbol(question);
     const wantsVi = aiQuestionWantsVi(question);
+    const selectedSymbol = questionSymbol || selectedAiCompanionSymbol();
+    if (selectedSymbol) selectAiCompanionSymbol(selectedSymbol, { render: false });
     state.aiAssistant.focus = wantsVi ? "value_investing" : "";
     state.aiAssistant.question = question.slice(0, 600);
     state.aiAssistant.mode = wantsVi ? "vi" : questionSymbol ? "stock" : state.activeView === "sector" ? "compare" : "portfolio";
-    state.aiAssistant.symbol = questionSymbol || bestContextSymbol();
     runAiInvestmentExplanation({ drawer: true });
     return;
   }
@@ -553,7 +555,9 @@ document.addEventListener("click", (event) => {
   if (aiMarketHistoryButton) {
     if (aiMarketHistoryButton.disabled) return;
     const symbolSelect = document.querySelector("[data-ai-market-symbol]");
-    loadAiMarketHistory(symbolSelect?.value || bestContextSymbol());
+    const symbol = symbolSelect?.value || selectedAiCompanionSymbol();
+    if (!selectAiCompanionSymbol(symbol, { render: false })) return;
+    loadAiMarketHistory(symbol);
     return;
   }
 
@@ -561,7 +565,9 @@ document.addEventListener("click", (event) => {
   if (aiCompanyResearchButton) {
     if (aiCompanyResearchButton.disabled) return;
     const symbolSelect = document.querySelector("[data-ai-market-symbol]");
-    loadAiCompanyResearch(symbolSelect?.value || bestContextSymbol());
+    const symbol = symbolSelect?.value || selectedAiCompanionSymbol();
+    if (!selectAiCompanionSymbol(symbol, { render: false })) return;
+    loadAiCompanyResearch(symbol);
     return;
   }
 
@@ -2341,7 +2347,6 @@ function renderAiCompanion() {
   aiCompanionDrawer.setAttribute("aria-hidden", String(!state.aiAssistant.drawerOpen));
   if (!state.aiAssistant.drawerOpen) return;
 
-  const prompts = aiCompanionPrompts(state.activeView);
   const contextRows = activeAiContextRows();
   const canAsk = aiContextReady();
   const marketSymbols = [...new Set(contextRows.map((row) => String(row.Symbol || "").trim()).filter(Boolean))].slice(0, 25);
@@ -2353,6 +2358,9 @@ function renderAiCompanion() {
     state.aiAssistant.companyResearch = null;
     state.aiAssistant.companyResearchError = "";
   }
+  const selectedSymbol = selectedAiCompanionSymbol(marketSymbols);
+  state.aiAssistant.symbol = selectedSymbol;
+  const prompts = buildAiCompanionPrompts(state.activeView, selectedSymbol);
   const emptyMessage = state.activeView === "simulation"
     ? "กรุณารัน Simulation ก่อน เพื่อให้ AI อ่านผล ROI กราฟ และรายการซื้อขายจริง"
     : "ไม่มีหุ้นอยู่ในขอบเขตปัจจุบัน กรุณาผ่อน Filter หรือเลือกข้อมูลใหม่ก่อนถาม AI";
@@ -2380,7 +2388,7 @@ function renderAiCompanion() {
         </div>
         <div class="ai-market-controls">
           <select id="aiMarketSymbol" data-ai-market-symbol>
-            ${marketSymbols.map((symbol) => `<option value="${escapeHtml(symbol)}" ${symbol === (state.aiAssistant.marketChart?.symbol || bestContextSymbol()) ? "selected" : ""}>${escapeHtml(symbol)}</option>`).join("")}
+            ${marketSymbols.map((symbol) => `<option value="${escapeHtml(symbol)}" ${symbol === selectedSymbol ? "selected" : ""}>${escapeHtml(symbol)}</option>`).join("")}
           </select>
           <button type="button" data-ai-market-history ${state.aiAssistant.marketChartLoading ? "disabled" : ""}>${state.aiAssistant.marketChartLoading ? "กำลังโหลด..." : "ดูกราฟราคา"}</button>
           <button type="button" data-ai-company-research ${state.aiAssistant.companyResearchLoading ? "disabled" : ""}>${state.aiAssistant.companyResearchLoading ? "กำลังค้น..." : "ข้อมูลบริษัทและข่าว"}</button>
@@ -2411,44 +2419,17 @@ function renderAiCompanion() {
     ${state.aiAssistant.result ? renderAiAssistantResult(state.aiAssistant.result) : ""}
     ${state.aiAssistant.quota ? `<p class="ai-companion-quota">เหลือ ${formatNumber(state.aiAssistant.quota.remaining)} ครั้งในเดือนนี้</p>` : ""}
   `;
-}
-
-function aiCompanionPrompts(view) {
-  const symbol = bestContextSymbol();
-  const prompts = {
-    portfolio: [
-      { id: "portfolio_review", mode: "portfolio", label: "วันนี้ควรตรวจหุ้นตัวไหนก่อน" },
-      { id: "value_investing", mode: "vi", symbol, requiresViResearch: true, label: `วิเคราะห์ ${symbol || "หุ้นที่เลือก"} แบบ VI ระยะยาว` },
-      { id: "beginner_wait_reasons", mode: "portfolio", label: "ถ้าจะเพิ่มเงิน มีเหตุผลอะไรที่ควรชะลอก่อน" },
-      { id: "beginner_metrics", mode: "portfolio", label: "แปล Score, PE, RSI, RRR และ Volume ในพอร์ตนี้" },
-      { id: "portfolio_concentration", mode: "portfolio", label: "พอร์ตกระจุกตัวตรงไหนและเสี่ยงอย่างไร" },
-    ],
-    screener: [
-      { id: "value_investing", mode: "vi", symbol, requiresViResearch: true, label: `วิเคราะห์ ${symbol || "หุ้นเด่น"} แบบ VI ระยะยาว` },
-      { id: "beginner_stock_basics", mode: "stock", symbol, requiresResearch: true, label: `${symbol || "หุ้นเด่น"} ทำธุรกิจอะไร และตัวเลขบอกอะไร` },
-      { id: "screener_shortlist", mode: "stock", symbol, label: "ทำไมหุ้นเด่นจึงน่าศึกษา และยังขาดอะไร" },
-      { id: "beginner_wait_reasons", mode: "stock", symbol, label: "มีเหตุผลอะไรที่ยังไม่ควรลงทุนในหุ้นเด่น" },
-      { id: "beginner_metrics", mode: "stock", symbol, label: "แปล PE, RSI, RRR และ Volume ของหุ้นเด่น" },
-    ],
-    sector: [
-      { id: "sector_explain", mode: "compare", symbol, label: "หุ้นผู้นำต่างจากคู่แข่งอย่างไรจากตัวเลขจริง" },
-      { id: "sector_concentration", mode: "portfolio", label: "Sector ที่เลือกกระจุกตัวในหุ้นใด" },
-      { id: "beginner_metrics", mode: "compare", symbol, label: "แปลตัวเลขสำคัญของหุ้นในกลุ่มนี้" },
-      { id: "beginner_wait_reasons", mode: "compare", symbol, label: "อะไรทำให้ยังไม่ควรรีบเลือกหุ้นกลุ่มนี้" },
-    ],
-    simulation: [
-      { id: "simulation_interpretation", mode: "portfolio", label: "ควรอ่านผล Simulation อย่างไร" },
-      { id: "portfolio_warnings", mode: "portfolio", label: "ข้อจำกัดของ Backtest มีอะไรบ้าง" },
-    ],
-  };
-  return prompts[view] || prompts.portfolio;
+  aiCompanionDrawer.querySelector("[data-ai-market-symbol]")?.addEventListener("change", (event) => {
+    selectAiCompanionSymbol(event.currentTarget.value);
+  });
 }
 
 async function runAiPreparedPrompt(button) {
+  const promptSymbol = button.dataset.aiSymbol || selectedAiCompanionSymbol();
+  if (promptSymbol) selectAiCompanionSymbol(promptSymbol, { render: false });
   state.aiAssistant.focus = button.dataset.aiCompanionPrompt || "";
   state.aiAssistant.question = "";
   state.aiAssistant.mode = button.dataset.aiMode || "portfolio";
-  state.aiAssistant.symbol = button.dataset.aiSymbol || bestContextSymbol();
   state.aiAssistant.drawerOpen = true;
   if (button.dataset.aiRequiresViResearch === "true" && state.aiAssistant.symbol) {
     await loadAiCompanyResearch(state.aiAssistant.symbol, { vi: true });
@@ -2459,7 +2440,7 @@ async function runAiPreparedPrompt(button) {
 }
 
 async function ensureAiSupportingContext() {
-  const symbol = state.aiAssistant.symbol || bestContextSymbol();
+  const symbol = selectedAiCompanionSymbol();
   if (!symbol || state.activeView === "simulation") return;
   const needs = clientAiContextNeeds();
   if (needs.market && state.aiAssistant.marketChart?.symbol !== symbol) {
@@ -2505,6 +2486,43 @@ function bestContextSymbol() {
   return rows.slice().sort((left, right) => numberValue(right.Total_Score) - numberValue(left.Total_Score))[0]?.Symbol || "";
 }
 
+function selectedAiCompanionSymbol(availableSymbols = activeAiContextRows().map((row) => row.Symbol)) {
+  return resolveAiCompanionSymbol({
+    availableSymbols,
+    selectedSymbol: state.aiAssistant.symbol,
+    marketChartSymbol: state.aiAssistant.marketChart?.symbol,
+    companyResearchSymbol: state.aiAssistant.companyResearch?.symbol,
+    fallbackSymbol: bestContextSymbol(),
+  });
+}
+
+function selectAiCompanionSymbol(value, options = {}) {
+  const symbol = resolveAiCompanionSymbol({
+    availableSymbols: activeAiContextRows().map((row) => row.Symbol),
+    selectedSymbol: value,
+  });
+  if (!symbol || symbol !== String(value || "").trim().toUpperCase().replace(/\.BK$/u, "")) return false;
+
+  const changed = state.aiAssistant.symbol !== symbol;
+  state.aiAssistant.symbol = symbol;
+  if (changed) {
+    state.aiAssistant.result = null;
+    state.aiAssistant.context = null;
+    state.aiAssistant.error = "";
+    state.aiAssistant.question = "";
+    if (state.aiAssistant.marketChart?.symbol !== symbol) {
+      state.aiAssistant.marketChart = null;
+      state.aiAssistant.marketChartError = "";
+    }
+    if (state.aiAssistant.companyResearch?.symbol !== symbol) {
+      state.aiAssistant.companyResearch = null;
+      state.aiAssistant.companyResearchError = "";
+    }
+  }
+  if (options.render !== false) renderAiCompanion();
+  return true;
+}
+
 function activeAiContextRows() {
   if (state.activeView === "portfolio") return state.portfolioFilteredRows;
   if (state.activeView === "screener") return state.screenerFilteredRows;
@@ -2542,9 +2560,11 @@ async function loadAiMarketHistory(symbol) {
     const response = await fetch(`/api/market/history/${encodeURIComponent(normalizedSymbol)}`);
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.message || "โหลดข้อมูลราคา 52 สัปดาห์ไม่สำเร็จ");
-    state.aiAssistant.marketChart = payload;
+    if (state.aiAssistant.symbol === normalizedSymbol) state.aiAssistant.marketChart = payload;
   } catch (error) {
-    state.aiAssistant.marketChartError = error.message || "โหลดข้อมูลราคา 52 สัปดาห์ไม่สำเร็จ";
+    if (state.aiAssistant.symbol === normalizedSymbol) {
+      state.aiAssistant.marketChartError = error.message || "โหลดข้อมูลราคา 52 สัปดาห์ไม่สำเร็จ";
+    }
   } finally {
     state.aiAssistant.marketChartLoading = false;
     renderAiCompanion();
@@ -2564,9 +2584,11 @@ async function loadAiCompanyResearch(symbol, options = {}) {
     const response = await fetch(`/api/market/${endpoint}/${encodeURIComponent(normalizedSymbol)}`);
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.message || (options.vi ? "โหลดข้อมูลงบสำหรับ VI ไม่สำเร็จ" : "โหลดข้อมูลบริษัทไม่สำเร็จ"));
-    state.aiAssistant.companyResearch = payload;
+    if (state.aiAssistant.symbol === normalizedSymbol) state.aiAssistant.companyResearch = payload;
   } catch (error) {
-    state.aiAssistant.companyResearchError = error.message || (options.vi ? "โหลดข้อมูลงบสำหรับ VI ไม่สำเร็จ" : "โหลดข้อมูลบริษัทไม่สำเร็จ");
+    if (state.aiAssistant.symbol === normalizedSymbol) {
+      state.aiAssistant.companyResearchError = error.message || (options.vi ? "โหลดข้อมูลงบสำหรับ VI ไม่สำเร็จ" : "โหลดข้อมูลบริษัทไม่สำเร็จ");
+    }
   } finally {
     state.aiAssistant.companyResearchLoading = false;
     renderAiCompanion();

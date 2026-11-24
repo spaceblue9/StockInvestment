@@ -44,6 +44,49 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
+### T223 - AI Companion Selected Stock Synchronization
+
+- สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-24 13:39:10 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ที่มา:
+  - ผู้ใช้เปลี่ยนหุ้นในเครื่องมือกราฟเป็น `CPF` แต่ปุ่มคำถาม AI ยังแสดง `SISB`
+  - สาเหตุที่ยืนยันจากโค้ด: Dropdown กราฟไม่ได้อัปเดต `state.aiAssistant.symbol`; กราฟอ่านค่าจาก Dropdown แต่เมนูคำถามเรียก `bestContextSymbol()` จึงกลับไปใช้หุ้นคะแนนสูงสุด
+- กฎ:
+  - หุ้นที่เลือกใน AI Drawer ต้องเป็นแหล่งเดียวสำหรับกราฟราคา ข้อมูลบริษัท/ข่าว ปุ่มคำถาม และ request ที่ส่งให้ AI
+  - เมื่อเปลี่ยนหุ้น ต้องล้างผล กราฟ และข้อมูลงานวิจัยของหุ้นเก่าที่ไม่ตรง Symbol เพื่อป้องกันข้อมูลปะปน
+  - Symbol ต้องอยู่ใน Scope ที่กำลังเปิดอยู่เท่านั้น
+  - ห้ามเปลี่ยนคะแนน Think2, Target Action หรือข้อมูลหุ้น
+- งานที่ต้องทำ:
+  - [x] เพิ่มตัวแก้ไข/ตรวจสอบ selected Symbol กลางของ AI Companion
+    - Done: `2026-11-24 13:43:40 +07:00`
+    - Result: เพิ่ม `resolveAiCompanionSymbol()` และ `selectAiCompanionSymbol()`; รับเฉพาะ Symbol ที่อยู่ใน Scope ปัจจุบันและใช้ selected Symbol ก่อนหุ้นคะแนนสูงสุดเดิม
+  - [x] ให้ Dropdown, กราฟ, ข้อมูลบริษัท, เมนูคำถาม และคำขอ AI ใช้ Symbol เดียวกัน
+    - Done: `2026-11-24 13:43:40 +07:00`
+    - Result: Dropdown change อัปเดต state กลางทันที; ปุ่มกราฟ/ข่าว/คำถามสำเร็จรูป/คำถามที่พิมพ์เองใช้ Symbol เดียวกัน และ response เก่าที่กลับมาหลังเปลี่ยนหุ้นจะไม่ถูกนำมาแสดง
+  - [x] ปรับข้อความคำถามใน Screener ให้ระบุชื่อหุ้นที่เลือกแทนคำว่า `หุ้นเด่น`
+    - Done: `2026-11-24 13:43:40 +07:00`
+    - Result: เมนู Screener ทั้ง 5 รายการระบุ Symbol ที่เลือก รวมถึงเหตุผลควรศึกษา เหตุผลควรรอ และคำอธิบาย PE/RSI/RRR/Volume
+  - [x] เพิ่ม regression สำหรับเปลี่ยน `SISB` เป็น `CPF` และป้องกัน context ของหุ้นเก่า
+    - Done: `2026-11-24 13:43:40 +07:00`
+    - Verification: `test:ai-companion-selection`, `test:frontend-viewport`, `test:web-smoke`, syntax checks และ `git diff --check` ผ่าน; ยืนยัน CPF มี prompt payload/label เป็น CPF ครบและ AOT.BK normalize เป็น AOT
+  - [x] รันทดสอบ อัปเดต Version และบันทึกผล
+    - Done: `2026-11-24 13:46:04 +07:00`
+    - Version: `Think2 Thai VI Analyst v1.1.3` · Build `20261124-1344`
+    - Verification: `npm run test-regression` ผ่านครบ รวม AI Companion selection, stock search, frontend viewport, web smoke, auth, tenant/database, AI, Portfolio, Think2 และ market regressions; Python comparison mismatch = 0
+    - Quality: syntax checks และ `git diff --check` ผ่าน มีเพียงคำเตือน line ending LF/CRLF ของ Windows
+  - [ ] Commit, push, deploy Production และตรวจผล
+- เกณฑ์ผ่าน:
+  - เมื่อเลือก `CPF` เมนูต้องแสดง `วิเคราะห์ CPF`, `CPF ทำธุรกิจอะไร`, เหตุผลของ `CPF` และตัวเลขของ `CPF`
+  - การกดกราฟ ข้อมูลบริษัท หรือคำถามต้องส่ง `CPF` ไม่ใช่หุ้นเด่นเดิม
+  - เมื่อเปลี่ยนเป็นหุ้นอื่น ผล/กราฟ/ข่าวของหุ้นก่อนหน้าต้องไม่ค้างปะปน
+  - Regression เดิมทั้งหมดต้องผ่าน
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอและห้ามลบไฟล์นี้
+  - ทำ T223 บน branch `codex/beginner-ai-companion-ui`
+  - เริ่มจาก task ที่ยังไม่ทำข้อแรกและอัปเดตวันเวลาเมื่อเสร็จ
+  - ห้ามเปลี่ยน Think2 scoring/action logic
+
 ### T222 - Screener Exact Multi-Symbol Search
 
 - สถานะ: Production Deployed - รอ owner acceptance

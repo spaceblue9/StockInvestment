@@ -8,6 +8,7 @@ const html = await fs.readFile(path.join(repoRoot, "src", "public", "index.html"
 const styles = await fs.readFile(path.join(repoRoot, "src", "public", "styles.css"), "utf8");
 const appJs = await fs.readFile(path.join(repoRoot, "src", "public", "app.js"), "utf8");
 const stockSearchJs = await fs.readFile(path.join(repoRoot, "src", "public", "stockSearch.js"), "utf8");
+const aiCompanionUiJs = await fs.readFile(path.join(repoRoot, "src", "public", "aiCompanionUi.js"), "utf8");
 
 assertIncludes(html, [
   '<meta name="viewport" content="width=device-width, initial-scale=1">',
@@ -26,8 +27,8 @@ assertIncludes(html, [
   'data-frontend-version',
   'leftRailToggle',
   'Hide panel',
-  '/styles.css?v=20261124-1327',
-  '/app.js?v=20261124-1327',
+  '/styles.css?v=20261124-1344',
+  '/app.js?v=20261124-1344',
   'id="logoutStatus"',
   '<option value="light">Light</option>',
   '<option value="dark">Dark</option>',
@@ -43,6 +44,16 @@ assertIncludes(stockSearchJs, [
   "textTokens.every",
   "split(/[\\s,;]+/u)",
 ], "Stock search helper should use exact known Symbols while keeping partial name search.");
+
+assertIncludes(aiCompanionUiJs, [
+  "resolveAiCompanionSymbol",
+  "buildAiCompanionPrompts",
+  "beginner_wait_reasons",
+  "portfolio_review",
+  "simulation_interpretation",
+  "ทำไม ${stockLabel} จึงน่าศึกษา",
+  "Volume ของ ${stockLabel}",
+], "AI Companion prompts should follow the stock selected in the drawer.");
 
 assertIncludes(styles, [
   "overflow-x: hidden;",
@@ -205,9 +216,9 @@ assertIncludes(appJs, [
   "Sign in to analyze",
   "Create an account or sign in before downloading templates",
   "frontendBuildVersion",
-  "20261124-1327",
-  "Think2 Thai VI Analyst v1.1.2",
-  "codex/beginner-ai-companion-ui@20261124-1327",
+  "20261124-1344",
+  "Think2 Thai VI Analyst v1.1.3",
+  "codex/beginner-ai-companion-ui@20261124-1344",
   "data-beginner-decision-flow",
   "1. วันนี้ต้องตรวจอะไร",
   "2. เพราะอะไร",
@@ -222,7 +233,6 @@ assertIncludes(appJs, [
   "beginnerConclusion",
   "beginnerMetrics",
   "beginner_stock_basics",
-  "beginner_wait_reasons",
   "data-ai-requires-research",
   "data-ai-requires-vi-research",
   "value_investing",
@@ -268,6 +278,9 @@ assertIncludes(appJs, [
   "recommendedActionSearchTokens",
   "searchTokens",
   "createStockSearchMatcher",
+  "selectAiCompanionSymbol",
+  'querySelector("[data-ai-market-symbol]")?.addEventListener("change"',
+  "state.aiAssistant.symbol === normalizedSymbol",
   "today-review-detail",
   "today-review-facts",
   "today-review-item",
