@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T219 - AI and On-Screen Portfolio Summary Consistency
 
-- สถานะ: Implementation Done - push แล้ว รอ Vercel authentication, Production deployment และ owner acceptance
+- สถานะ: Production Deployed - รอ owner acceptance ว่าตัวเลข header และ AI ตรงกันหลัง Analyze
 - เริ่มเมื่อ: `2026-11-23 20:10:18 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ที่มา:
@@ -78,8 +78,9 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
   - [x] Commit, push และบันทึกสถานะ Production deployment
     - Done: `2026-11-23 20:25:11 +07:00`
     - GitHub: commit `5bab403` push ไปที่ `origin/codex/beginner-ai-companion-ui` สำเร็จแล้ว
-    - Vercel CLI: `npx vercel whoami` รายงาน `Logged out` จึงยังไม่ deploy และไม่อ้างว่า Production แก้แล้ว
-    - Next: owner login Vercel แล้ว deploy build `20261123-2017`; จากนั้นรัน Analyze หนึ่งครั้งและเทียบ header กับ AI summary ใน Scope เดียวกัน
+    - Deploy: `2026-11-23 20:35:04 +07:00` deployment `dpl_7wZM877hosQwf7DqPU2eRDXSUszf` สถานะ READY และ alias ไปที่ Production แล้ว
+    - Verification: `/api/health` ตอบ `ok: true`; Production HTML อ้างอิง build `20261123-2017`; deployed JavaScript พบ `Think2 Portfolio Sync v1.0.1`, `current_screen_scope` และการส่ง Scope สูงสุด 200 แถว
+    - Next: owner รัน Analyze หนึ่งครั้ง แล้วกด AI สรุปภาพรวมพอร์ตโดยไม่ตั้ง filter เพื่อตรวจว่า holdings, market value, P/L และ avg score ตรงกับ header
 - เกณฑ์ผ่าน:
   - เมื่อไม่มี filter ตัวเลขจำนวนหุ้น มูลค่าตลาด ต้นทุน กำไร/ขาดทุน และคะแนนเฉลี่ยที่ AI ใช้ต้องตรงกับหัวหน้า Portfolio
   - เมื่อมี filter AI ต้องบอกชัดว่าเป็นสรุปเฉพาะ Scope ที่กรอง ไม่ทำให้ผู้ใช้เข้าใจว่าเป็นทั้งพอร์ต
@@ -93,7 +94,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T218 - AI Decision Companion v2
 
-- สถานะ: Implementation Done - รอ Vercel authentication เพื่อ deploy และ owner visual acceptance
+- สถานะ: Production Deployed - รอ owner authenticated AI visual acceptance
 - เริ่มเมื่อ: `2026-11-23 19:33:06 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ที่มา:
@@ -131,12 +132,12 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
     - Result: `npm run test-regression` ผ่านทั้งชุด; Python parity numeric/text/sector mismatch = 0 และ `git diff --check` ผ่าน
     - Test maintenance: ปรับ Reference Master admin fixture ให้ใช้เวลาปัจจุบัน เพื่อไม่ให้ regression ล้มเพราะ fixture เก่ากว่า freshness window 30 วัน
     - Release candidate: `Think2 AI Decision Companion v1.0.0` / build `20261123-1945`
-  - [ ] Deploy Production และตรวจ authenticated AI response บน Browser จริง
-    - Blocked: `2026-11-23 19:53:18 +07:00`
+  - [ ] ตรวจ authenticated AI response บน Browser จริง
+    - Deployment completed: `2026-11-23 20:35:04 +07:00`
+    - Production: deployment `dpl_7wZM877hosQwf7DqPU2eRDXSUszf` READY; build `20261123-2017` รวม T218 และ T219 แล้ว
     - GitHub: commit `62019b2` push ไปที่ `origin/codex/beginner-ai-companion-ui` สำเร็จแล้ว
-    - Vercel CLI: หยุดที่ `Missing authentication token`; ไม่ขอหรือเปิดเผย token ของ owner
-    - Production check: alias ปัจจุบันยังโหลด `app.js?v=20261105-1457` จึงยังไม่ใช่ build ใหม่
-    - Next: owner login Vercel แล้วแจ้ง Codex เพื่อ deploy; หลัง READY ต้องตรวจ build `20261123-1945`, health, AI stock question, filtered scope และ verifier badge
+    - Automated verification: health, HTML build และ deployed JavaScript markers ผ่าน
+    - Remaining: owner ทดสอบ AI stock question, filtered Scope, verifier badge และ Portfolio summary บน session ที่ login จริง
 - เกณฑ์ผ่าน:
   - คำถามหุ้นรายตัวต้องไม่สรุปภาพรวมพอร์ตหรือกล่าวถึงหุ้นอื่น
   - คำถามจาก Screener/Sector ต้องใช้เฉพาะผลที่กรองอยู่และบอกจำนวน Scope ที่อ่าน
