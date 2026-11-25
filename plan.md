@@ -44,9 +44,58 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ## Task List
 
-### T223 - AI Companion Selected Stock Synchronization
+### T224 - Personal Investment Workspace Sidebar
 
 - สถานะ: In Progress
+- เริ่มเมื่อ: `2026-11-25 09:04:37 +07:00`
+- Branch: `codex/beginner-ai-companion-ui`
+- ที่มา:
+  - ผู้ใช้ตัดสินใจเปลี่ยน StockFlix เป็นเครื่องมือช่วยลงทุนส่วนตัว ไม่เปิดขายแพ็กเกจ
+  - Sidebar ปัจจุบันแสดงราคาแพ็กเกจ วันต่ออายุ billing feature count และ Monthly Plans มากเกินความจำเป็น
+  - ต้องการหน้าด้านข้างที่สะอาด อ่านง่าย และให้ความสำคัญกับการอัปโหลดพอร์ตกับการวิเคราะห์
+- กฎ:
+  - ซ่อน UI เชิงพาณิชย์ ได้แก่ ราคา แพ็กเกจ วันต่ออายุ billing ปุ่ม Request package และ Monthly Plans
+  - เก็บข้อมูล subscription/entitlement และ backend routes เดิมไว้เพื่อไม่ทำลายข้อมูลหรือสิทธิ์การใช้งาน
+  - คง login, upload, Analyze, AI Companion และ Think2 เดิม
+  - ห้ามเปลี่ยนคะแนน Think2, Target Action, portfolio calculation หรือข้อมูลหุ้น
+- งานที่ต้องทำ:
+  - [x] เพิ่ม Personal Use mode และซ่อน signup/package/Business UI เชิงพาณิชย์
+    - Done: `2026-11-25 09:14:47 +07:00`
+    - Result: เพิ่ม `personalUseMode`; หน้า anonymous เป็น login-only และซ่อน Create account, signup package, Monthly Plans และ Business navigation โดยคง backend subscription/entitlement เดิมไว้
+  - [x] ปรับ Account panel เป็น Personal Workspace แบบสั้น พร้อมซ่อนข้อมูลระบบไว้ใน details
+    - Done: `2026-11-25 09:14:47 +07:00`
+    - Result: Account panel เหลือชื่อ อีเมล และ badge `Private use`; Version/Build/Creator ย้ายเข้า details `ข้อมูลระบบ` และไม่แสดง plan/price/renewal/billing
+  - [x] ปรับ Upload/Analyze panel ให้กระชับ ใช้ข้อความไทยและลำดับงานชัดเจน
+    - Done: `2026-11-25 09:14:47 +07:00`
+    - Result: เปลี่ยนเป็น `วิเคราะห์พอร์ตของฉัน`, ย่อปุ่ม template, ระบุ Watchlist ไม่บังคับ และแปลสถานะหลักเป็นภาษาไทย
+  - [x] ปรับ CSS ให้ Sidebar สะอาด อ่านง่าย และ responsive
+    - Done: `2026-11-25 09:14:47 +07:00`
+    - Result: ลดความกว้าง Sidebar เหลือสูงสุด 330px, ลดช่องว่าง, จัด template เป็น 2 คอลัมน์บน desktop/1 คอลัมน์บน mobile และเพิ่ม `[hidden]` guard เพื่อไม่ให้ CSS เดิมเผย control ที่ซ่อน
+    - Visual QA: เปิด localhost จริงผ่าน in-app browser; Dark/Light theme แสดงได้ อ่านง่าย ไม่มี Create account, Monthly Plans, Business หรือ package UI ใน accessibility tree
+  - [x] เพิ่ม regression guard สำหรับ Personal Workspace UI
+    - Done: `2026-11-25 09:14:47 +07:00`
+    - Result: เพิ่ม `test:personal-workspace-ui` และผูกเข้า `test-regression`; targeted test, frontend viewport, web smoke, syntax และ `git diff --check` ผ่าน
+  - [x] รันทดสอบ อัปเดต Version และบันทึกผล
+    - Done: `2026-11-25 09:17:24 +07:00`
+    - Version: `Think2 Personal Investment Workspace v1.2.0` · Build `20261125-0904`
+    - Verification: `npm run test-regression` ผ่านครบ รวม personal workspace UI, frontend viewport/auth, web smoke, AI, Portfolio, Think2, database/security guards และ market regressions
+    - Python parity: numeric/text/sector mismatch = 0 และ portfolio report sample mismatch = 0
+    - Quality: Browser visual QA ผ่าน Dark/Light theme; syntax และ `git diff --check` ผ่าน มีเพียงคำเตือน line ending LF/CRLF ของ Windows
+  - [ ] Commit, push, deploy Production และตรวจผล
+- เกณฑ์ผ่าน:
+  - ผู้ใช้ไม่เห็นราคาแพ็กเกจ Monthly Plans renewal billing หรือปุ่มขอแพ็กเกจ
+  - Sidebar แสดงเพียงตัวตนผู้ใช้ งานอัปโหลด/วิเคราะห์ และข้อมูลระบบที่เปิดดูเมื่อจำเป็น
+  - Login และการวิเคราะห์พอร์ตยังทำงานเหมือนเดิม
+  - Regression เดิมทั้งหมดต้องผ่าน
+- Prompt AI สำหรับทำต่อ:
+  - อ่าน `plan.md` ก่อนเสมอและห้ามลบไฟล์นี้
+  - ทำ T224 บน branch `codex/beginner-ai-companion-ui`
+  - เริ่มจาก task ที่ยังไม่ทำข้อแรกและอัปเดตวันเวลาเมื่อเสร็จ
+  - ห้ามลบ backend subscription data หรือเปลี่ยน Think2 scoring/action logic
+
+### T223 - AI Companion Selected Stock Synchronization
+
+- สถานะ: Production Deployed - รอ owner acceptance
 - เริ่มเมื่อ: `2026-11-24 13:39:10 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ที่มา:
@@ -75,7 +124,11 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
     - Version: `Think2 Thai VI Analyst v1.1.3` · Build `20261124-1344`
     - Verification: `npm run test-regression` ผ่านครบ รวม AI Companion selection, stock search, frontend viewport, web smoke, auth, tenant/database, AI, Portfolio, Think2 และ market regressions; Python comparison mismatch = 0
     - Quality: syntax checks และ `git diff --check` ผ่าน มีเพียงคำเตือน line ending LF/CRLF ของ Windows
-  - [ ] Commit, push, deploy Production และตรวจผล
+  - [x] Commit, push, deploy Production และตรวจผล
+    - Done: `2026-11-24 13:50:00 +07:00`
+    - Git: commit `74fe965` push ไปที่ `origin/codex/beginner-ai-companion-ui`
+    - Deploy: Vercel deployment `dpl_5PVfXfpzEtHF9tgGXrtnJErgvDeX` READY และ alias `https://thai-stock-investment-web.vercel.app`
+    - Production verification: health, app และ helper markers ผ่าน; Browser visual automation ติดข้อจำกัด Firefox URL policy จึงรอ owner acceptance จาก session ที่ login จริง
 - เกณฑ์ผ่าน:
   - เมื่อเลือก `CPF` เมนูต้องแสดง `วิเคราะห์ CPF`, `CPF ทำธุรกิจอะไร`, เหตุผลของ `CPF` และตัวเลขของ `CPF`
   - การกดกราฟ ข้อมูลบริษัท หรือคำถามต้องส่ง `CPF` ไม่ใช่หุ้นเด่นเดิม

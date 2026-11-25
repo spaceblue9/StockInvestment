@@ -35,10 +35,11 @@ const leftRailToggle = document.querySelector("#leftRailToggle");
 const themeSelect = document.querySelector("#themeSelect");
 const aiCompanionButton = document.querySelector("#aiCompanionButton");
 const aiCompanionDrawer = document.querySelector("#aiCompanionDrawer");
+const personalUseMode = true;
 const publicLaunchMode = "starter_pro_manual_ready";
-const frontendBuildVersion = "20261124-1344";
-const programVersion = "Think2 Thai VI Analyst v1.1.3";
-const githubDeployBuild = "codex/beginner-ai-companion-ui@20261124-1344";
+const frontendBuildVersion = "20261125-0904";
+const programVersion = "Think2 Personal Investment Workspace v1.2.0";
+const githubDeployBuild = "codex/beginner-ai-companion-ui@20261125-0904";
 const programCreator = "penthammachat";
 const leftRailStorageKey = "stockflix.leftRailCollapsed";
 const themeStorageKey = "stockflix.theme";
@@ -47,7 +48,7 @@ let tableTooltipCounter = 0;
 const state = {
   user: null,
   authLoading: true,
-  authMode: "register",
+  authMode: personalUseMode ? "login" : "register",
   selectedSignupPlanId: "starter",
   recommendations: [],
   portfolioRows: [],
@@ -1005,16 +1006,23 @@ async function logout() {
 }
 
 function toggleAuthMode() {
+  if (personalUseMode) {
+    setAuthMode("login");
+    return;
+  }
   setAuthMode(state.authMode === "register" ? "login" : "register");
 }
 
 function setAuthMode(mode) {
-  state.authMode = mode === "login" ? "login" : "register";
+  state.authMode = personalUseMode ? "login" : mode === "login" ? "login" : "register";
   authMessage.textContent = "";
   renderAuthState();
 }
 
 function renderAuthState() {
+  if (personalUseMode) {
+    state.authMode = "login";
+  }
   const signedIn = Boolean(state.user);
   authPanel.hidden = signedIn || state.authLoading;
   accountPanel.hidden = !signedIn;
@@ -1022,10 +1030,15 @@ function renderAuthState() {
   if (!signedIn && !state.signingOut) {
     logoutStatus.hidden = true;
   }
-  businessViewButton.hidden = !canSeeWorkspaceNav();
-  nameField.hidden = state.authMode === "login";
-  signupPlanField.hidden = state.authMode === "login";
-  authSubmit.textContent = state.authMode === "register" ? "Create account and request package" : "Sign in";
+  businessViewButton.hidden = personalUseMode || !canSeeWorkspaceNav();
+  nameField.hidden = personalUseMode || state.authMode === "login";
+  signupPlanField.hidden = personalUseMode || state.authMode === "login";
+  authModeButton.hidden = personalUseMode;
+  authSubmit.textContent = personalUseMode
+    ? "เข้าสู่ระบบ"
+    : state.authMode === "register"
+      ? "Create account and request package"
+      : "Sign in";
   authModeButton.textContent = state.authMode === "register"
     ? "I already have an account"
     : "Create a new account";
@@ -1052,6 +1065,21 @@ function renderAuthState() {
   const tenantScope = state.tenantScope;
   const isPendingManualPackage = subscription.status === "inactive" && subscription.provider === "manual_admin_pending";
   accountName.textContent = state.user.name || "Investor";
+  if (personalUseMode) {
+    subscriptionBadge.textContent = "Private use";
+    subscriptionDetails.innerHTML = `
+      <span class="personal-account-email">${escapeHtml(state.user.email || "")}</span>
+      <details class="workspace-system-details">
+        <summary>ข้อมูลระบบ</summary>
+        <div>
+          <span>Version: ${escapeHtml(programVersion)}</span>
+          <span>Build: ${escapeHtml(githubDeployBuild)}</span>
+          <span>Created by: ${escapeHtml(programCreator)}</span>
+        </div>
+      </details>
+    `;
+    return;
+  }
   subscriptionBadge.textContent = isPendingManualPackage
     ? "Waiting for admin package"
     : `${subscription.plan || "Pro"} ${subscription.status || "active"}`;
@@ -1074,6 +1102,11 @@ function renderAuthState() {
 }
 
 function renderPlans() {
+  if (personalUseMode) {
+    plansList.innerHTML = "";
+    plansList.closest(".pricing-panel")?.setAttribute("hidden", "");
+    return;
+  }
   const currentPlanId = currentPlanIdForUser();
   const activeSubscription = ["active", "trialing"].includes(state.user?.subscription?.status);
   plansList.innerHTML = state.plans.map((plan) => {
@@ -1126,6 +1159,12 @@ function renderPlans() {
 
 function renderSignupPlanChoices() {
   if (!signupPlanChoices) {
+    return;
+  }
+
+  if (personalUseMode) {
+    signupPlanChoices.innerHTML = "";
+    authSubmit.disabled = false;
     return;
   }
 
@@ -1309,17 +1348,17 @@ async function runAnalysis(event) {
 
   if (!state.user) {
     showAnalysisStatus("error", {
-      title: "Sign in required",
-      text: "Create an account or sign in before running portfolio analysis.",
+      title: "กรุณาเข้าสู่ระบบ",
+      text: "เข้าสู่ระบบก่อนเลือกไฟล์และเริ่มวิเคราะห์พอร์ต",
       activeStep: null,
     });
-    runMessage.textContent = "Please create an account or sign in before running analysis.";
+    runMessage.textContent = "เข้าสู่ระบบก่อนเริ่มวิเคราะห์พอร์ต";
     return;
   }
 
   if (!canRunPortfolioAnalysis()) {
     showAnalysisStatus("error", {
-      title: "Package required",
+      title: personalUseMode ? "สิทธิ์วิเคราะห์ยังไม่พร้อม" : "Package required",
       text: analysisPackageRequiredMessage(),
       activeStep: null,
     });
@@ -1541,12 +1580,12 @@ function setAnalysisButtonLoading(isLoading) {
   analysisSubmitButton.textContent = state.authLoading
     ? "กำลังโหลดบัญชี..."
     : !signedIn
-    ? "Sign in to analyze"
+    ? "เข้าสู่ระบบก่อนวิเคราะห์"
     : !canAnalyze
-      ? "Package required"
+      ? personalUseMode ? "สิทธิ์วิเคราะห์ยังไม่พร้อม" : "Package required"
     : isLoading
-      ? "Analyzing..."
-      : "Analyze my portfolio";
+      ? "กำลังวิเคราะห์..."
+      : "วิเคราะห์พอร์ตของฉัน";
   analysisFileInputs.forEach((input) => {
     input.disabled = isLoading || !signedIn || !canAnalyze;
   });
@@ -1590,18 +1629,14 @@ function syncAnalysisAccess() {
   }
 
   if (!signedIn) {
-    showAnalysisStatus("error", {
-      title: "Sign in required",
-      text: "Create an account or sign in before downloading templates, browsing files, or running portfolio analysis.",
-      activeStep: null,
-    });
-    runMessage.textContent = "Sign in before downloading templates, browsing files, or running analysis.";
+    analysisStatusPanel.hidden = true;
+    runMessage.textContent = "เข้าสู่ระบบเพื่อเลือกไฟล์และวิเคราะห์พอร์ต";
     return;
   }
 
   if (!canAnalyze) {
     showAnalysisStatus("error", {
-      title: "Package required",
+      title: personalUseMode ? "สิทธิ์วิเคราะห์ยังไม่พร้อม" : "Package required",
       text: analysisPackageRequiredMessage(),
       activeStep: null,
     });
@@ -1609,9 +1644,9 @@ function syncAnalysisAccess() {
     return;
   }
 
-  if (analysisStatusTitle?.textContent === "Sign in required") {
+  if (["Sign in required", "กรุณาเข้าสู่ระบบ"].includes(analysisStatusTitle?.textContent)) {
     analysisStatusPanel.hidden = true;
-    runMessage.textContent = "Upload files, then run your analysis.";
+    runMessage.textContent = "เลือกไฟล์พอร์ต แล้วกดวิเคราะห์";
   }
 }
 
@@ -1620,7 +1655,9 @@ function canRunPortfolioAnalysis() {
 }
 
 function analysisPackageRequiredMessage() {
-  return "Portfolio analysis requires Starter or Pro. Ask the owner/admin to open Business > Members, choose Starter or Pro, set status Active or Trialing, set expiry date, then save package.";
+  return personalUseMode
+    ? "สิทธิ์วิเคราะห์ของบัญชีนี้ยังไม่พร้อม กรุณาตรวจการตั้งค่าระบบของบัญชี"
+    : "Portfolio analysis requires Starter or Pro. Ask the owner/admin to open Business > Members, choose Starter or Pro, set status Active or Trialing, set expiry date, then save package.";
 }
 
 function updateFrontendDiagnostics() {
@@ -1782,11 +1819,11 @@ function renderActiveView() {
   if (!state.user) {
     viewOutput.innerHTML = `
       <div class="metric-grid">
-        ${metric("Step 1", "Create account")}
-        ${metric("Step 2", "Upload portfolio")}
-        ${metric("Step 3", "Read the action plan")}
+        ${metric("ขั้นที่ 1", "เข้าสู่ระบบ")}
+        ${metric("ขั้นที่ 2", "เลือกไฟล์พอร์ต")}
+        ${metric("ขั้นที่ 3", "อ่านสรุปและตรวจความเสี่ยง")}
       </div>
-      <p class="muted">StockFlix is designed to explain portfolio health in plain language before showing advanced tables.</p>
+      <p class="muted">StockFlix ช่วยสรุปสุขภาพพอร์ตเป็นภาษาง่าย ก่อนเปิดข้อมูลและตารางเชิงลึก</p>
     `;
     return;
   }
@@ -2055,6 +2092,17 @@ function focusRecommendedActionSymbol(symbol) {
 function renderAiAssistantPanel(rows) {
   if (!hasEntitlement("ai.investment_explainer")) {
     const feature = featurePolicy("ai.investment_explainer");
+    if (personalUseMode) {
+      return `
+        <section class="ai-assistant-panel ai-assistant-locked">
+          <div>
+            <p class="eyebrow">AI INVESTMENT ASSISTANT</p>
+            <h3>AI ช่วยอ่านผล Think2</h3>
+            <p class="muted">เครื่องมือ AI ของบัญชีนี้ยังไม่พร้อมใช้งาน กรุณาตรวจการตั้งค่าระบบ</p>
+          </div>
+        </section>
+      `;
+    }
     return `
       <section class="ai-assistant-panel ai-assistant-locked">
         <div>
@@ -2077,7 +2125,7 @@ function renderAiAssistantPanel(rows) {
     <section class="ai-assistant-panel" data-ai-assistant>
       <div class="ai-assistant-heading">
         <div>
-          <p class="eyebrow">PRO AI ASSISTANT</p>
+          <p class="eyebrow">AI INVESTMENT ASSISTANT</p>
           <h3>ช่วยอ่านผล Think2 แบบเข้าใจง่าย</h3>
           <p class="muted">AI อธิบายจากข้อมูลวิเคราะห์ล่าสุดเท่านั้น ไม่คำนวณคะแนนใหม่และไม่ใช่คำแนะนำซื้อขายเฉพาะบุคคล</p>
         </div>
@@ -2372,7 +2420,7 @@ function renderAiCompanion() {
   aiCompanionDrawer.innerHTML = `
     <div class="ai-companion-header">
       <div>
-        <p class="eyebrow">PRO AI COMPANION</p>
+        <p class="eyebrow">AI INVESTMENT COMPANION</p>
         <h2>เพื่อนช่วยอ่าน</h2>
         <p>ช่วยอธิบายหน้า ${escapeHtml(viewLabel(state.activeView))} จากผล Think2 ล่าสุด</p>
       </div>
@@ -4254,7 +4302,7 @@ function renderSectorView() {
   viewOutput.innerHTML = `
     <section class="sector-pro-panel" data-sector-pro-intelligence data-sector-default-all>
       <div>
-        <span class="eyebrow">Pro Sector Intelligence</span>
+        <span class="eyebrow">Sector Intelligence</span>
         <h3>เริ่มจากภาพรวมทุกกลุ่ม ก่อนเลือกหุ้นรายตัว</h3>
         <p class="muted">ค่าเริ่มต้นแสดงทุกหุ้นในทุก sector เพื่อไม่ให้เข้าใจผิดว่าข้อมูลเหลือหุ้นตัวเดียว แล้วค่อยเลือก sector ที่ต้องการเจาะลึก</p>
       </div>
@@ -6290,6 +6338,15 @@ function featurePolicy(featureId) {
 
 function renderLockedFeature(featureId) {
   const feature = featurePolicy(featureId);
+  if (personalUseMode) {
+    return `
+      <section class="locked-card">
+        <p class="eyebrow">Feature unavailable</p>
+        <h3>${escapeHtml(feature.label)}</h3>
+        <p class="muted">เครื่องมือนี้ยังไม่พร้อมใช้กับบัญชีส่วนตัว กรุณาตรวจการตั้งค่าระบบ</p>
+      </section>
+    `;
+  }
   const plan = state.plans.find((candidate) => candidate.id === feature.requiredPlanId);
   const currentPlan = state.user?.entitlements?.planName || state.user?.subscription?.plan || "Current plan";
   const publicUpgradeAvailable = Boolean(plan);

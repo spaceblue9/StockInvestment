@@ -18,7 +18,7 @@ try {
   const html = await getText(`${baseUrl}/`);
   assertIncludes(html, [
     "StockFlix Investor Studio",
-    "Member Access",
+    "Personal Access",
     "Command Center",
     "Portfolio",
     "Business",
