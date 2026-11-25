@@ -46,7 +46,7 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
 
 ### T224 - Personal Investment Workspace Sidebar
 
-- สถานะ: In Progress
+- สถานะ: Production Deployed - รอ owner acceptance
 - เริ่มเมื่อ: `2026-11-25 09:04:37 +07:00`
 - Branch: `codex/beginner-ai-companion-ui`
 - ที่มา:
@@ -81,7 +81,11 @@ Branch ปัจจุบัน: `codex-node-web-app-migration`
     - Verification: `npm run test-regression` ผ่านครบ รวม personal workspace UI, frontend viewport/auth, web smoke, AI, Portfolio, Think2, database/security guards และ market regressions
     - Python parity: numeric/text/sector mismatch = 0 และ portfolio report sample mismatch = 0
     - Quality: Browser visual QA ผ่าน Dark/Light theme; syntax และ `git diff --check` ผ่าน มีเพียงคำเตือน line ending LF/CRLF ของ Windows
-  - [ ] Commit, push, deploy Production และตรวจผล
+  - [x] Commit, push, deploy Production และตรวจผล
+    - Done: `2026-11-25 09:20:15 +07:00`
+    - Git: commit `f77c6e1` (`Simplify UI for personal investment use`) push ไปที่ `origin/codex/beginner-ai-companion-ui`
+    - Deploy: Vercel deployment `dpl_2d4NcG6qYdU58VKqHC9C29R1hcNQ` READY และ alias `https://thai-stock-investment-web.vercel.app`
+    - Production verification: `/api/health` ตอบ `ok: true`; HTML มี Personal Workspace, Private use, hidden pricing และ build `20261125-0904`; deployed `app.js` มี `personalUseMode = true` และ Version `Think2 Personal Investment Workspace v1.2.0`
 - เกณฑ์ผ่าน:
   - ผู้ใช้ไม่เห็นราคาแพ็กเกจ Monthly Plans renewal billing หรือปุ่มขอแพ็กเกจ
   - Sidebar แสดงเพียงตัวตนผู้ใช้ งานอัปโหลด/วิเคราะห์ และข้อมูลระบบที่เปิดดูเมื่อจำเป็น
